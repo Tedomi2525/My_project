@@ -1,16 +1,56 @@
+# =========================
 # Python
+# =========================
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual Environment
 venv/
-.env
+.env/
+.env.*
 
-# Node / Vue
-node_modules/
-dist/
+# =========================
+# FastAPI / Uvicorn
+# =========================
+*.log
 
-# IDE
+# =========================
+# Database
+# =========================
+*.sqlite3
+
+# =========================
+# VS Code / IDE
+# =========================
 .vscode/
 .idea/
 
+# =========================
 # OS
+# =========================
 .DS_Store
+Thumbs.db
+
+# =========================
+# Frontend (Vue)
+# =========================
+node_modules/
+dist/
+npm-debug.log*
+yarn-error.log*
+
+# =========================
+# Build / cache
+# =========================
+.cache/
+pytest_cache/
+.mypy_cache/
+
+# =========================
+# Others
+# =========================
+*.env.local
+
+
