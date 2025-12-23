@@ -1,7 +1,6 @@
 from fastapi import FastAPI
+from app.routers import auth
 
-app = FastAPI(title="Online Exam System")
+app = FastAPI()
 
-@app.get("/")
-def root():
-    return {"message": "FastAPI Exam System is running"}
+app.include_router(auth.router)
