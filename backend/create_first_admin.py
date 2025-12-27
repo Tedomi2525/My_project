@@ -30,7 +30,7 @@ def create_super_admin():
             password_hash=hashed_password,
             full_name="Super Administrator",
             email="admin@exam.com",
-            role=UserRole.ADMIN # Set quyền to nhất
+            role="Admin"# Set quyền to nhất
         )
 
         # 3. Lưu vào DB

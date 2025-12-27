@@ -1,14 +1,13 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
-from app.models.user import UserRole # Import Enum từ Model
 
 # Base: Các trường chung
 class UserBase(BaseModel):
     username: str
     email: EmailStr
     full_name: str
-    role: UserRole = UserRole.STUDENT
+    role: str  # 'Student', 'Teacher', 'Admin'
 
 # Create: Dùng khi đăng ký/tạo user (Cần mật khẩu)
 class UserCreate(UserBase):
