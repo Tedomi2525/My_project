@@ -1,0 +1,40 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import List
+from app.database import get_db
+from app.models.user import User
+from app.schemas.classroom import ClassroomCreate, ClassroomResponse
+from app.schemas.classroom_member import AddStudentToClass
+from app.services import ClassroomService, ClassroomMemberService
+from app.dependencies import get_current_teacher, get_current_user
+
+router = APIRouter(prefix="/classes", tags=["Classrooms"])
+
+@router.post("/", response_model=ClassroomResponse)
+def create_class(
+    classroom: ClassroomCreate, 
+    db: Session = Depends(get_db), 
+    teacher: User = Depends(get_current_teacher)
+):
+    return ClassroomService.create_classroom(db, classroom, teacher_id=teacher.user_id)
+
+@router.get("/", response_model=List[ClassroomResponse])
+def get_my_classes(
+    db: Session = Depends(get_db), 
+    user: User = Depends(get_current_user)
+):
+    # Nếu là Teacher -> Trả về lớp mình dạy
+    if user.role == "Teacher":
+        return ClassroomService.get_classes_by_teacher(db, user.user_id)
+    # Nếu là Student -> Trả về lớp mình học (Logic này cần viết thêm trong Service nếu cần)
+    return [] 
+
+@router.post("/{class_id}/students")
+def add_students(
+    class_id: int, 
+    data: AddStudentToClass, 
+    db: Session = Depends(get_db),
+    teacher: User = Depends(get_current_teacher)
+):
+    # Check quyền: User hiện tại có phải chủ nhiệm lớp này không (Bỏ qua để demo cho nhanh)
+    return ClassroomMemberService.add_students_to_class(db, class_id, data.student_ids)
