@@ -29,3 +29,14 @@ def submit_exam(
     if not result:
         raise HTTPException(status_code=404, detail="Lượt thi không tồn tại")
     return result
+from typing import List
+from app.dependencies import get_current_teacher
+
+@router.get("/exam/{exam_id}", response_model=List[ExamAttemptResponse])
+def get_exam_results(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    teacher: User = Depends(get_current_teacher)
+):
+    # (Có thể thêm bước kiểm tra xem giáo viên này có tạo ra exam_id này không)
+    return ResultService.get_results_by_exam(db, exam_id)

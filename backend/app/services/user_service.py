@@ -26,3 +26,15 @@ class UserService:
         db.commit()
         db.refresh(db_user)
         return db_user
+    @staticmethod
+    def get_all_users(db: Session, skip: int = 0, limit: int = 100):
+        return db.query(User).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def delete_user(db: Session, user_id: int):
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if user:
+            db.delete(user)
+            db.commit()
+            return True
+        return False

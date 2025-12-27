@@ -6,3 +6,15 @@ from .question_service import QuestionService
 from .exam_service import ExamService
 from .answer_service import AnswerService
 from .result_service import ResultService
+
+# Định nghĩa danh sách các class được phép export khi dùng "from app.services import *"
+__all__ = [
+    "AuthService",
+    "UserService",
+    "ClassroomService",
+    "ClassroomMemberService",
+    "QuestionService",
+    "ExamService",
+    "AnswerService",
+    "ResultService",
+]

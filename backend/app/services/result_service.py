@@ -65,3 +65,7 @@ class ResultService:
         db.commit()
         db.refresh(attempt)
         return attempt
+    @staticmethod
+    def get_results_by_exam(db: Session, exam_id: int):
+        # Lấy tất cả lượt thi của đề này
+        return db.query(ExamAttempt).filter(ExamAttempt.exam_id == exam_id).all()

@@ -27,3 +27,23 @@ class ExamService:
         db.commit()
         # Trả về exam đã update
         return db.query(Exam).filter(Exam.exam_id == exam_id).first()
+    # app/services/exam_service.py (Thêm vào cuối file)
+
+    @staticmethod
+    def delete_exam(db: Session, exam_id: int, teacher_id: int):
+        exam = db.query(Exam).filter(Exam.exam_id == exam_id).first()
+        if exam and exam.teacher_id == teacher_id:
+            db.delete(exam)
+            db.commit()
+            return True
+        return False
+
+    @staticmethod
+    def update_exam_status(db: Session, exam_id: int, status: str, teacher_id: int):
+        exam = db.query(Exam).filter(Exam.exam_id == exam_id).first()
+        if exam and exam.teacher_id == teacher_id:
+            exam.status = status # Active, Finished...
+            db.commit()
+            db.refresh(exam)
+            return exam
+        return None

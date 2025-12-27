@@ -1,6 +1,17 @@
-from .user import UserCreate, UserRead, UserLogin
-from .classroom import ClassroomCreate, ClassroomRead
-from .exam import ExamCreate, ExamRead
-from .question import QuestionCreate, QuestionRead
-from .answer import AnswerCreate, AnswerRead
-from .result import ResultCreate, ResultRead
+from .user import UserCreate, UserUpdate, UserResponse
+from .classroom import ClassroomCreate, ClassroomUpdate, ClassroomResponse
+from .classroom_member import AddStudentToClass, EnrollmentResponse
+from .question import QuestionCreate, QuestionResponse
+from .exam import ExamCreate, ExamResponse, AddQuestionsToExam, ExamQuestionResponse
+from .answer import AnswerCreate, AnswerResponse
+from .result import AttemptCreate, SubmitExamRequest, ExamAttemptResponse
+
+__all__ = [
+    "UserCreate", "UserUpdate", "UserResponse",
+    "ClassroomCreate", "ClassroomUpdate", "ClassroomResponse",
+    "AddStudentToClass", "EnrollmentResponse",
+    "QuestionCreate", "QuestionResponse",
+    "ExamCreate", "ExamResponse", "AddQuestionsToExam", "ExamQuestionResponse",
+    "AnswerCreate", "AnswerResponse",
+    "AttemptCreate", "SubmitExamRequest", "ExamAttemptResponse"
+]
