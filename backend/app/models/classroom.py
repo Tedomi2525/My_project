@@ -10,6 +10,5 @@ class Classroom(Base):
     teacher_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
 
-    # Quan hệ
     teacher = relationship("User", back_populates="teaching_classes")
     members = relationship("ClassroomMember", back_populates="classroom")

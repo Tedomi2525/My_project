@@ -1,76 +1,93 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
-from app.models.user import User
-from app.schemas.classroom import ClassroomCreate, ClassroomResponse
-from app.schemas.classroom_member import AddStudentToClass
-from app.services import ClassroomService, ClassroomMemberService
-from app.dependencies import get_current_teacher, get_current_user
+from app import models, schemas
 
 router = APIRouter(prefix="/classes", tags=["Classrooms"])
 
-@router.post("/", response_model=ClassroomResponse)
-def create_class(
-    classroom: ClassroomCreate, 
-    db: Session = Depends(get_db), 
-    teacher: User = Depends(get_current_teacher)
-):
-    return ClassroomService.create_classroom(db, classroom, teacher_id=teacher.user_id)
+# 1. Lấy danh sách lớp học
+@router.get("/", response_model=List[schemas.ClassroomResponse])
+def get_classes(db: Session = Depends(get_db)):
+    # Lấy tất cả lớp học
+    classes = db.query(models.Classroom).all()
+    
+    # Logic tính toán trường 'student_count' mà Database không có sẵn
+    # SQLAlchemy relationship 'members' sẽ giúp lấy danh sách sinh viên
+    for cls in classes:
+        cls.student_count = len(cls.members)
+        
+    return classes
 
-@router.get("/", response_model=List[ClassroomResponse])
-def get_my_classes(
-    db: Session = Depends(get_db), 
-    user: User = Depends(get_current_user)
-):
-    # Nếu là Teacher -> Trả về lớp mình dạy
-    if user.role == "Teacher":
-        return ClassroomService.get_classes_by_teacher(db, user.user_id)
-    # Nếu là Student -> Trả về lớp mình học (Logic này cần viết thêm trong Service nếu cần)
-    return [] 
+# 2. Tạo lớp học mới
+@router.post("/", response_model=schemas.ClassroomResponse)
+def create_class(cls_in: schemas.ClassroomCreate, db: Session = Depends(get_db)):
+    db_class = models.Classroom(
+        class_name=cls_in.class_name,
+        teacher_id=1  # Hardcode ID giáo viên (thực tế lấy từ Token)
+    )
+    db.add(db_class)
+    db.commit()
+    db.refresh(db_class)
+    
+    # Gán giá trị mặc định để trả về khớp Schema
+    db_class.student_count = 0
+    return db_class
 
-@router.post("/{class_id}/students")
-def add_students(
-    class_id: int, 
-    data: AddStudentToClass, 
-    db: Session = Depends(get_db),
-    teacher: User = Depends(get_current_teacher)
-):
-    # Check quyền: User hiện tại có phải chủ nhiệm lớp này không (Bỏ qua để demo cho nhanh)
-    return ClassroomMemberService.add_students_to_class(db, class_id, data.student_ids)
-from app.schemas.classroom import ClassroomUpdate
+# 3. Xóa lớp học
+@router.delete("/{class_id}")
+def delete_class(class_id: int, db: Session = Depends(get_db)):
+    db_class = db.query(models.Classroom).filter(models.Classroom.class_id == class_id).first()
+    if not db_class:
+        raise HTTPException(status_code=404, detail="Lớp học không tồn tại")
+    
+    db.delete(db_class)
+    db.commit()
+    return {"message": "Đã xóa lớp học"}
 
-@router.put("/{class_id}", response_model=ClassroomResponse)
-def update_class(
-    class_id: int, 
-    data: ClassroomUpdate, 
-    db: Session = Depends(get_db),
-    teacher: User = Depends(get_current_teacher)
-):
-    updated = ClassroomService.update_classroom(db, class_id, data.class_name, teacher.user_id)
-    if not updated:
-        raise HTTPException(status_code=404, detail="Lớp không tồn tại hoặc không có quyền")
-    return updated
+# --- QUẢN LÝ SINH VIÊN TRONG LỚP ---
 
-@router.delete("/{class_id}", status_code=204)
-def delete_class(
-    class_id: int, 
-    db: Session = Depends(get_db),
-    teacher: User = Depends(get_current_teacher)
-):
-    success = ClassroomService.delete_classroom(db, class_id, teacher.user_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Lỗi khi xóa lớp")
-    return None
-@router.delete("/{class_id}/students/{student_id}", status_code=204)
-def remove_student(
-    class_id: int, 
-    student_id: int,
-    db: Session = Depends(get_db),
-    teacher: User = Depends(get_current_teacher)
-):
-    # Logic xóa nằm ở ClassroomMemberService (đã viết ở các bước trước)
-    success = ClassroomMemberService.remove_student_from_class(db, class_id, student_id)
-    if not success:
+# 4. Thêm sinh viên vào lớp
+@router.post("/{class_id}/students/{student_id}")
+def add_student_to_class(class_id: int, student_id: int, db: Session = Depends(get_db)):
+    # Kiểm tra lớp tồn tại
+    cls = db.query(models.Classroom).filter(models.Classroom.class_id == class_id).first()
+    if not cls:
+        raise HTTPException(status_code=404, detail="Lớp học không tồn tại")
+
+    # Kiểm tra sinh viên tồn tại
+    student = db.query(models.User).filter(models.User.user_id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Sinh viên không tồn tại")
+
+    # Kiểm tra xem đã tham gia chưa
+    exists = db.query(models.ClassroomMember).filter(
+        models.ClassroomMember.class_id == class_id,
+        models.ClassroomMember.student_id == student_id
+    ).first()
+    
+    if exists:
+        raise HTTPException(status_code=400, detail="Sinh viên này đã có trong lớp")
+
+    # Thêm vào bảng trung gian
+    new_member = models.ClassroomMember(class_id=class_id, student_id=student_id)
+    db.add(new_member)
+    db.commit()
+    
+    return {"message": "Thêm sinh viên thành công"}
+
+# 5. Xóa sinh viên khỏi lớp
+@router.delete("/{class_id}/students/{student_id}")
+def remove_student_from_class(class_id: int, student_id: int, db: Session = Depends(get_db)):
+    member = db.query(models.ClassroomMember).filter(
+        models.ClassroomMember.class_id == class_id,
+        models.ClassroomMember.student_id == student_id
+    ).first()
+    
+    if not member:
         raise HTTPException(status_code=404, detail="Sinh viên không có trong lớp này")
-    return None
+        
+    db.delete(member)
+    db.commit()
+    
+    return {"message": "Đã xóa sinh viên khỏi lớp"}

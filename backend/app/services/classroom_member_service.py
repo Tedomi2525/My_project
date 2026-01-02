@@ -1,28 +1,42 @@
 from sqlalchemy.orm import Session
-from app.models.classroom_member import ClassroomMember
-from typing import List
+from fastapi import HTTPException
+from app import models
 
 class ClassroomMemberService:
     @staticmethod
-    def add_students_to_class(db: Session, class_id: int, student_ids: List[int]):
-        # Lặp qua danh sách ID sinh viên và thêm vào lớp
-        created_records = []
-        for student_id in student_ids:
-            # Kiểm tra xem đã tồn tại chưa để tránh lỗi Duplicate
-            exists = db.query(ClassroomMember).filter_by(class_id=class_id, student_id=student_id).first()
-            if not exists:
-                new_member = ClassroomMember(class_id=class_id, student_id=student_id)
-                db.add(new_member)
-                created_records.append(new_member)
+    def add_student_to_class(db: Session, class_id: int, student_id: int):
+        # Check lớp
+        if not db.query(models.Classroom).filter(models.Classroom.class_id == class_id).first():
+            raise HTTPException(status_code=404, detail="Lớp học không tồn tại")
         
+        # Check sinh viên
+        if not db.query(models.User).filter(models.User.user_id == student_id).first():
+            raise HTTPException(status_code=404, detail="Sinh viên không tồn tại")
+
+        # Check đã tồn tại chưa
+        exists = db.query(models.ClassroomMember).filter(
+            models.ClassroomMember.class_id == class_id,
+            models.ClassroomMember.student_id == student_id
+        ).first()
+        
+        if exists:
+            raise HTTPException(status_code=400, detail="Sinh viên đã có trong lớp này")
+
+        new_member = models.ClassroomMember(class_id=class_id, student_id=student_id)
+        db.add(new_member)
         db.commit()
-        return created_records
+        return new_member
 
     @staticmethod
     def remove_student_from_class(db: Session, class_id: int, student_id: int):
-        record = db.query(ClassroomMember).filter_by(class_id=class_id, student_id=student_id).first()
-        if record:
-            db.delete(record)
-            db.commit()
-            return True
-        return False
+        member = db.query(models.ClassroomMember).filter(
+            models.ClassroomMember.class_id == class_id,
+            models.ClassroomMember.student_id == student_id
+        ).first()
+        
+        if not member:
+            raise HTTPException(status_code=404, detail="Sinh viên không có trong lớp này")
+            
+        db.delete(member)
+        db.commit()
+        return True

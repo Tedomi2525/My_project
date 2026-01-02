@@ -1,63 +1,35 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
-from app.models.user import User
-from app.schemas.question import QuestionCreate, QuestionResponse
-from app.services import QuestionService
-from app.dependencies import get_current_teacher
+from app import models, schemas
 
 router = APIRouter(prefix="/questions", tags=["Questions"])
 
-@router.post("/", response_model=QuestionResponse)
-def create_question(
-    question: QuestionCreate, 
-    db: Session = Depends(get_db), 
-    teacher: User = Depends(get_current_teacher)
-):
-    return QuestionService.create_question(db, question, teacher_id=teacher.user_id)
+@router.get("/", response_model=List[schemas.QuestionResponse])
+def get_questions(db: Session = Depends(get_db)):
+    # Schema sẽ tự động gộp option_a,b,c,d thành mảng options nhờ @root_validator
+    return db.query(models.Question).all()
 
-@router.get("/", response_model=List[QuestionResponse])
-def get_my_questions(
-    db: Session = Depends(get_db), 
-    teacher: User = Depends(get_current_teacher)
-):
-    return QuestionService.get_questions_by_teacher(db, teacher.user_id)
-# app/routers/questions.py (Thêm vào cuối file)
-from fastapi import HTTPException, status
-
-# API Sửa câu hỏi
-@router.put("/{question_id}", response_model=QuestionResponse)
-def update_question(
-    question_id: int,
-    question_data: QuestionCreate,
-    db: Session = Depends(get_db),
-    teacher: User = Depends(get_current_teacher)
-):
-    try:
-        updated_q = QuestionService.update_question(db, question_id, question_data, teacher.user_id)
-        if not updated_q:
-            raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
-        return updated_q
-    except Exception as e:
-        # Nếu lỗi do không phải chủ sở hữu
-        if str(e) == "Permission Denied":
-            raise HTTPException(status_code=403, detail="Bạn không có quyền sửa câu hỏi này")
-        raise e
-
-# API Xóa câu hỏi
-@router.delete("/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_question(
-    question_id: int,
-    db: Session = Depends(get_db),
-    teacher: User = Depends(get_current_teacher)
-):
-    try:
-        success = QuestionService.delete_question(db, question_id, teacher.user_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
-        return None # 204 No Content thì không cần return body
-    except Exception as e:
-        if str(e) == "Permission Denied":
-            raise HTTPException(status_code=403, detail="Bạn không có quyền xóa câu hỏi này")
-        raise e
+@router.post("/", response_model=schemas.QuestionResponse)
+def create_question(q: schemas.QuestionCreate, db: Session = Depends(get_db)):
+    # Logic Map: Index (0,1,2,3) -> Char ('A','B','C','D')
+    index_to_char = ['A', 'B', 'C', 'D']
+    correct_char = index_to_char[q.correct_answer]
+    
+    # Logic Map: Array -> Columns
+    db_question = models.Question(
+        content=q.content,
+        image_url=q.image_url,
+        teacher_id=1,  # Hardcode ID teacher (Thực tế lấy từ Token)
+        option_a=q.options[0],
+        option_b=q.options[1],
+        option_c=q.options[2] if len(q.options) > 2 else None,
+        option_d=q.options[3] if len(q.options) > 3 else None,
+        correct_answer=correct_char
+    )
+    
+    db.add(db_question)
+    db.commit()
+    db.refresh(db_question)
+    return db_question

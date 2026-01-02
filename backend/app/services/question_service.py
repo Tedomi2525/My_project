@@ -1,53 +1,31 @@
 from sqlalchemy.orm import Session
-from app.models.question import Question
-from app.schemas.question import QuestionCreate
+from app import models, schemas
 
 class QuestionService:
     @staticmethod
-    def create_question(db: Session, question: QuestionCreate, teacher_id: int):
-        db_question = Question(**question.dict(), teacher_id=teacher_id)
+    def create_question(db: Session, q: schemas.QuestionCreate, teacher_id: int):
+        # Logic Map: Index (0,1,2,3) -> Char ('A','B','C','D')
+        index_to_char = ['A', 'B', 'C', 'D']
+        correct_char = index_to_char[q.correct_answer]
+        
+        # Map mảng options -> cột DB
+        db_question = models.Question(
+            content=q.content,
+            image_url=q.image_url,
+            teacher_id=teacher_id,
+            option_a=q.options[0],
+            option_b=q.options[1],
+            option_c=q.options[2] if len(q.options) > 2 else None,
+            option_d=q.options[3] if len(q.options) > 3 else None,
+            correct_answer=correct_char
+        )
+        
         db.add(db_question)
         db.commit()
         db.refresh(db_question)
         return db_question
 
     @staticmethod
-    def get_questions_by_teacher(db: Session, teacher_id: int):
-        return db.query(Question).filter(Question.teacher_id == teacher_id).all()
-    # app/services/question_service.py (Thêm vào cuối file)
-
-    @staticmethod
-    def update_question(db: Session, question_id: int, data: QuestionCreate, teacher_id: int):
-        # 1. Tìm câu hỏi
-        question = db.query(Question).filter(Question.question_id == question_id).first()
-        
-        # 2. Kiểm tra tồn tại và quyền sở hữu (chỉ giáo viên tạo ra mới được sửa)
-        if not question:
-            return None
-        if question.teacher_id != teacher_id:
-            raise Exception("Permission Denied") # Hoặc xử lý lỗi ở router
-
-        # 3. Cập nhật dữ liệu
-        question.content = data.content
-        question.option_a = data.option_a
-        question.option_b = data.option_b
-        question.option_c = data.option_c
-        question.option_d = data.option_d
-        question.correct_answer = data.correct_answer
-        
-        db.commit()
-        db.refresh(question)
-        return question
-
-    @staticmethod
-    def delete_question(db: Session, question_id: int, teacher_id: int):
-        question = db.query(Question).filter(Question.question_id == question_id).first()
-        
-        if not question:
-            return False
-        if question.teacher_id != teacher_id:
-            raise Exception("Permission Denied")
-
-        db.delete(question)
-        db.commit()
-        return True
+    def get_all_questions(db: Session):
+        # Schema sẽ tự động gộp option_a,b,c,d thành list options khi trả về
+        return db.query(models.Question).all()

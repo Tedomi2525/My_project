@@ -1,14 +1,15 @@
 from pydantic import BaseModel
 
-# Input: Sinh viên gửi đáp án lên
-class AnswerCreate(BaseModel):
-    question_id: int
-    selected_option: str # 'A', 'B'...
-
-# Response: Trả về để xác nhận đã lưu
-class AnswerResponse(BaseModel):
+class StudentAnswerBase(BaseModel):
     answer_id: int
-    is_correct: bool # Có thể ẩn field này nếu không muốn SV biết ngay
-    
+    question_id: int
+    selected_option: str
+    is_correct: bool
+
     class Config:
         from_attributes = True
+
+# Schema dùng để nhận dữ liệu nộp bài (chỉ cần ID câu hỏi và index chọn)
+class AnswerSubmit(BaseModel):
+    question_id: int
+    selected_option_index: int # -1 nếu không chọn

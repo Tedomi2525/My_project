@@ -1,29 +1,28 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 from app.database import get_db
-from app.services import UserService, AuthService
+from app import models, schemas
+# from app.security import verify_password, create_access_token (Giả sử bạn đã có file security.py)
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(tags=["Auth"])
 
-# Tạo schema đơn giản cho Login
-class LoginSchema(BaseModel):
-    username: str
-    password: str
-
-@router.post("/login")
-def login(data: LoginSchema, db: Session = Depends(get_db)):
-    # 1. Tìm user
-    user = UserService.get_user_by_username(db, data.username)
+@router.post("/login", response_model=schemas.Token)
+def login(request: schemas.LoginRequest, db: Session = Depends(get_db)):
+    # 1. Tìm user trong DB
+    user = db.query(models.User).filter(models.User.username == request.username).first()
     
-    # 2. Check mật khẩu (vẫn dùng hàm check hash cho an toàn, hoặc so sánh == nếu bạn muốn)
-    if not user or not AuthService.verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="Sai tài khoản hoặc mật khẩu")
+    # 2. Check password (demo so sánh string thô, thực tế cần hash)
+    if not user or user.password_hash != request.password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Sai tên đăng nhập hoặc mật khẩu"
+        )
     
-    # 3. TRẢ VỀ LUÔN THÔNG TIN USER (Không tạo Token nữa)
+    # 3. Tạo Token (Demo)
     return {
-        "message": "Đăng nhập thành công",
-        "user_id": user.user_id,
-        "username": user.username,
-        "role": user.role if isinstance(user.role, str) else user.role.value
+        "access_token": f"fake-jwt-{user.username}", # Thực tế dùng create_access_token
+        "token_type": "bearer",
+        "role": user.role,
+        "full_name": user.full_name,
+        "user_id": user.user_id
     }

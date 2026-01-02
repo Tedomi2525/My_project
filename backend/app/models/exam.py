@@ -4,27 +4,33 @@ from app.database import Base
 import enum
 
 class ExamStatus(str, enum.Enum):
-    DRAFT = "Draft"
-    ACTIVE = "Active"
-    FINISHED = "Finished"
+    DRAFT = "draft"      # Khớp chữ thường với Vue
+    ACTIVE = "active"
+    ENDED = "ended"
 
 class Exam(Base):
     __tablename__ = "exams"
 
     exam_id = Column(Integer, primary_key=True, index=True)
     teacher_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    
     title = Column(String(200), nullable=False)
     duration_minutes = Column(Integer, nullable=False)
+    start_time = Column(TIMESTAMP, nullable=True) # Khớp với Vue: startTime
+    end_time = Column(TIMESTAMP, nullable=True)   # Khớp với Vue: endTime
+    
     status = Column(Enum(ExamStatus), default=ExamStatus.DRAFT)
+    password = Column(String(50), nullable=True)  # Vue có tính năng mật khẩu đề thi
+    show_answers = Column(Integer, default=1)     # 1: True, 0: False
+    
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
 
     # Quan hệ
     teacher = relationship("User", back_populates="created_exams")
-    # Liên kết với câu hỏi thông qua bảng trung gian ExamQuestion
     questions = relationship("ExamQuestion", back_populates="exam")
-    # Các lượt làm bài của sinh viên
     attempts = relationship("ExamAttempt", back_populates="exam")
 
+# Bảng trung gian: Đề thi - Câu hỏi
 class ExamQuestion(Base):
     __tablename__ = "exam_questions"
 
@@ -32,6 +38,5 @@ class ExamQuestion(Base):
     question_id = Column(Integer, ForeignKey("questions.question_id", ondelete="CASCADE"), primary_key=True)
     point_value = Column(Float, default=1.0)
 
-    # Quan hệ
     exam = relationship("Exam", back_populates="questions")
     question = relationship("Question", back_populates="exam_links")

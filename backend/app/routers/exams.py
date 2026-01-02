@@ -1,57 +1,60 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 from app.database import get_db
-from app.models.user import User
-from app.schemas.exam import ExamCreate, ExamResponse, AddQuestionsToExam
-from app.services import ExamService
-from app.dependencies import get_current_teacher
+from app import models, schemas
 
 router = APIRouter(prefix="/exams", tags=["Exams"])
 
-@router.post("/", response_model=ExamResponse)
-def create_exam(
-    exam_data: ExamCreate, 
-    db: Session = Depends(get_db), 
-    teacher: User = Depends(get_current_teacher)
-):
-    return ExamService.create_exam(db, exam_data, teacher_id=teacher.user_id)
+@router.get("/", response_model=List[schemas.ExamResponse])
+def get_exams(db: Session = Depends(get_db)):
+    # Cần logic query thêm list ID questions để trả về cho đúng Schema
+    exams = db.query(models.Exam).all()
+    # Demo đơn giản, thực tế cần join bảng exam_questions để lấy list ID
+    return exams 
 
-@router.post("/{exam_id}/questions", response_model=ExamResponse)
-def add_questions_to_exam(
-    exam_id: int, 
-    data: AddQuestionsToExam, 
-    db: Session = Depends(get_db),
-    teacher: User = Depends(get_current_teacher)
-):
-    # Logic kiểm tra quyền sở hữu exam nên đặt ở đây
-    updated_exam = ExamService.add_questions_to_exam(db, exam_id, data)
-    if not updated_exam:
-        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
-    return updated_exam
-# app/routers/exams.py (Thêm vào cuối file)
-from app.models.exam import ExamStatus
+@router.get("/{exam_id}", response_model=schemas.ExamResponse) # Dành cho chi tiết đề thi
+def get_exam_detail(exam_id: int, db: Session = Depends(get_db)):
+     exam = db.query(models.Exam).filter(models.Exam.exam_id == exam_id).first()
+     if not exam: raise HTTPException(404, "Exam not found")
+     
+     # Lấy danh sách ID câu hỏi để trả về frontend
+     q_ids = [eq.question_id for eq in exam.questions]
+     
+     # Gán vào object trả về (Pydantic sẽ validate)
+     exam.questions = q_ids 
+     return exam
 
-# Xóa đề thi
-@router.delete("/{exam_id}", status_code=204)
-def delete_exam(
-    exam_id: int,
-    db: Session = Depends(get_db),
-    teacher: User = Depends(get_current_teacher)
-):
-    success = ExamService.delete_exam(db, exam_id, teacher.user_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi hoặc bạn không có quyền xóa")
-    return None
-
-# Sửa trạng thái đề thi (Ví dụ: Kích hoạt đề hoặc Kết thúc đề)
-@router.patch("/{exam_id}/status", response_model=ExamResponse)
-def change_exam_status(
-    exam_id: int,
-    status: ExamStatus, # Enum: Draft, Active, Finished
-    db: Session = Depends(get_db),
-    teacher: User = Depends(get_current_teacher)
-):
-    updated_exam = ExamService.update_exam_status(db, exam_id, status, teacher.user_id)
-    if not updated_exam:
-        raise HTTPException(status_code=404, detail="Lỗi cập nhật trạng thái")
-    return updated_exam
+@router.post("/", response_model=schemas.ExamResponse)
+def create_exam(exam_in: schemas.ExamCreate, db: Session = Depends(get_db)):
+    # 1. Tạo Exam
+    db_exam = models.Exam(
+        title=exam_in.title,
+        duration_minutes=exam_in.duration_minutes,
+        start_time=exam_in.start_time,
+        end_time=exam_in.end_time,
+        status=exam_in.status,
+        password=exam_in.password,
+        show_answers=1 if exam_in.show_answers else 0,
+        teacher_id=1 # Hardcode ID teacher
+    )
+    db.add(db_exam)
+    db.commit()
+    db.refresh(db_exam)
+    
+    # 2. Tạo liên kết câu hỏi (ExamQuestion)
+    for q_id in exam_in.questions:
+        link = models.ExamQuestion(
+            exam_id=db_exam.exam_id,
+            question_id=q_id,
+            point_value=1.0 # Mặc định 1 điểm
+        )
+        db.add(link)
+    
+    # 3. Commit lần cuối
+    db.commit()
+    
+    # Trả về kèm list ID để khớp Schema
+    db_exam.questions = exam_in.questions 
+    db_exam.allowed_students = exam_in.allowed_students
+    return db_exam  

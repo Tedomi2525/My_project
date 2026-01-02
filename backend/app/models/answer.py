@@ -9,9 +9,8 @@ class StudentAnswer(Base):
     attempt_id = Column(Integer, ForeignKey("exam_attempts.attempt_id", ondelete="CASCADE"), nullable=False)
     question_id = Column(Integer, ForeignKey("questions.question_id", ondelete="CASCADE"), nullable=False)
     
-    selected_option = Column(String(1), nullable=True) # A, B, C, D
+    selected_option = Column(String(1), nullable=True) # A, B, C, D (NULL nếu bỏ qua)
     is_correct = Column(Boolean, default=False)
 
-    # Quan hệ
     attempt = relationship("ExamAttempt", back_populates="answers")
     question = relationship("Question")

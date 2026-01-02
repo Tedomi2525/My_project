@@ -2,19 +2,12 @@ from .user import User
 from .classroom import Classroom
 from .classroom_member import ClassroomMember
 from .question import Question
-from .exam import Exam, ExamQuestion, ExamStatus
-from .answer import StudentAnswer
+from .exam import Exam, ExamQuestion
 from .result import ExamAttempt
+from .answer import StudentAnswer
 
-# List export để khi dùng "from app.models import *" sẽ nhận được các class này
+# Để main.py có thể import gọn: "from app.models import User, Exam..."
 __all__ = [
-    "User", 
-    "Classroom",
-    "ClassroomMember",
-    "Question",
-    "Exam", 
-    "ExamQuestion", 
-    "ExamStatus",
-    "StudentAnswer",
-    "ExamAttempt"
+    "User", "Classroom", "ClassroomMember", "Question", 
+    "Exam", "ExamQuestion", "ExamAttempt", "StudentAnswer"
 ]

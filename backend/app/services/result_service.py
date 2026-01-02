@@ -1,71 +1,71 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
-from app.models.result import ExamAttempt
-from app.models.answer import StudentAnswer
-from app.models.question import Question
-from app.models.exam import ExamQuestion
-from app.schemas.result import SubmitExamRequest
+from fastapi import HTTPException
+from app import models, schemas
 
 class ResultService:
     @staticmethod
-    def start_exam(db: Session, exam_id: int, student_id: int):
-        # Tạo lượt thi mới
-        attempt = ExamAttempt(exam_id=exam_id, student_id=student_id)
-        db.add(attempt)
-        db.commit()
-        db.refresh(attempt)
-        return attempt
-
-    @staticmethod
-    def submit_exam(db: Session, attempt_id: int, submission: SubmitExamRequest):
-        """
-        Logic chấm điểm:
-        1. Lấy lượt thi (attempt)
-        2. Lấy danh sách câu hỏi và điểm số cấu hình của đề thi đó
-        3. Duyệt qua từng câu trả lời của sinh viên:
-           - So khớp đáp án đúng trong bảng Question
-           - Nếu đúng -> Cộng điểm dựa trên bảng ExamQuestion
-           - Lưu vào bảng StudentAnswer
-        4. Cập nhật tổng điểm vào ExamAttempt
-        """
-        attempt = db.query(ExamAttempt).filter(ExamAttempt.attempt_id == attempt_id).first()
-        if not attempt:
-            return None
-
-        total_score = 0.0
+    def submit_exam(db: Session, submission: schemas.ExamSubmission, student_id: int):
+        # 1. Lấy thông tin đề thi
+        exam = db.query(models.Exam).filter(models.Exam.exam_id == submission.exam_id).first()
+        if not exam:
+            raise HTTPException(status_code=404, detail="Bài thi không tồn tại")
         
-        # Lấy cấu hình điểm số cho từng câu hỏi trong đề này
-        # Key: question_id, Value: point_value
-        exam_questions = db.query(ExamQuestion).filter(ExamQuestion.exam_id == attempt.exam_id).all()
-        points_map = {eq.question_id: eq.point_value for eq in exam_questions}
+        # 2. Lấy danh sách câu hỏi và đáp án đúng để đối chiếu
+        question_ids = [a.question_id for a in submission.answers]
+        questions_db = db.query(models.Question).filter(models.Question.question_id.in_(question_ids)).all()
+        
+        # Map: {question_id: 'A'}
+        correct_map = {q.question_id: q.correct_answer for q in questions_db}
+        
+        # 3. Tạo lượt làm bài (Attempt)
+        db_attempt = models.ExamAttempt(
+            exam_id=submission.exam_id,
+            student_id=student_id,
+            started_at=datetime.now(), # Thực tế nên lấy từ lúc bắt đầu làm
+            submitted_at=datetime.now()
+        )
+        db.add(db_attempt)
+        db.flush() # Để có attempt_id
+
+        # 4. Chấm điểm chi tiết từng câu
+        correct_count = 0
+        index_to_char = ['A', 'B', 'C', 'D']
 
         for ans in submission.answers:
-            # Lấy thông tin câu hỏi gốc để biết đáp án đúng
-            question = db.query(Question).filter(Question.question_id == ans.question_id).first()
+            # Chuyển đổi Index -> Char
+            user_char = None
+            if ans.selected_option_index >= 0 and ans.selected_option_index < 4:
+                user_char = index_to_char[ans.selected_option_index]
             
+            # So sánh đáp án
             is_correct = False
-            if question and question.correct_answer == ans.selected_option:
+            if user_char and user_char == correct_map.get(ans.question_id):
+                correct_count += 1
                 is_correct = True
-                # Cộng điểm nếu câu hỏi này có trong đề (an toàn dữ liệu)
-                total_score += points_map.get(question.question_id, 0)
-
-            # Lưu câu trả lời vào DB
-            student_answer = StudentAnswer(
-                attempt_id=attempt_id,
+            
+            # Lưu câu trả lời (Gọi trực tiếp Model hoặc dùng AnswerService)
+            db_answer = models.StudentAnswer(
+                attempt_id=db_attempt.attempt_id,
                 question_id=ans.question_id,
-                selected_option=ans.selected_option,
+                selected_option=user_char,
                 is_correct=is_correct
             )
-            db.add(student_answer)
+            db.add(db_answer)
 
-        # Cập nhật kết quả cuối cùng
-        attempt.score = total_score
-        attempt.submitted_at = datetime.utcnow()
-        
+        # 5. Tính điểm tổng (Thang 10)
+        total_questions = len(questions_db)
+        final_score = 0.0
+        if total_questions > 0:
+            final_score = (correct_count / total_questions) * 10
+            
+        db_attempt.score = final_score
         db.commit()
-        db.refresh(attempt)
-        return attempt
-    @staticmethod
-    def get_results_by_exam(db: Session, exam_id: int):
-        # Lấy tất cả lượt thi của đề này
-        return db.query(ExamAttempt).filter(ExamAttempt.exam_id == exam_id).all()
+        db.refresh(db_attempt)
+
+        return {
+            "score": final_score,
+            "correct_count": correct_count,
+            "total_questions": total_questions,
+            "submitted_at": db_attempt.submitted_at
+        }

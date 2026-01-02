@@ -1,42 +1,71 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.database import get_db
-from app.models.user import User
-from app.schemas.result import AttemptCreate, SubmitExamRequest, ExamAttemptResponse
-from app.services import ResultService
-from app.dependencies import get_current_user
+from app import models, schemas
 
-router = APIRouter(prefix="/attempts", tags=["Exam Taking"])
+router = APIRouter(prefix="/submit-exam", tags=["Results"])
 
-@router.post("/start", response_model=ExamAttemptResponse)
-def start_exam(
-    data: AttemptCreate, 
-    db: Session = Depends(get_db), 
-    student: User = Depends(get_current_user)
-):
-    """Bắt đầu làm bài -> Tạo bản ghi Attempt"""
-    return ResultService.start_exam(db, data.exam_id, student.user_id)
+@router.post("/", response_model=schemas.SubmissionResult)
+def submit_exam(submission: schemas.ExamSubmission, db: Session = Depends(get_db)):
+    # 1. Lấy thông tin đề và câu hỏi
+    exam = db.query(models.Exam).filter(models.Exam.exam_id == submission.exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Bài thi không tồn tại")
+    
+    # Lấy các câu hỏi trong đề để đối chiếu đáp án
+    # (Cách này tối ưu hơn query từng câu)
+    question_ids = [a.question_id for a in submission.answers]
+    questions_db = db.query(models.Question).filter(models.Question.question_id.in_(question_ids)).all()
+    
+    # Tạo map để tra cứu nhanh: {question_id: 'A'}
+    correct_map = {q.question_id: q.correct_answer for q in questions_db}
+    
+    # 2. Tính điểm
+    correct_count = 0
+    total_questions = len(submission.answers)
+    index_to_char = ['A', 'B', 'C', 'D']
 
-@router.post("/{attempt_id}/submit", response_model=ExamAttemptResponse)
-def submit_exam(
-    attempt_id: int, 
-    submission: SubmitExamRequest, 
-    db: Session = Depends(get_db),
-    student: User = Depends(get_current_user)
-):
-    """Nộp bài -> Hệ thống chấm điểm ngay lập tức"""
-    result = ResultService.submit_exam(db, attempt_id, submission)
-    if not result:
-        raise HTTPException(status_code=404, detail="Lượt thi không tồn tại")
-    return result
-from typing import List
-from app.dependencies import get_current_teacher
+    # Tạo lượt thi (Attempt)
+    db_attempt = models.ExamAttempt(
+        exam_id=submission.exam_id,
+        student_id=1, # Hardcode student ID
+        started_at=datetime.now(), # Thực tế nên gửi từ client hoặc lấy lúc start
+        submitted_at=datetime.now()
+    )
+    db.add(db_attempt)
+    db.flush() # Để lấy attempt_id trước khi commit
 
-@router.get("/exam/{exam_id}", response_model=List[ExamAttemptResponse])
-def get_exam_results(
-    exam_id: int,
-    db: Session = Depends(get_db),
-    teacher: User = Depends(get_current_teacher)
-):
-    # (Có thể thêm bước kiểm tra xem giáo viên này có tạo ra exam_id này không)
-    return ResultService.get_results_by_exam(db, exam_id)
+    for ans in submission.answers:
+        # User chọn index (-1 là không chọn)
+        user_char = index_to_char[ans.selected_option_index] if ans.selected_option_index >= 0 else None
+        
+        # So sánh với đáp án đúng trong DB
+        is_correct = False
+        if user_char and user_char == correct_map.get(ans.question_id):
+            correct_count += 1
+            is_correct = True
+            
+        # Lưu chi tiết câu trả lời
+        db_answer = models.StudentAnswer(
+            attempt_id=db_attempt.attempt_id,
+            question_id=ans.question_id,
+            selected_option=user_char,
+            is_correct=is_correct
+        )
+        db.add(db_answer)
+
+    # 3. Tính tổng điểm (thang 10)
+    final_score = 0
+    if total_questions > 0:
+        final_score = (correct_count / len(questions_db)) * 10
+        
+    db_attempt.score = final_score
+    db.commit()
+
+    return {
+        "score": final_score,
+        "correct_count": correct_count,
+        "total_questions": len(questions_db),
+        "submitted_at": db_attempt.submitted_at
+    }

@@ -1,29 +1,32 @@
-import bcrypt
+from datetime import datetime, timedelta
+from typing import Optional
+from jose import jwt
+from passlib.context import CryptContext
+
+# Cấu hình JWT (Thực tế nên để trong file .env)
+SECRET_KEY = "day-la-chuoi-bi-mat-rat-kho-doan-cua-ban"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 ngày
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class AuthService:
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """
-        So sánh mật khẩu nhập vào với mã hóa trong DB.
-        bcrypt yêu cầu dữ liệu phải là dạng bytes (b'...') chứ không phải string.
-        """
-        # Chuyển đổi password người dùng nhập sang bytes
-        password_byte_enc = plain_password.encode('utf-8')
-        
-        # Chuyển đổi hash từ DB sang bytes (nếu nó đang là string)
-        hashed_password_byte_enc = hashed_password.encode('utf-8')
-        
-        # Kiểm tra
-        return bcrypt.checkpw(password_byte_enc, hashed_password_byte_enc)
+        return pwd_context.verify(plain_password, hashed_password)
 
     @staticmethod
     def get_password_hash(password: str) -> str:
-        """
-        Mã hóa mật khẩu để lưu vào DB.
-        """
-        pwd_bytes = password.encode('utf-8')
-        salt = bcrypt.gensalt()
-        hashed_password = bcrypt.hashpw(pwd_bytes, salt)
+        return pwd_context.hash(password)
+
+    @staticmethod
+    def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+        to_encode = data.copy()
+        if expires_delta:
+            expire = datetime.utcnow() + expires_delta
+        else:
+            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         
-        # Trả về dạng string để lưu vào Database
-        return hashed_password.decode('utf-8')
+        to_encode.update({"exp": expire})
+        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        return encoded_jwt

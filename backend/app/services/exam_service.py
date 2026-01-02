@@ -1,49 +1,50 @@
 from sqlalchemy.orm import Session
-from app.models.exam import Exam, ExamQuestion
-from app.schemas.exam import ExamCreate, AddQuestionsToExam
+from fastapi import HTTPException
+from app import models, schemas
 
 class ExamService:
     @staticmethod
-    def create_exam(db: Session, exam: ExamCreate, teacher_id: int):
-        db_exam = Exam(**exam.dict(), teacher_id=teacher_id)
+    def create_exam(db: Session, exam_in: schemas.ExamCreate, teacher_id: int):
+        # 1. Tạo Exam Header
+        db_exam = models.Exam(
+            title=exam_in.title,
+            duration_minutes=exam_in.duration_minutes,
+            start_time=exam_in.start_time,
+            end_time=exam_in.end_time,
+            status=exam_in.status,
+            password=exam_in.password,
+            show_answers=1 if exam_in.show_answers else 0,
+            teacher_id=teacher_id
+        )
         db.add(db_exam)
+        db.flush() # flush để có ID ngay
+        
+        # 2. Tạo liên kết câu hỏi (ExamQuestion)
+        for q_id in exam_in.questions:
+            # Kiểm tra câu hỏi tồn tại (Optional)
+            link = models.ExamQuestion(
+                exam_id=db_exam.exam_id,
+                question_id=q_id,
+                point_value=1.0 # Mặc định 1 điểm
+            )
+            db.add(link)
+        
+        # 3. Commit
         db.commit()
         db.refresh(db_exam)
+        
+        # Gán lại để trả về đúng schema
+        db_exam.questions = exam_in.questions
+        db_exam.allowed_students = exam_in.allowed_students
         return db_exam
 
     @staticmethod
-    def add_questions_to_exam(db: Session, exam_id: int, data: AddQuestionsToExam):
-        # data.questions là danh sách [{question_id: 1, point_value: 5}, ...]
-        for item in data.questions:
-            # Kiểm tra tồn tại để tránh duplicate
-            exists = db.query(ExamQuestion).filter_by(exam_id=exam_id, question_id=item.question_id).first()
-            if not exists:
-                link = ExamQuestion(
-                    exam_id=exam_id, 
-                    question_id=item.question_id, 
-                    point_value=item.point_value
-                )
-                db.add(link)
-        db.commit()
-        # Trả về exam đã update
-        return db.query(Exam).filter(Exam.exam_id == exam_id).first()
-    # app/services/exam_service.py (Thêm vào cuối file)
-
-    @staticmethod
-    def delete_exam(db: Session, exam_id: int, teacher_id: int):
-        exam = db.query(Exam).filter(Exam.exam_id == exam_id).first()
-        if exam and exam.teacher_id == teacher_id:
-            db.delete(exam)
-            db.commit()
-            return True
-        return False
-
-    @staticmethod
-    def update_exam_status(db: Session, exam_id: int, status: str, teacher_id: int):
-        exam = db.query(Exam).filter(Exam.exam_id == exam_id).first()
-        if exam and exam.teacher_id == teacher_id:
-            exam.status = status # Active, Finished...
-            db.commit()
-            db.refresh(exam)
-            return exam
-        return None
+    def get_exam_detail(db: Session, exam_id: int):
+        exam = db.query(models.Exam).filter(models.Exam.exam_id == exam_id).first()
+        if not exam:
+            raise HTTPException(status_code=404, detail="Đề thi không tồn tại")
+        
+        # Lấy danh sách ID câu hỏi để trả về frontend
+        q_ids = [eq.question_id for eq in exam.questions]
+        exam.questions = q_ids 
+        return exam
