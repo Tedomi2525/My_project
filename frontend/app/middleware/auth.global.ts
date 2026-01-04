@@ -1,34 +1,32 @@
 // middleware/auth.global.ts
-import type { User } from '~/types'
+export default defineNuxtRouteMiddleware((to) => {
+  const { user } = useAuth()
 
-export default defineNuxtRouteMiddleware((to, from) => {
-  // Lấy thông tin user từ cookie (đã lưu ở bước Login)
-  const user = useCookie<User | null>('user')
-
-  // 1. Nếu chưa đăng nhập
+  // 1️⃣ Chưa đăng nhập
   if (!user.value) {
-    // Nếu không phải trang login thì đá về login
     if (to.path !== '/login') {
       return navigateTo('/login')
     }
-  } 
-  // 2. Nếu đã đăng nhập
-  else {
-    // Nếu cố vào trang login -> đá về dashboard tương ứng
-    if (to.path === '/login' || to.path === '/') {
-      return navigateTo(`/${user.value.role}`)
-    }
+    return
+  }
 
-    // 3. Kiểm tra quyền truy cập (Role Guard)
-    // Nếu là student mà cố vào trang /admin hoặc /teacher
-    if (to.path.startsWith('/admin') && user.value.role !== 'admin') {
-      return navigateTo(`/${user.value.role}`)
-    }
-    if (to.path.startsWith('/teacher') && user.value.role !== 'teacher') {
-      return navigateTo(`/${user.value.role}`)
-    }
-    if (to.path.startsWith('/student') && user.value.role !== 'student') {
-      return navigateTo(`/${user.value.role}`)
-    }
+  const role = user.value.role
+
+  // 2️⃣ Đã đăng nhập mà vào /login hoặc /
+  if (to.path === '/' || to.path === '/login') {
+    return navigateTo(`/${role}`)
+  }
+
+  // 3️⃣ Role guard
+  if (to.path.startsWith('/admin') && role !== 'admin') {
+    return navigateTo(`/${role}`)
+  }
+
+  if (to.path.startsWith('/teacher') && role !== 'teacher') {
+    return navigateTo(`/${role}`)
+  }
+
+  if (to.path.startsWith('/student') && role !== 'student') {
+    return navigateTo(`/${role}`)
   }
 })

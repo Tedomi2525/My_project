@@ -1,11 +1,15 @@
 // types/index.ts
-
-export interface User {
-  id: string;
+export interface LoginCredentials {
   username: string;
   password: string;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  // password: string;
   fullName: string;
-  email: string;
+  email?: string;
   role: 'admin' | 'teacher' | 'student';
   studentId?: string;
 }

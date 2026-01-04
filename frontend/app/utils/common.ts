@@ -1,33 +1,40 @@
 // utils/common.ts
 
+// 1. Định nghĩa URL Backend (Lấy từ biến môi trường hoặc fix cứng)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+
 /**
- * Shared utility functions to reduce code duplication
+ * Shared utility functions
  */
 
-// Common API error handler
 export function handleApiError(error: any, context: string = 'API call') {
   console.error(`❌ ${context} failed:`, error)
   
   if (error && error.name === 'TypeError' && error.message && error.message.includes('fetch')) {
-    return 'Không thể kết nối đến server. Vui lòng kiểm tra server có đang chạy.'
+    return 'Không thể kết nối đến server backend. Vui lòng kiểm tra server Python có đang chạy không.'
   }
   
   return error?.message || 'Có lỗi không xác định xảy ra'
 }
 
-// Common fetch wrapper with error handling
-export async function apiCall(url: string, options: RequestInit = {}) {
+// 2. Sửa lại apiCall để tự động ghép link Backend
+export async function apiCall(endpoint: string, options: RequestInit = {}) {
+  // Tự động thêm dấu / nếu thiếu
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+  const url = `${API_BASE_URL}${path}`
+
   try {
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        ...options.headers
+        ...options.headers // Cho phép ghi đè header nếu cần (ví dụ Authorization)
       },
       ...options
     })
 
     if (!response.ok) {
+      // Logic xử lý lỗi chuẩn của FastAPI
       const errorData = await response.json().catch(() => null)
       const errorMessage = Array.isArray(errorData?.detail) 
         ? errorData.detail.map((err: any) => err.msg).join(', ')
@@ -42,8 +49,7 @@ export async function apiCall(url: string, options: RequestInit = {}) {
   }
 }
 
-// Common success/error notification
-// Lưu ý: alert chỉ chạy ở client-side.
+// ... (Các hàm showNotification, confirmAction, transformCourseData giữ nguyên)
 export function showNotification(message: string, type: 'success' | 'error' = 'success') {
   if (import.meta.client) {
     const prefix = type === 'success' ? '✅' : '❌'
@@ -51,27 +57,9 @@ export function showNotification(message: string, type: 'success' | 'error' = 's
   }
 }
 
-// Common confirmation dialog
 export function confirmAction(message: string): boolean {
   if (import.meta.client) {
     return confirm(message)
   }
   return false
-}
-
-// Common data transformer for course/enrollment data
-export function transformCourseData(item: any) {
-  return {
-    ...item,
-    courseName: item.courseName || item.course?.name || item.course_name || 'Không có tên môn học',
-    courseCode: item.courseCode || item.course?.courseCode || item.course?.course_code || item.course_code || 'N/A',
-    credits: item.credits || item.course?.credits || 0,
-    section: item.section || 'N/A',
-    teacherName: item.teacherName || item.teacher_name || 
-      (item.teacher ? `${item.teacher.lastName || item.teacher.last_name} ${item.teacher.firstName || item.teacher.first_name}` : 'Không rõ giảng viên'),
-    maxStudents: item.maxStudents || item.max_students || 0,
-    enrollmentDate: item.createdAt || item.created_at 
-      ? new Date(item.createdAt || item.created_at).toLocaleDateString('vi-VN')
-      : undefined
-  }
 }

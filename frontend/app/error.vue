@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute } from "vue-router"
-import FuzzyText from "@/components/FuzzyText/FuzzyText.vue"
+
 
 // Lấy code lỗi từ query hoặc default = 404
 const route = useRoute()

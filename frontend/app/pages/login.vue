@@ -1,36 +1,54 @@
 <script setup lang="ts">
 import { LogIn } from 'lucide-vue-next'
 
-// Tắt Layout mặc định
+// ❌ Không dùng layout
 definePageMeta({
   layout: false
 })
 
-// 1. Lấy hàm login từ useAuth (Nuxt tự động import)
-const { login } = useAuth()
+// 👉 Lấy login + user từ useAuth
+const { login, user } = useAuth()
 
-// State
+// ===== STATE =====
 const username = ref('')
 const password = ref('')
 const error = ref('')
+const isLoading = ref(false)
+
 const showForgotPassword = ref(false)
 const email = ref('')
 const resetMessage = ref('')
-const isLoading = ref(false) // Thêm state loading để UX tốt hơn
 
-// Actions
+// ===== ACTIONS =====
 const handleSubmit = async () => {
   error.value = ''
-  isLoading.value = true // Bắt đầu loading
+  isLoading.value = true
 
-  // 2. Gọi hàm login từ useAuth (đã bao gồm logic check user và redirect)
-  const success = await login(username.value, password.value)
+  // Gọi login (login chỉ set user + token)
+  await login(username.value, password.value)
 
-  if (!success) {
+  // ❌ Login thất bại
+  if (!user.value) {
     error.value = 'Tên đăng nhập hoặc mật khẩu không đúng'
-    isLoading.value = false // Tắt loading nếu lỗi
+    isLoading.value = false
+    return
   }
-  // Nếu thành công, useAuth đã tự redirect, không cần tắt loading ở đây để tránh nháy giao diện
+
+  // ✅ Login thành công → điều hướng theo role
+  switch (user.value.role) {
+    case 'admin':
+      await navigateTo('/admin')
+      break
+    case 'teacher':
+      await navigateTo('/teacher')
+      break
+    case 'student':
+      await navigateTo('/student')
+      break
+    default:
+      error.value = 'Không xác định được quyền người dùng'
+      isLoading.value = false
+  }
 }
 
 const handleForgotPassword = () => {
