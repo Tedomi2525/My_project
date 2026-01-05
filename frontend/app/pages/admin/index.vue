@@ -25,7 +25,18 @@ const formData = reactive({
 
 // ================== LOAD ==================
 const loadUsers = async () => {
-  users.value = await getUsers()
+  const data: any[] = await getUsers()
+  console.log('Dữ liệu API trả về:', data)
+
+  // 🔥 MAP snake_case → camelCase (QUAN TRỌNG)
+  users.value = data.map(u => ({
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    role: u.role,
+    fullName: u.full_name,
+    studentId: u.student_id
+  }))
 }
 
 onMounted(() => {
@@ -37,7 +48,7 @@ const filteredUsers = computed(() => {
   const keyword = (searchTerm.value ?? '').toLowerCase()
 
   return users.value.filter(u =>
-    u.fullName.toLowerCase().includes(keyword) ||
+    (u.fullName ?? '').toLowerCase().includes(keyword) ||
     u.username.toLowerCase().includes(keyword) ||
     (u.email ?? '').toLowerCase().includes(keyword)
   )
@@ -97,9 +108,7 @@ const handleResetPassword = async (user: User) => {
 
 const handleSubmit = async () => {
   if (editingUser.value) {
-    // ✅ FIX: dùng biến tạm để TS chắc chắn không undefined
     const user = editingUser.value
-
     await updateUser(user.id, {
       fullName: formData.fullName,
       email: formData.email,
@@ -194,6 +203,12 @@ const handleSubmit = async () => {
               >
                 <Trash2 class="w-4 h-4" />
               </button>
+            </td>
+          </tr>
+
+          <tr v-if="filteredUsers.length === 0">
+            <td colspan="6" class="p-6 text-center text-gray-500">
+              Không có dữ liệu
             </td>
           </tr>
         </tbody>
