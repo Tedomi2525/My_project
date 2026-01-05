@@ -17,7 +17,7 @@ DB_NAME = os.getenv('DB_NAME', 'exam_system')
 DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 # Tạo engine
-engine = create_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
+engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 
 # Tạo session factory
 SessionLocal = sessionmaker(

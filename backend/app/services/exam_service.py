@@ -1,50 +1,77 @@
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
-from app import models, schemas
+from app.models.exam import Exam
+from app.models.exam_question import ExamQuestion
+from app.schemas.exam import ExamCreate
+from app.schemas.exam_question import ExamQuestionCreate
 
 class ExamService:
+    # === PHẦN QUẢN LÝ ĐỀ THI (EXAM) ===
+    
     @staticmethod
-    def create_exam(db: Session, exam_in: schemas.ExamCreate, teacher_id: int):
-        # 1. Tạo Exam Header
-        db_exam = models.Exam(
-            title=exam_in.title,
-            duration_minutes=exam_in.duration_minutes,
-            start_time=exam_in.start_time,
-            end_time=exam_in.end_time,
-            status=exam_in.status,
-            password=exam_in.password,
-            show_answers=1 if exam_in.show_answers else 0,
-            teacher_id=teacher_id
-        )
+    def create_exam(db: Session, exam_in: ExamCreate):
+        db_exam = Exam(**exam_in.model_dump())
         db.add(db_exam)
-        db.flush() # flush để có ID ngay
-        
-        # 2. Tạo liên kết câu hỏi (ExamQuestion)
-        for q_id in exam_in.questions:
-            # Kiểm tra câu hỏi tồn tại (Optional)
-            link = models.ExamQuestion(
-                exam_id=db_exam.exam_id,
-                question_id=q_id,
-                point_value=1.0 # Mặc định 1 điểm
-            )
-            db.add(link)
-        
-        # 3. Commit
         db.commit()
         db.refresh(db_exam)
-        
-        # Gán lại để trả về đúng schema
-        db_exam.questions = exam_in.questions
-        db_exam.allowed_students = exam_in.allowed_students
         return db_exam
 
     @staticmethod
-    def get_exam_detail(db: Session, exam_id: int):
-        exam = db.query(models.Exam).filter(models.Exam.exam_id == exam_id).first()
-        if not exam:
-            raise HTTPException(status_code=404, detail="Đề thi không tồn tại")
+    def get_exam(db: Session, exam_id: int):
+        return db.query(Exam).filter(Exam.id == exam_id).first()
+
+    @staticmethod
+    def get_exams(db: Session, skip: int = 0, limit: int = 100):
+        return db.query(Exam).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def update_exam(db: Session, exam_id: int, exam_data: dict):
+        db_exam = db.query(Exam).filter(Exam.id == exam_id).first()
+        if not db_exam:
+            return None
         
-        # Lấy danh sách ID câu hỏi để trả về frontend
-        q_ids = [eq.question_id for eq in exam.questions]
-        exam.questions = q_ids 
-        return exam
+        for key, value in exam_data.items():
+            setattr(db_exam, key, value)
+            
+        db.commit()
+        db.refresh(db_exam)
+        return db_exam
+
+    @staticmethod
+    def delete_exam(db: Session, exam_id: int):
+        db_exam = db.query(Exam).filter(Exam.id == exam_id).first()
+        if db_exam:
+            # Lưu ý: Các bảng con (exam_question) sẽ tự xóa nếu cấu hình cascade ở app.models
+            db.delete(db_exam)
+            db.commit()
+            return True
+        return False
+
+    # === PHẦN QUẢN LÝ CÂU HỎI TRONG ĐỀ (EXAM QUESTIONS) ===
+
+    @staticmethod
+    def add_question_to_exam(db: Session, link_in: ExamQuestionCreate):
+        # Check xem đã có trong đề chưa
+        existing = db.query(ExamQuestion).filter(
+            ExamQuestion.exam_id == link_in.exam_id,
+            ExamQuestion.question_id == link_in.question_id
+        ).first()
+        if existing:
+            return existing 
+
+        db_link = ExamQuestion(**link_in.model_dump())
+        db.add(db_link)
+        db.commit()
+        db.refresh(db_link)
+        return db_link
+
+    @staticmethod
+    def remove_question_from_exam(db: Session, exam_id: int, question_id: int):
+        db_link = db.query(ExamQuestion).filter(
+            ExamQuestion.exam_id == exam_id,
+            ExamQuestion.question_id == question_id
+        ).first()
+        if db_link:
+            db.delete(db_link)
+            db.commit()
+            return True
+        return False

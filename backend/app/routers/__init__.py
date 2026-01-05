@@ -1,16 +1,7 @@
-from . import auth
-from . import users
-from . import classrooms
-from . import questions
-from . import exams
-from . import results
-
-# Dòng này giúp IDE gợi ý code tốt hơn khi import
-__all__ = [
-    "auth",
-    "users",
-    "classrooms",
-    "questions",
-    "exams",
-    "results"
-]
+from .users import router as user_router
+from .classrooms import router as class_router
+from .questions import router as question_router
+from .exams import router as exam_router
+from .results import router as result_router
+from .auth import router as auth_router
+# from .admin_users import router as admin_users_router

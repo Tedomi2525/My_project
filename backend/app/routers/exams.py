@@ -1,60 +1,58 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+
 from app.database import get_db
-from app import models, schemas
+from app.schemas.exam import ExamCreate, ExamResponse
+from app.schemas.exam_question import ExamQuestionCreate, ExamQuestionResponse
+from app.services.exam_service import ExamService
 
 router = APIRouter(prefix="/exams", tags=["Exams"])
 
-@router.get("/", response_model=List[schemas.ExamResponse])
+# --- EXAM CRUD ---
+@router.post("/", response_model=ExamResponse)
+def create_exam(exam: ExamCreate, db: Session = Depends(get_db)):
+    return ExamService.create_exam(db, exam)
+
+@router.get("/", response_model=List[ExamResponse])
 def get_exams(db: Session = Depends(get_db)):
-    # Cần logic query thêm list ID questions để trả về cho đúng Schema
-    exams = db.query(models.Exam).all()
-    # Demo đơn giản, thực tế cần join bảng exam_questions để lấy list ID
-    return exams 
+    return ExamService.get_exams(db)
 
-@router.get("/{exam_id}", response_model=schemas.ExamResponse) # Dành cho chi tiết đề thi
-def get_exam_detail(exam_id: int, db: Session = Depends(get_db)):
-     exam = db.query(models.Exam).filter(models.Exam.exam_id == exam_id).first()
-     if not exam: raise HTTPException(404, "Exam not found")
-     
-     # Lấy danh sách ID câu hỏi để trả về frontend
-     q_ids = [eq.question_id for eq in exam.questions]
-     
-     # Gán vào object trả về (Pydantic sẽ validate)
-     exam.questions = q_ids 
-     return exam
+@router.get("/{exam_id}", response_model=ExamResponse)
+def get_exam(exam_id: int, db: Session = Depends(get_db)):
+    exam = ExamService.get_exam(db, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    return exam
 
-@router.post("/", response_model=schemas.ExamResponse)
-def create_exam(exam_in: schemas.ExamCreate, db: Session = Depends(get_db)):
-    # 1. Tạo Exam
-    db_exam = models.Exam(
-        title=exam_in.title,
-        duration_minutes=exam_in.duration_minutes,
-        start_time=exam_in.start_time,
-        end_time=exam_in.end_time,
-        status=exam_in.status,
-        password=exam_in.password,
-        show_answers=1 if exam_in.show_answers else 0,
-        teacher_id=1 # Hardcode ID teacher
-    )
-    db.add(db_exam)
-    db.commit()
-    db.refresh(db_exam)
-    
-    # 2. Tạo liên kết câu hỏi (ExamQuestion)
-    for q_id in exam_in.questions:
-        link = models.ExamQuestion(
-            exam_id=db_exam.exam_id,
-            question_id=q_id,
-            point_value=1.0 # Mặc định 1 điểm
-        )
-        db.add(link)
-    
-    # 3. Commit lần cuối
-    db.commit()
-    
-    # Trả về kèm list ID để khớp Schema
-    db_exam.questions = exam_in.questions 
-    db_exam.allowed_students = exam_in.allowed_students
-    return db_exam  
+@router.put("/{exam_id}", response_model=ExamResponse)
+def update_exam(exam_id: int, exam_data: dict, db: Session = Depends(get_db)):
+    exam = ExamService.update_exam(db, exam_id, exam_data)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    return exam
+
+@router.delete("/{exam_id}")
+def delete_exam(exam_id: int, db: Session = Depends(get_db)):
+    success = ExamService.delete_exam(db, exam_id)
+    if not success:
+         raise HTTPException(status_code=404, detail="Exam not found")
+    return {"message": "Exam deleted"}
+
+# --- QUẢN LÝ CÂU HỎI TRONG ĐỀ ---
+@router.post("/{exam_id}/questions", response_model=ExamQuestionResponse)
+def add_question_to_exam(
+    exam_id: int, 
+    question_link: ExamQuestionCreate, 
+    db: Session = Depends(get_db)
+):
+    if question_link.exam_id != exam_id:
+        raise HTTPException(status_code=400, detail="Exam ID mismatch")
+    return ExamService.add_question_to_exam(db, question_link)
+
+@router.delete("/{exam_id}/questions/{question_id}")
+def remove_question_from_exam(exam_id: int, question_id: int, db: Session = Depends(get_db)):
+    success = ExamService.remove_question_from_exam(db, exam_id, question_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Question not found in this exam")
+    return {"message": "Question removed from exam"}

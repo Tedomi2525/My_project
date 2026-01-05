@@ -1,14 +1,13 @@
-from sqlalchemy import Column, Integer, String, TIMESTAMP, ForeignKey, text
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
-class Classroom(Base):
-    __tablename__ = "classes"
+class Class(Base):
+    __tablename__ = "class" # Đã sửa thành số ít
 
-    class_id = Column(Integer, primary_key=True, index=True)
-    class_name = Column(String(100), nullable=False)
-    teacher_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    id = Column(Integer, primary_key=True, index=True)
+    class_name = Column(String(255))
+    description = Column(String(255), nullable=True)
+    created_by = Column(Integer, ForeignKey("user.id")) # Link tới bảng user
 
-    teacher = relationship("User", back_populates="teaching_classes")
-    members = relationship("ClassroomMember", back_populates="classroom")
+    students = relationship("ClassStudent", back_populates="class_info")

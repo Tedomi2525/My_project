@@ -1,71 +1,49 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime
+from typing import List
+
 from app.database import get_db
-from app import models, schemas
+from app.schemas.exam_result import ExamResultResponse
+from app.schemas.exam_result_detail import ExamResultDetailBase
+from app.services.exam_result_service import ResultService
 
-router = APIRouter(prefix="/submit-exam", tags=["Results"])
+router = APIRouter(prefix="/results", tags=["Results"])
 
-@router.post("/", response_model=schemas.SubmissionResult)
-def submit_exam(submission: schemas.ExamSubmission, db: Session = Depends(get_db)):
-    # 1. Lấy thông tin đề và câu hỏi
-    exam = db.query(models.Exam).filter(models.Exam.exam_id == submission.exam_id).first()
-    if not exam:
-        raise HTTPException(status_code=404, detail="Bài thi không tồn tại")
-    
-    # Lấy các câu hỏi trong đề để đối chiếu đáp án
-    # (Cách này tối ưu hơn query từng câu)
-    question_ids = [a.question_id for a in submission.answers]
-    questions_db = db.query(models.Question).filter(models.Question.question_id.in_(question_ids)).all()
-    
-    # Tạo map để tra cứu nhanh: {question_id: 'A'}
-    correct_map = {q.question_id: q.correct_answer for q in questions_db}
-    
-    # 2. Tính điểm
-    correct_count = 0
-    total_questions = len(submission.answers)
-    index_to_char = ['A', 'B', 'C', 'D']
+# 1. Nộp bài thi
+@router.post("/submit/{exam_id}/{student_id}", response_model=ExamResultResponse)
+def submit_exam(
+    exam_id: int,
+    student_id: int,
+    answers: List[ExamResultDetailBase],
+    db: Session = Depends(get_db)
+):
+    return ResultService.submit_exam(db, exam_id, student_id, answers)
 
-    # Tạo lượt thi (Attempt)
-    db_attempt = models.ExamAttempt(
-        exam_id=submission.exam_id,
-        student_id=1, # Hardcode student ID
-        started_at=datetime.now(), # Thực tế nên gửi từ client hoặc lấy lúc start
-        submitted_at=datetime.now()
-    )
-    db.add(db_attempt)
-    db.flush() # Để lấy attempt_id trước khi commit
+# 2. Xem chi tiết 1 kết quả
+@router.get("/{result_id}", response_model=ExamResultResponse)
+def get_result(result_id: int, db: Session = Depends(get_db)):
+    result = ResultService.get_result(db, result_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return result
 
-    for ans in submission.answers:
-        # User chọn index (-1 là không chọn)
-        user_char = index_to_char[ans.selected_option_index] if ans.selected_option_index >= 0 else None
-        
-        # So sánh với đáp án đúng trong DB
-        is_correct = False
-        if user_char and user_char == correct_map.get(ans.question_id):
-            correct_count += 1
-            is_correct = True
-            
-        # Lưu chi tiết câu trả lời
-        db_answer = models.StudentAnswer(
-            attempt_id=db_attempt.attempt_id,
-            question_id=ans.question_id,
-            selected_option=user_char,
-            is_correct=is_correct
-        )
-        db.add(db_answer)
+# 3. Xem lịch sử thi của học sinh
+@router.get("/student/{student_id}", response_model=List[ExamResultResponse])
+def get_student_history(student_id: int, db: Session = Depends(get_db)):
+    return ResultService.get_student_history(db, student_id)
 
-    # 3. Tính tổng điểm (thang 10)
-    final_score = 0
-    if total_questions > 0:
-        final_score = (correct_count / len(questions_db)) * 10
-        
-    db_attempt.score = final_score
-    db.commit()
+# 4. Sửa điểm (ví dụ chấm lại)
+@router.put("/{result_id}/score")
+def update_score(result_id: int, score: float, db: Session = Depends(get_db)):
+    result = ResultService.update_result_score(db, result_id, score)
+    if not result:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return {"message": "Score updated", "new_score": result.total_score}
 
-    return {
-        "score": final_score,
-        "correct_count": correct_count,
-        "total_questions": len(questions_db),
-        "submitted_at": db_attempt.submitted_at
-    }
+# 5. Xóa kết quả
+@router.delete("/{result_id}")
+def delete_result(result_id: int, db: Session = Depends(get_db)):
+    success = ResultService.delete_result(db, result_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return {"message": "Result deleted"}

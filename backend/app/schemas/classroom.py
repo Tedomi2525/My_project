@@ -1,17 +1,16 @@
 from pydantic import BaseModel
 from typing import Optional
 
-class ClassroomBase(BaseModel):
+class ClassBase(BaseModel):
     class_name: str
+    description: Optional[str] = None
 
-class ClassroomCreate(ClassroomBase):
-    pass
+class ClassCreate(ClassBase):
+    created_by: int # ID giáo viên
 
-class ClassroomResponse(ClassroomBase):
-    class_id: int
-    teacher_id: int
-    # Field này thường được tính toán khi query
-    student_count: int = 0 
-    
+class ClassResponse(ClassBase):
+    id: int
+    created_by: int
+
     class Config:
         from_attributes = True
