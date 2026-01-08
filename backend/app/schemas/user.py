@@ -10,13 +10,19 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str  # Chỉ khi tạo mới mới cần password
 
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+    student_id: Optional[str] = None
+
 class UserLogin(BaseModel):
     username: str
     password: str
 
 class UserResponse(UserBase):
     id: int
-    # Không trả về password!
 
     class Config:
-        from_attributes = True
+        orm_mode = True

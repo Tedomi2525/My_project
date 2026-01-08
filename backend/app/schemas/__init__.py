@@ -1,4 +1,4 @@
-from .user import UserCreate, UserResponse, UserLogin
+from .user import UserCreate, UserResponse, UserLogin, UserUpdate
 from .classroom import ClassCreate, ClassResponse
 from .class_student import ClassStudentCreate, ClassStudentResponse
 from .question import QuestionCreate, QuestionResponse
