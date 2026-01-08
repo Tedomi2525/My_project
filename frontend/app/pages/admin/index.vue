@@ -25,32 +25,30 @@ const formData = reactive({
 
 // ================== LOAD ==================
 const loadUsers = async () => {
-  const data: any[] = await getUsers()
-  console.log('Dữ liệu API trả về:', data)
-
-  // 🔥 MAP snake_case → camelCase (QUAN TRỌNG)
-  users.value = data.map(u => ({
-    id: u.id,
-    username: u.username,
-    email: u.email,
-    role: u.role,
-    fullName: u.full_name,
-    studentId: u.student_id
-  }))
+  try {
+    const data: any[] = await getUsers()
+    users.value = data.map(u => ({
+      id: u.id,
+      username: u.username,
+      email: u.email,
+      role: u.role,
+      fullName: u.full_name,
+      studentId: u.student_id
+    }))
+  } catch (err) {
+    console.error('Lỗi load users:', err)
+  }
 }
 
-onMounted(() => {
-  loadUsers()
-})
+onMounted(() => loadUsers())
 
 // ================== COMPUTED ==================
 const filteredUsers = computed(() => {
-  const keyword = (searchTerm.value ?? '').toLowerCase()
-
+  const kw = (searchTerm.value ?? '').toLowerCase()
   return users.value.filter(u =>
-    (u.fullName ?? '').toLowerCase().includes(keyword) ||
-    u.username.toLowerCase().includes(keyword) ||
-    (u.email ?? '').toLowerCase().includes(keyword)
+    (u.fullName ?? '').toLowerCase().includes(kw) ||
+    u.username.toLowerCase().includes(kw) ||
+    (u.email ?? '').toLowerCase().includes(kw)
   )
 })
 
@@ -65,16 +63,14 @@ const getRoleBadge = (role: 'admin' | 'teacher' | 'student') => {
 }
 
 // ================== ACTIONS ==================
-const resetForm = () => {
-  Object.assign(formData, {
-    username: '',
-    password: '',
-    fullName: '',
-    email: '',
-    role: 'student',
-    studentId: ''
-  })
-}
+const resetForm = () => Object.assign(formData, {
+  username: '',
+  password: '',
+  fullName: '',
+  email: '',
+  role: 'student',
+  studentId: ''
+})
 
 const handleAddUser = () => {
   editingUser.value = null
@@ -97,39 +93,47 @@ const handleEditUser = (user: User) => {
 
 const handleDeleteUser = async (id: number) => {
   if (!confirm('Bạn có chắc chắn muốn xóa user này?')) return
-  await deleteUser(id)
-  await loadUsers()
+  try {
+    await deleteUser(id)
+    await loadUsers()
+  } catch (err: any) {
+    alert(err.message || 'Xóa thất bại')
+  }
 }
 
 const handleResetPassword = async (user: User) => {
   if (!confirm(`Reset mật khẩu cho ${user.fullName}?`)) return
-  alert(`Mật khẩu mới của ${user.username}: password123`)
+  alert(`Mật khẩu mới của ${user.username}: password123`) // demo, gọi API backend nếu có
 }
 
 const handleSubmit = async () => {
-  if (editingUser.value) {
-    const user = editingUser.value
-    await updateUser(user.id, {
-      fullName: formData.fullName,
-      email: formData.email,
-      role: formData.role,
-      studentId: formData.studentId
-    })
-  } else {
-    await createUser({
-      username: formData.username,
-      password: formData.password,
-      fullName: formData.fullName,
-      email: formData.email,
-      role: formData.role,
-      studentId: formData.studentId
-    })
+  try {
+    if (editingUser.value) {
+      await updateUser(editingUser.value.id, {
+        fullName: formData.fullName,
+        email: formData.email,
+        role: formData.role,
+        studentId: formData.studentId
+      })
+    } else {
+      await createUser({
+        username: formData.username,
+        password: formData.password,
+        fullName: formData.fullName,
+        email: formData.email,
+        role: formData.role,
+        studentId: formData.studentId
+      })
+    }
+    showModal.value = false
+    resetForm()
+    await loadUsers()
+  } catch (err: any) {
+    alert(err.message || 'Có lỗi xảy ra')
   }
-
-  showModal.value = false
-  await loadUsers()
 }
 </script>
+
 
 <template>
   <div>

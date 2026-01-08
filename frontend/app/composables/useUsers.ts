@@ -2,30 +2,29 @@
 import type { User } from '~/types'
 
 export const useUsers = () => {
-  // 1. Lấy đường dẫn API từ cấu hình (đã cài ở bước trước)
   const config = useRuntimeConfig()
-  const API_BASE = config.public.apiBase // Ví dụ: http://localhost:8000
+  const API_BASE = config.public.apiBase
+  const token = useCookie('access_token')
 
-  // 2. Hàm wrapper tiện ích để đỡ phải viết đi viết lại baseURL
   const api = <T>(url: string, options: any = {}) => {
     return $fetch<T>(url, {
       baseURL: API_BASE,
+      headers: {
+        Authorization: token.value ? `Bearer ${token.value}` : undefined
+      },
       ...options
     })
   }
 
-  // ================= GET ALL =================
   const getUsers = async (): Promise<User[]> => {
     try {
-      // Dùng $fetch trả về dữ liệu trực tiếp (không cần .value)
-      return await api<User[]>('/users') 
+      return await api<User[]>('/users')
     } catch (error) {
       console.error('Lỗi lấy danh sách:', error)
       return []
     }
   }
 
-  // ================= CREATE =================
   const createUser = async (payload: {
     username: string
     password: string
@@ -37,15 +36,24 @@ export const useUsers = () => {
     try {
       return await api<User>('/users', {
         method: 'POST',
-        body: payload
+        body: {
+          username: payload.username,
+          password: payload.password,
+          full_name: payload.fullName,
+          email: payload.email,
+          role: payload.role,
+          student_id: payload.studentId
+        }
       })
     } catch (error: any) {
-      // Ném lỗi ra để bên UI bắt được và hiện thông báo
-      throw new Error(error?.data?.detail || 'Thêm mới thất bại')
+      throw new Error(
+        error?.data?.detail ||
+        error?.response?._data?.detail ||
+        'Thêm mới thất bại'
+      )
     }
   }
 
-  // ================= UPDATE =================
   const updateUser = async (
     id: number,
     payload: Partial<Omit<User, 'id' | 'username'>>
@@ -56,17 +64,18 @@ export const useUsers = () => {
         body: payload
       })
     } catch (error: any) {
-      throw new Error(error?.data?.detail || 'Cập nhật thất bại')
+      throw new Error(
+        error?.data?.detail ||
+        error?.response?._data?.detail ||
+        'Cập nhật thất bại'
+      )
     }
   }
 
-  // ================= DELETE =================
   const deleteUser = async (id: number): Promise<void> => {
     try {
-      await api(`/users/${id}`, {
-        method: 'DELETE'
-      })
-    } catch (error: any) {
+      await api(`/users/${id}`, { method: 'DELETE' })
+    } catch {
       throw new Error('Xóa thất bại')
     }
   }

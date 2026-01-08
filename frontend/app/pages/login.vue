@@ -6,6 +6,18 @@ definePageMeta({
   layout: false
 })
 
+onMounted(() => {
+  const { user, role } = useAuth()
+  if (user.value) {
+    switch (role.value) {
+      case 'admin': return navigateTo('/admin')
+      case 'teacher': return navigateTo('/teacher')
+      case 'student': return navigateTo('/student')
+    }
+  }
+})
+
+
 // 👉 Lấy login + user từ useAuth
 const { login, user } = useAuth()
 
@@ -156,14 +168,6 @@ const handleForgotPassword = () => {
         </button>
       </form>
 
-      <div class="mt-8 p-4 bg-gray-50 rounded-lg">
-        <p class="text-sm text-gray-600 mb-2 font-semibold">Tài khoản demo:</p>
-        <div class="space-y-1 font-mono text-xs text-gray-500">
-          <p>Admin: admin / admin123</p>
-          <p>Giảng viên: teacher / teacher123</p>
-          <p>Sinh viên: student / student123</p>
-        </div>
-      </div>
     </div>
   </div>
 </template>
