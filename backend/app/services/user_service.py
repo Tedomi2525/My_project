@@ -8,6 +8,7 @@ from app.schemas.user import UserCreate, UserUpdate
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 class UserService:
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -22,13 +23,16 @@ class UserService:
     def create_user(db: Session, user_in: UserCreate) -> User:
         try:
             hashed_password = UserService.get_password_hash(user_in.password)
+
             db_user = User(
                 username=user_in.username,
                 email=user_in.email,
                 password=hashed_password,
                 full_name=user_in.full_name,
-                role=user_in.role
+                role=user_in.role,
+                student_code=user_in.student_code   # ✅ THÊM
             )
+
             db.add(db_user)
             db.commit()
             db.refresh(db_user)
@@ -38,7 +42,7 @@ class UserService:
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username hoặc email đã tồn tại"
+                detail="Username, email hoặc mã sinh viên đã tồn tại"
             )
         except SQLAlchemyError as e:
             db.rollback()
@@ -68,6 +72,7 @@ class UserService:
             return None
 
         update_data = user_data.dict(exclude_unset=True)
+
         for key, value in update_data.items():
             if key == "password" and value:
                 value = UserService.get_password_hash(value)
@@ -90,6 +95,7 @@ class UserService:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             return False
+
         try:
             db.delete(user)
             db.commit()

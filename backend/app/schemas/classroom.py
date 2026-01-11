@@ -1,16 +1,30 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from datetime import datetime
 
-class ClassBase(BaseModel):
-    class_name: str
+class ClassCreate(BaseModel):
+    name: str
     description: Optional[str] = None
 
-class ClassCreate(ClassBase):
-    created_by: int # ID giáo viên
 
-class ClassResponse(ClassBase):
+class ClassUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class StudentInClassResponse(BaseModel):
     id: int
-    created_by: int
+    full_name: str
+    email: str
+    joined_at: datetime
 
-    class Config:
-        from_attributes = True
+
+class ClassResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    teacher_id: int
+
+
+class ClassDetailResponse(ClassResponse):
+    students: List[StudentInClassResponse] = Field(default_factory=list)

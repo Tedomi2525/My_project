@@ -5,6 +5,10 @@ import { Users, BookOpen, FileText, BarChart3, LogOut } from 'lucide-vue-next'
 const { user, logout } = useAuth()
 const route = useRoute()
 
+const { fetchUser } = useAuth()
+await fetchUser()
+
+
 // Hàm kiểm tra active link
 const isActive = (path: string) => {
   if (path === '/teacher' && route.path === '/teacher') return true

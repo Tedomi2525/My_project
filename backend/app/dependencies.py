@@ -24,7 +24,7 @@ def get_current_user(
         )
 
     # Tìm user trong DB
-    user = db.query(User).filter(User.user_id == user_id_int).first()
+    user = db.query(User).filter(User.id == user_id_int).first()
     
     if not user:
         raise HTTPException(

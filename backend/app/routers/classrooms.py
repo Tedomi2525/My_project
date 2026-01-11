@@ -1,52 +1,157 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
-from app.schemas.classroom import ClassCreate, ClassResponse
-from app.schemas.class_student import ClassStudentCreate, ClassStudentResponse
+from app.dependencies import get_current_user
+from app.models.user import User
+
+from app.schemas.classroom import (
+    ClassCreate,
+    ClassUpdate,
+    ClassResponse,
+    ClassDetailResponse
+)
+from app.schemas.class_student import ClassStudentCreate
 from app.services.classroom_service import ClassService
 
-router = APIRouter(prefix="/classes", tags=["Classes"])
+router = APIRouter(
+    prefix="/classes",
+    tags=["Classes"]
+)
 
-# --- CRUD LỚP HỌC ---
-@router.post("/", response_model=ClassResponse)
-def create_class(cls: ClassCreate, db: Session = Depends(get_db)):
-    return ClassService.create_class(db, cls)
 
+# ---------- ROLE CHECK ----------
+def require_teacher(user: User):
+    if user.role != "teacher":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Teacher permission required"
+        )
+    return user
+
+
+# ---------- GET /classes ----------
 @router.get("/", response_model=List[ClassResponse])
-def get_classes(db: Session = Depends(get_db)):
-    return ClassService.get_classes(db)
+def get_classes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_teacher(current_user)
+    return ClassService.get_classes_by_teacher(
+        db=db,
+        teacher_id=current_user.id
+    )
 
-@router.get("/{class_id}", response_model=ClassResponse)
-def get_class(class_id: int, db: Session = Depends(get_db)):
+
+# ---------- POST /classes ----------
+@router.post("/", response_model=ClassDetailResponse)
+def create_class(
+    data: ClassCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_teacher(current_user)
+    return ClassService.create_class(
+        db=db,
+        data=data,
+        teacher_id=current_user.id
+    )
+
+
+# ---------- GET /classes/{id} ----------
+@router.get("/{class_id}", response_model=ClassDetailResponse)
+def get_class_detail(
+    class_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_teacher(current_user)
     cls = ClassService.get_class(db, class_id)
-    if not cls:
-        raise HTTPException(status_code=404, detail="Class not found")
+
+    if cls["teacher_id"] != current_user.id:
+        raise HTTPException(status_code=403)
+
     return cls
 
-@router.put("/{class_id}", response_model=ClassResponse)
-def update_class(class_id: int, class_data: dict, db: Session = Depends(get_db)):
-    cls = ClassService.update_class(db, class_id, class_data)
-    if not cls:
-        raise HTTPException(status_code=404, detail="Class not found")
-    return cls
 
+# ---------- PUT /classes/{id} ----------
+@router.put("/{class_id}", response_model=ClassDetailResponse)
+def update_class(
+    class_id: int,
+    data: ClassUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_teacher(current_user)
+    cls = ClassService.get_class(db, class_id)
+
+    if cls["teacher_id"] != current_user.id:
+        raise HTTPException(status_code=403)
+
+    return ClassService.update_class(
+        db=db,
+        class_id=class_id,
+        data=data.model_dump(exclude_unset=True)
+    )
+
+
+# ---------- DELETE /classes/{id} ----------
 @router.delete("/{class_id}")
-def delete_class(class_id: int, db: Session = Depends(get_db)):
-    success = ClassService.delete_class(db, class_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Class not found")
-    return {"message": "Class deleted"}
+def delete_class(
+    class_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_teacher(current_user)
+    cls = ClassService.get_class(db, class_id)
 
-# --- QUẢN LÝ HỌC SINH TRONG LỚP ---
-@router.post("/join", response_model=ClassStudentResponse)
-def join_class(link: ClassStudentCreate, db: Session = Depends(get_db)):
-    return ClassService.add_student(db, link)
+    if cls["teacher_id"] != current_user.id:
+        raise HTTPException(status_code=403)
 
+    ClassService.delete_class(db, class_id)
+    return {"message": "Class deleted successfully"}
+
+
+# ---------- POST /classes/{id}/students ----------
+@router.post("/{class_id}/students")
+def add_student(
+    class_id: int,
+    data: ClassStudentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_teacher(current_user)
+    cls = ClassService.get_class(db, class_id)
+
+    if cls["teacher_id"] != current_user.id:
+        raise HTTPException(status_code=403)
+
+    ClassService.add_student(
+        db=db,
+        class_id=class_id,
+        student_id=data.student_id
+    )
+    return {"message": "Student added"}
+
+
+# ---------- DELETE /classes/{id}/students/{student_id} ----------
 @router.delete("/{class_id}/students/{student_id}")
-def leave_class(class_id: int, student_id: int, db: Session = Depends(get_db)):
-    success = ClassService.remove_student(db, class_id, student_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Student not found in this class")
-    return {"message": "Student removed from class"}
+def remove_student(
+    class_id: int,
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_teacher(current_user)
+    cls = ClassService.get_class(db, class_id)
+
+    if cls["teacher_id"] != current_user.id:
+        raise HTTPException(status_code=403)
+
+    ClassService.remove_student(
+        db=db,
+        class_id=class_id,
+        student_id=student_id
+    )
+    return {"message": "Student removed"}

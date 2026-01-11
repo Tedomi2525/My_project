@@ -1,71 +1,130 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from fastapi import HTTPException
+
 from app.models.classroom import Class
 from app.models.class_student import ClassStudent
+from app.models.user import User
 from app.schemas.classroom import ClassCreate
-from app.schemas.class_student import ClassStudentCreate
+
+
+# ---------- MAPPER ----------
+def class_to_dict(class_: Class):
+    return {
+        "id": class_.id,
+        "name": class_.name,
+        "description": class_.description,
+        "teacher_id": class_.teacher_id,
+        "students": [
+            {
+                "id": cs.student.id,
+                "full_name": cs.student.full_name,
+                "email": cs.student.email,
+                "joined_at": cs.joined_at
+            }
+            for cs in class_.students
+        ]
+    }
+
 
 class ClassService:
-    # --- CRUD CLASS ---
+
+    # ---------- CLASS ----------
     @staticmethod
-    def create_class(db: Session, class_in: ClassCreate):
-        db_class = Class(**class_in.model_dump())
-        db.add(db_class)
+    def create_class(db: Session, data: ClassCreate, teacher_id: int):
+        cls = Class(
+            name=data.name,
+            description=data.description,
+            teacher_id=teacher_id
+        )
+        db.add(cls)
         db.commit()
-        db.refresh(db_class)
-        return db_class
+        db.refresh(cls)
+        return class_to_dict(cls)
 
     @staticmethod
     def get_class(db: Session, class_id: int):
-        return db.query(Class).filter(Class.id == class_id).first()
-        
-    @staticmethod
-    def get_classes(db: Session, skip: int = 0, limit: int = 100):
-        return db.query(Class).offset(skip).limit(limit).all()
+        cls = db.query(Class).options(
+            joinedload(Class.students).joinedload(ClassStudent.student)
+        ).filter(Class.id == class_id).first()
+
+        if not cls:
+            raise HTTPException(status_code=404, detail="Class not found")
+
+        return class_to_dict(cls)
 
     @staticmethod
-    def update_class(db: Session, class_id: int, class_data: dict):
-        db_class = db.query(Class).filter(Class.id == class_id).first()
-        if not db_class:
-            return None
-        for key, value in class_data.items():
-            setattr(db_class, key, value)
+    def get_classes_by_teacher(db: Session, teacher_id: int):
+        classes = db.query(Class).filter(
+            Class.teacher_id == teacher_id
+        ).all()
+
+        return [
+            {
+                "id": c.id,
+                "name": c.name,
+                "description": c.description,
+                "teacher_id": c.teacher_id
+            }
+            for c in classes
+        ]
+
+    @staticmethod
+    def update_class(db: Session, class_id: int, data: dict):
+        cls = db.query(Class).filter(Class.id == class_id).first()
+        if not cls:
+            raise HTTPException(status_code=404, detail="Class not found")
+
+        for key, value in data.items():
+            setattr(cls, key, value)
+
         db.commit()
-        db.refresh(db_class)
-        return db_class
+        db.refresh(cls)
+        return class_to_dict(cls)
 
     @staticmethod
     def delete_class(db: Session, class_id: int):
-        db_class = db.query(Class).filter(Class.id == class_id).first()
-        if db_class:
-            db.delete(db_class)
-            db.commit()
-            return True
-        return False
+        cls = db.query(Class).filter(Class.id == class_id).first()
+        if not cls:
+            raise HTTPException(status_code=404, detail="Class not found")
 
-    # --- HỌC SINH VÀO LỚP ---
-    @staticmethod
-    def add_student(db: Session, link_in: ClassStudentCreate):
-        existing = db.query(ClassStudent).filter(
-            ClassStudent.class_id == link_in.class_id,
-            ClassStudent.student_id == link_in.student_id
-        ).first()
-        if existing:
-            return existing
-            
-        db_link = ClassStudent(**link_in.model_dump())
-        db.add(db_link)
+        db.delete(cls)
         db.commit()
-        db.refresh(db_link)
-        return db_link
 
+    # ---------- STUDENT ----------
     @staticmethod
-    def remove_student(db: Session, class_id: int, student_id: int):
-        db_link = db.query(ClassStudent).filter(
+    def add_student(db: Session, class_id: int, student_id: int):
+        student = db.query(User).filter(
+            User.id == student_id,
+            User.role == "student"
+        ).first()
+
+        if not student:
+            raise HTTPException(status_code=404, detail="Student not found")
+
+        exists = db.query(ClassStudent).filter(
             ClassStudent.class_id == class_id,
             ClassStudent.student_id == student_id
         ).first()
-        if db_link:
-            db.delete(db_link)
-            db.commit()
-            return True
-        return False
+
+        if exists:
+            return
+
+        link = ClassStudent(
+            class_id=class_id,
+            student_id=student_id
+        )
+        db.add(link)
+        db.commit()
+
+    @staticmethod
+    def remove_student(db: Session, class_id: int, student_id: int):
+        link = db.query(ClassStudent).filter(
+            ClassStudent.class_id == class_id,
+            ClassStudent.student_id == student_id
+        ).first()
+
+        if not link:
+            raise HTTPException(status_code=404, detail="Student not in class")
+
+        db.delete(link)
+        db.commit()

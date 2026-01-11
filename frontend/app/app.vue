@@ -1,9 +1,11 @@
-<template>
-  <div >
-    <NuxtLayout >
-      <NuxtPage />
-    </NuxtLayout>
-  </div>
-</template>
+<script setup lang="ts">
+const { fetchUser } = useAuth()
+await fetchUser()
+</script>
+  
 
-const {programID} = useAuth()
+<template>
+  <NuxtLayout>
+    <NuxtPage />
+  </NuxtLayout>
+</template>

@@ -3,11 +3,16 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 class Class(Base):
-    __tablename__ = "class" # Đã sửa thành số ít
+    __tablename__ = "class"
 
     id = Column(Integer, primary_key=True, index=True)
-    class_name = Column(String(255))
-    description = Column(String(255), nullable=True)
-    created_by = Column(Integer, ForeignKey("user.id")) # Link tới bảng user
+    name = Column(String(255))
+    description = Column(String(255))
+    teacher_id = Column(Integer, ForeignKey("user.id"))
 
-    students = relationship("ClassStudent", back_populates="class_info")
+    students = relationship(
+        "ClassStudent",
+        back_populates="class_",
+        cascade="all, delete"
+    )   
+    teacher = relationship("User", back_populates="classes_created")

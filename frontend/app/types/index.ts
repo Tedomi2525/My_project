@@ -47,9 +47,18 @@ export interface ExamResult {
   submittedAt: Date;
 }
 
+export interface StudentInClass {
+  id: number
+  full_name: string
+  email: string
+  student_code?: string
+  joined_at: string
+}
+
 export interface Class {
-  id: string;
-  name: string;
-  teacherId: string;
-  students: string[]; // student IDs
+  id: number
+  name: string
+  description?: string
+  teacher_id: number
+  students: StudentInClass[]
 }

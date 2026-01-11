@@ -1,194 +1,233 @@
 <script setup lang="ts">
-import { Search, Plus, Edit2, Trash2, UserPlus, UserMinus, Users } from 'lucide-vue-next'
+import { Plus, Trash2, Users, Edit2 } from 'lucide-vue-next'
 import type { Class } from '~/types'
+import { useClasses } from '~/composables/useClasses'
 
-// Sử dụng layout teacher đã định nghĩa ở trên
-definePageMeta({ layout: 'teacher' })
+definePageMeta({
+  layout: 'teacher'
+})
 
-const teacherId = 'teacher1'
+/* ================= COMPOSABLE ================= */
+const {
+  classes,
+  loading,
+  getClasses,
+  getClassDetail,
+  createClass,
+  updateClass,
+  deleteClass,
+  removeStudent
+} = useClasses()
 
-// Mock Data
-const mockStudents = [
-  { id: 'student1', name: 'Lê Văn Minh', studentId: 'SV001' },
-  { id: 'student2', name: 'Nguyễn Thị Hương', studentId: 'SV002' },
-  { id: 'student3', name: 'Hoàng Minh Tuấn', studentId: 'SV003' },
-  { id: 'student4', name: 'Trần Thị Mai', studentId: 'SV004' },
-  { id: 'student5', name: 'Phạm Văn Nam', studentId: 'SV005' }
-]
-
-const initialClasses: Class[] = [
-  { id: 'class1', name: 'Lập trình Web - Nhóm 1', teacherId: 'teacher1', students: ['student1', 'student2', 'student3'] },
-  { id: 'class2', name: 'Cơ sở dữ liệu - Nhóm 2', teacherId: 'teacher1', students: ['student2', 'student4'] }
-]
-
-// State
-const classes = ref<Class[]>(initialClasses)
-const searchTerm = ref('')
+/* ================= STATE ================= */
 const showModal = ref(false)
-const showStudentModal = ref(false)
 const editingClass = ref<Class | null>(null)
-const selectedClass = ref<Class | null>(null)
+
 const className = ref('')
+const description = ref('')
 
-// Computed
-const filteredClasses = computed(() => 
-  classes.value.filter(cls => cls.name.toLowerCase().includes(searchTerm.value.toLowerCase()))
-)
+const selectedClass = ref<Class | null>(null)
 
-// Actions
-const handleAddClass = () => {
+/* ================= LOAD ================= */
+onMounted(() => {
+  getClasses()
+})
+
+/* ================= ACTIONS ================= */
+const openCreateModal = () => {
   editingClass.value = null
   className.value = ''
+  description.value = ''
   showModal.value = true
 }
 
-const handleEditClass = (cls: Class) => {
+const openEditModal = (cls: Class) => {
   editingClass.value = cls
   className.value = cls.name
+  description.value = cls.description || ''
   showModal.value = true
 }
 
-const handleDeleteClass = (classId: string) => {
-  if (confirm('Bạn có chắc chắn muốn xóa lớp học này?')) {
-    classes.value = classes.value.filter(c => c.id !== classId)
-  }
-}
+const handleSubmit = async () => {
+  if (!className.value.trim()) return
 
-const handleSubmit = () => {
   if (editingClass.value) {
-    classes.value = classes.value.map(c =>
-      c.id === editingClass.value?.id ? { ...c, name: className.value } : c
-    )
-  } else {
-    const newClass: Class = {
-      id: `class_${Date.now()}`,
+    await updateClass(editingClass.value.id, {
       name: className.value,
-      teacherId,
-      students: []
-    }
-    classes.value = [...classes.value, newClass]
+      description: description.value
+    })
+  } else {
+    await createClass({
+      name: className.value,
+      description: description.value
+    })
   }
+
   showModal.value = false
 }
 
-const handleManageStudents = (cls: Class) => {
-  selectedClass.value = cls
-  showStudentModal.value = true
+const handleDeleteClass = async (id: number) => {
+  if (!confirm('Bạn có chắc muốn xóa lớp này?')) return
+  await deleteClass(id)
 }
 
-const handleAddStudent = (studentId: string) => {
-  if (selectedClass.value) {
-    // Update local selected class
-    const updatedClass = {
-        ...selectedClass.value,
-        students: [...selectedClass.value.students, studentId]
-    }
-    selectedClass.value = updatedClass
-    
-    // Update main list
-    classes.value = classes.value.map(c => c.id === updatedClass.id ? updatedClass : c)
-  }
+const openStudents = async (cls: Class) => {
+  selectedClass.value = await getClassDetail(cls.id)
 }
 
-const handleRemoveStudent = (studentId: string) => {
-  if (selectedClass.value) {
-    const updatedClass = {
-        ...selectedClass.value,
-        students: selectedClass.value.students.filter(s => s !== studentId)
-    }
-    selectedClass.value = updatedClass
-    classes.value = classes.value.map(c => c.id === updatedClass.id ? updatedClass : c)
-  }
-}
+const handleRemoveStudent = async (studentId: number) => {
+  if (!selectedClass.value) return
 
-const getStudent = (id: string) => mockStudents.find(s => s.id === id)
+  selectedClass.value = await removeStudent(
+    selectedClass.value.id,
+    studentId
+  )
+}
 </script>
 
 <template>
-  <div>
-    <div class="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
-      <div class="relative flex-1 max-w-md">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Tìm kiếm lớp học..."
-          v-model="searchTerm"
-          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
+  <div class="space-y-6">
+    <!-- HEADER -->
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">Quản lý lớp học</h1>
       <button
-        @click="handleAddClass"
-        class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        class="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+        @click="openCreateModal"
       >
-        <Plus class="w-5 h-5" />
-        Tạo lớp học mới
+        <Plus class="h-4 w-4" />
+        Tạo lớp
       </button>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div v-for="cls in filteredClasses" :key="cls.id" class="bg-white rounded-lg shadow p-6">
-        <h3 class="mb-4 font-semibold text-lg">{{ cls.name }}</h3>
-        <div class="flex items-center gap-2 text-gray-600 mb-4">
-          <Users class="w-5 h-5" />
-          <span>{{ cls.students.length }} sinh viên</span>
+    <!-- LOADING -->
+    <div v-if="loading" class="text-gray-500">
+      Đang tải dữ liệu...
+    </div>
+
+    <!-- CLASS LIST -->
+    <div v-else class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div
+        v-for="cls in classes"
+        :key="cls.id"
+        class="rounded-xl border bg-white p-4 shadow-sm"
+      >
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-lg font-semibold">{{ cls.name }}</h2>
+            <p class="text-sm text-gray-500">
+              {{ cls.description || 'Không có mô tả' }}
+            </p>
+          </div>
+
+          <div class="flex gap-2">
+            <button
+              class="text-blue-600 hover:text-blue-800"
+              @click="openEditModal(cls)"
+            >
+              <Edit2 class="h-4 w-4" />
+            </button>
+
+            <button
+              class="text-red-600 hover:text-red-800"
+              @click="handleDeleteClass(cls.id)"
+            >
+              <Trash2 class="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div class="flex gap-2">
-          <button @click="handleManageStudents(cls)" class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors">
-            <UserPlus class="w-4 h-4" /> Quản lý SV
+
+        <button
+          class="mt-3 flex items-center gap-2 text-sm text-gray-600 hover:text-black"
+          @click="openStudents(cls)"
+        >
+          <Users class="h-4 w-4" />
+          Xem sinh viên
+        </button>
+      </div>
+    </div>
+
+    <!-- MODAL CREATE / EDIT -->
+    <div
+      v-if="showModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    >
+      <div class="w-full max-w-md rounded-xl bg-white p-6">
+        <h2 class="mb-4 text-lg font-semibold">
+          {{ editingClass ? 'Sửa lớp' : 'Tạo lớp mới' }}
+        </h2>
+
+        <div class="space-y-3">
+          <input
+            v-model="className"
+            placeholder="Tên lớp"
+            class="w-full rounded-lg border px-3 py-2"
+          />
+
+          <textarea
+            v-model="description"
+            placeholder="Mô tả"
+            class="w-full rounded-lg border px-3 py-2"
+          />
+        </div>
+
+        <div class="mt-4 flex justify-end gap-2">
+          <button
+            class="rounded-lg border px-4 py-2"
+            @click="showModal = false"
+          >
+            Hủy
           </button>
-          <button @click="handleEditClass(cls)" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 class="w-4 h-4" /></button>
-          <button @click="handleDeleteClass(cls.id)" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 class="w-4 h-4" /></button>
+          <button
+            class="rounded-lg bg-blue-600 px-4 py-2 text-white"
+            @click="handleSubmit"
+          >
+            Lưu
+          </button>
         </div>
       </div>
     </div>
 
-    <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 class="mb-4 font-bold text-xl">{{ editingClass ? 'Sửa lớp học' : 'Tạo lớp học mới' }}</h2>
-        <form @submit.prevent="handleSubmit">
-          <div class="mb-4">
-            <label class="block mb-2">Tên lớp học</label>
-            <input type="text" v-model="className" class="w-full px-4 py-2 border rounded-lg" required />
-          </div>
-          <div class="flex gap-3">
-            <button type="button" @click="showModal = false" class="flex-1 px-4 py-2 border rounded-lg">Hủy</button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg">{{ editingClass ? 'Cập nhật' : 'Tạo' }}</button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <!-- STUDENT LIST -->
+    <div
+      v-if="selectedClass"
+      class="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
+    >
+      <div class="w-full max-w-lg rounded-xl bg-white p-6">
+        <h2 class="mb-4 text-lg font-semibold">
+          Sinh viên – {{ selectedClass.name }}
+        </h2>
 
-    <div v-if="showStudentModal && selectedClass" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-        <h2 class="mb-4 font-bold text-xl">Quản lý sinh viên - {{ selectedClass.name }}</h2>
-        
-        <div class="mb-6">
-          <h3 class="mb-3 font-semibold">Sinh viên trong lớp</h3>
-          <div class="space-y-2">
-            <div v-for="sid in selectedClass.students" :key="sid" class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p>{{ getStudent(sid)?.name }}</p>
-                <p class="text-sm text-gray-500">{{ getStudent(sid)?.studentId }}</p>
-              </div>
-              <button @click="handleRemoveStudent(sid)" class="text-red-600 p-2 hover:bg-red-50 rounded"><UserMinus class="w-4 h-4" /></button>
-            </div>
-             <p v-if="!selectedClass.students.length" class="text-center text-gray-500">Chưa có sinh viên</p>
-          </div>
+        <div
+          v-if="!selectedClass.students || !selectedClass.students.length"
+          class="text-gray-500"
+        >
+          Chưa có sinh viên
         </div>
 
-        <div class="mb-6">
-          <h3 class="mb-3 font-semibold">Thêm sinh viên</h3>
-          <div class="space-y-2">
-             <div v-for="s in mockStudents.filter(st => !selectedClass?.students.includes(st.id))" :key="s.id" class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p>{{ s.name }}</p>
-                <p class="text-sm text-gray-500">{{ s.studentId }}</p>
-              </div>
-              <button @click="handleAddStudent(s.id)" class="text-green-600 p-2 hover:bg-green-50 rounded"><UserPlus class="w-4 h-4" /></button>
-            </div>
-          </div>
+        <ul v-else class="space-y-2">
+          <li
+            v-for="st in selectedClass.students"
+            :key="st.id"
+            class="flex items-center justify-between rounded border px-3 py-2"
+          >
+            <span>{{ st.full_name }}</span>
+            <button
+              class="text-red-600 hover:text-red-800"
+              @click="handleRemoveStudent(st.id)"
+            >
+              <Trash2 class="h-4 w-4" />
+            </button>
+          </li>
+        </ul>
+
+        <div class="mt-4 text-right">
+          <button
+            class="rounded-lg border px-4 py-2"
+            @click="selectedClass = null"
+          >
+            Đóng
+          </button>
         </div>
-        <button @click="showStudentModal = false" class="w-full bg-blue-600 text-white py-2 rounded-lg">Đóng</button>
       </div>
     </div>
   </div>

@@ -4,22 +4,26 @@ import type { User } from '~/types'
 export const useUsers = () => {
   const config = useRuntimeConfig()
   const API_BASE = config.public.apiBase
-  const token = useCookie('access_token')
+
+  // ✅ ĐÚNG TÊN COOKIE
+  const token = useCookie<string | null>('token')
 
   const api = <T>(url: string, options: any = {}) => {
     return $fetch<T>(url, {
       baseURL: API_BASE,
-      headers: {
-        Authorization: token.value ? `Bearer ${token.value}` : undefined
-      },
+      headers: token.value
+        ? { Authorization: `Bearer ${token.value}` }
+        : {},
       ...options
     })
   }
 
+  /* ================= USERS ================= */
+
   const getUsers = async (): Promise<User[]> => {
     try {
       return await api<User[]>('/users')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi lấy danh sách:', error)
       return []
     }
@@ -29,7 +33,7 @@ export const useUsers = () => {
     username: string
     password: string
     fullName: string
-    email: string
+    email?: string
     role: 'admin' | 'teacher' | 'student'
     studentId?: string
   }): Promise<User> => {
@@ -47,9 +51,7 @@ export const useUsers = () => {
       })
     } catch (error: any) {
       throw new Error(
-        error?.data?.detail ||
-        error?.response?._data?.detail ||
-        'Thêm mới thất bại'
+        error?.data?.detail || 'Thêm mới thất bại'
       )
     }
   }
@@ -65,9 +67,7 @@ export const useUsers = () => {
       })
     } catch (error: any) {
       throw new Error(
-        error?.data?.detail ||
-        error?.response?._data?.detail ||
-        'Cập nhật thất bại'
+        error?.data?.detail || 'Cập nhật thất bại'
       )
     }
   }
@@ -75,8 +75,10 @@ export const useUsers = () => {
   const deleteUser = async (id: number): Promise<void> => {
     try {
       await api(`/users/${id}`, { method: 'DELETE' })
-    } catch {
-      throw new Error('Xóa thất bại')
+    } catch (error: any) {
+      throw new Error(
+        error?.data?.detail || 'Xóa thất bại'
+      )
     }
   }
 
