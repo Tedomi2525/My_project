@@ -26,8 +26,11 @@ export const useAuth = () => {
         role: response.role,
         studentId: response.student_id ?? undefined
       }
+      user.value = loggedUser 
+      
 
-      user.value = loggedUser
+      console.log('✅ USER SAU KHI SET:', user.value)
+      console.log('✅ USER ID:', user.value.id)
 
       // Điều hướng theo role
       switch (loggedUser.role) {

@@ -1,29 +1,30 @@
 import type { Class } from '~/types'
-import { useAuth } from '~/composables/useAuth'
 
-export const useClasses = () => {
-  const { user } = useAuth()
+export const useClasses = (userId: Ref<number | undefined>) => {
   const config = useRuntimeConfig()
 
   const classes = ref<Class[]>([])
   const loading = ref(false)
 
-  /* ================= GET CLASSES ================= */
-  const getClasses = async (): Promise<Class[]> => {
-    if (!user.value?.id) {
-      console.warn('❌ Chưa có user.id')
-      return []
+  const authHeader = () => {
+    if (!userId.value) {
+      throw new Error('User ID chưa sẵn sàng')
     }
+    return {
+      'x-user-id': String(userId.value)
+    }
+  }
+
+  /* ================= GET ================= */
+  const getClasses = async (): Promise<Class[]> => {
+    if (!userId.value) return []
 
     loading.value = true
     try {
       const res = await $fetch<Class[]>('/classes', {
         baseURL: config.public.apiBase,
-        headers: {
-          'x-user-id': String(user.value.id)
-        }
+        headers: authHeader()
       })
-
       classes.value = res
       return res
     } finally {
@@ -31,66 +32,62 @@ export const useClasses = () => {
     }
   }
 
-  /* ================= GET CLASS DETAIL ================= */
-  const getClassDetail = (id: number) =>
-    $fetch<Class>(`/classes/${id}`, {
-      baseURL: config.public.apiBase,
-      headers: {
-        'x-user-id': String(user.value?.id)
-      }
-    })
+const getClassDetail = async (id: number): Promise<Class> => {
+  const res: any = await $fetch(`/classes/${id}`, {
+    baseURL: config.public.apiBase,
+    headers: authHeader()
+  })
 
-  /* ================= CREATE ================= */
-  const createClass = async (payload: {
-    name: string
-    description?: string
-  }) => {
+  return {
+    id: res.id,
+    name: res.name,
+    description: res.description,
+    teacher_id: res.teacher_id,
+    students: res.students.map((s: any) => ({
+      id: s.id,
+      full_name: s.full_name,
+      email: s.email,
+      student_code: s.student_code,
+      joined_at: s.joined_at
+    }))
+  }
+}
+
+  const createClass = async (payload: { name: string; description?: string }) => {
     await $fetch('/classes', {
       method: 'POST',
       body: payload,
       baseURL: config.public.apiBase,
-      headers: {
-        'x-user-id': String(user.value?.id)
-      }
+      headers: authHeader()
     })
     await getClasses()
   }
 
-  /* ================= UPDATE ================= */
   const updateClass = async (id: number, payload: any) => {
     await $fetch(`/classes/${id}`, {
       method: 'PUT',
       body: payload,
       baseURL: config.public.apiBase,
-      headers: {
-        'x-user-id': String(user.value?.id)
-      }
+      headers: authHeader()
     })
     await getClasses()
   }
 
-  /* ================= DELETE ================= */
   const deleteClass = async (id: number) => {
     await $fetch(`/classes/${id}`, {
       method: 'DELETE',
       baseURL: config.public.apiBase,
-      headers: {
-        'x-user-id': String(user.value?.id)
-      }
+      headers: authHeader()
     })
     await getClasses()
   }
 
-  /* ================= REMOVE STUDENT ================= */
   const removeStudent = async (classId: number, studentId: number) => {
     await $fetch(`/classes/${classId}/students/${studentId}`, {
       method: 'DELETE',
       baseURL: config.public.apiBase,
-      headers: {
-        'x-user-id': String(user.value?.id)
-      }
+      headers: authHeader()
     })
-
     return getClassDetail(classId)
   }
 

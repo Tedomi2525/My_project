@@ -127,4 +127,30 @@ class ClassService:
             raise HTTPException(status_code=404, detail="Student not in class")
 
         db.delete(link)
-        db.commit()
+        db.commit() 
+
+    @staticmethod
+    def get_available_students(db: Session, class_id: int):
+        subquery = (
+            db.query(ClassStudent.student_id)
+            .filter(ClassStudent.class_id == class_id)
+        )
+
+        students = (
+            db.query(User)
+            .filter(
+                User.role == "student",
+                ~User.id.in_(subquery)
+            )
+            .all()
+        )
+
+        return [
+            {
+                "id": s.id,
+                "full_name": s.full_name,
+                "email": s.email,
+                "student_code": s.student_code
+            }
+            for s in students
+        ]

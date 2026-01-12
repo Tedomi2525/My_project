@@ -1,21 +1,23 @@
 <script setup lang="ts">
 import { Users, BookOpen, FileText, BarChart3, LogOut } from 'lucide-vue-next'
 
-// 1. Lấy user và logout từ composable
-const { user, logout } = useAuth()
+// ✅ CHỈ GỌI useAuth 1 LẦN
+const auth = useAuth()
+const { user, logout, fetchUser } = auth
+
 const route = useRoute()
 
-const { fetchUser } = useAuth()
+// ✅ đảm bảo user được restore TRƯỚC KHI render
 await fetchUser()
 
-
-// Hàm kiểm tra active link
+// active link
 const isActive = (path: string) => {
   if (path === '/teacher' && route.path === '/teacher') return true
   if (path !== '/teacher' && route.path.startsWith(path)) return true
   return false
 }
 </script>
+
 
 <template>
   <div class="min-h-screen bg-gray-50">

@@ -74,6 +74,21 @@ def get_class_detail(
 
     return cls
 
+@router.get("/{class_id}/available-students")
+def get_available_students(
+    class_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_teacher(current_user)
+
+    cls = ClassService.get_class(db, class_id)
+    if cls["teacher_id"] != current_user.id:
+        raise HTTPException(status_code=403)
+
+    return ClassService.get_available_students(db, class_id)
+
+
 
 # ---------- PUT /classes/{id} ----------
 @router.put("/{class_id}", response_model=ClassDetailResponse)
