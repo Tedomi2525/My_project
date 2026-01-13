@@ -1,4 +1,4 @@
-import type { Class } from '~/types'
+import type { Class, AvailableStudent } from '~/types'
 
 export const useClasses = (userId: Ref<number | undefined>) => {
   const config = useRuntimeConfig()
@@ -32,26 +32,26 @@ export const useClasses = (userId: Ref<number | undefined>) => {
     }
   }
 
-const getClassDetail = async (id: number): Promise<Class> => {
-  const res: any = await $fetch(`/classes/${id}`, {
-    baseURL: config.public.apiBase,
-    headers: authHeader()
-  })
+  const getClassDetail = async (id: number): Promise<Class> => {
+    const res: any = await $fetch(`/classes/${id}`, {
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
 
-  return {
-    id: res.id,
-    name: res.name,
-    description: res.description,
-    teacher_id: res.teacher_id,
-    students: res.students.map((s: any) => ({
-      id: s.id,
-      full_name: s.full_name,
-      email: s.email,
-      student_code: s.student_code,
-      joined_at: s.joined_at
-    }))
+    return {
+      id: res.id,
+      name: res.name,
+      description: res.description,
+      teacher_id: res.teacher_id,
+      students: res.students.map((s: any) => ({
+        id: s.id,
+        full_name: s.full_name,
+        email: s.email,
+        student_code: s.student_code,
+        joined_at: s.joined_at
+      }))
+    }
   }
-}
 
   const createClass = async (payload: { name: string; description?: string }) => {
     await $fetch('/classes', {
@@ -90,6 +90,22 @@ const getClassDetail = async (id: number): Promise<Class> => {
     })
     return getClassDetail(classId)
   }
+  const getAvailableStudents = (classId: number) =>
+    $fetch<AvailableStudent[]>(`/classes/${classId}/available-students`, {
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
+
+const addStudent = async (classId: number, studentId: number) => {
+  await $fetch(`/classes/${classId}/students/${studentId}`, {
+    method: 'POST',
+    baseURL: config.public.apiBase,
+    headers: authHeader()
+  })
+  return getClassDetail(classId)
+}
+
+
 
   return {
     classes,
@@ -99,6 +115,9 @@ const getClassDetail = async (id: number): Promise<Class> => {
     createClass,
     updateClass,
     deleteClass,
-    removeStudent
+    removeStudent,
+    getAvailableStudents,
+    addStudent
   }
+
 }

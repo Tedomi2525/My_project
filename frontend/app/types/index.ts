@@ -62,3 +62,9 @@ export interface Class {
   teacher_id: number
   students: StudentInClass[]
 }
+
+export interface AvailableStudent {
+  id: number
+  full_name: string
+  student_code?: string
+} 

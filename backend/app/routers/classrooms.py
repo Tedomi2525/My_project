@@ -128,11 +128,12 @@ def delete_class(
     return {"message": "Class deleted successfully"}
 
 
-# ---------- POST /classes/{id}/students ----------
-@router.post("/{class_id}/students")
+# ---------- POST /classes/{id}/students/{student_id} ----------
+@router.post("/{class_id}/students/{student_id}")
 def add_student(
     class_id: int,
-    data: ClassStudentCreate,
+    student_id: int,
+    # data: ClassStudentCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -145,7 +146,7 @@ def add_student(
     ClassService.add_student(
         db=db,
         class_id=class_id,
-        student_id=data.student_id
+        student_id=student_id
     )
     return {"message": "Student added"}
 
