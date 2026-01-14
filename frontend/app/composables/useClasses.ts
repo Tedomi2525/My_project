@@ -42,7 +42,8 @@ export const useClasses = (userId: Ref<number | undefined>) => {
       id: res.id,
       name: res.name,
       description: res.description,
-      teacher_id: res.teacher_id,
+      teacher_id: res.teacher_id, 
+      student_count: res.student_count,
       students: res.students.map((s: any) => ({
         id: s.id,
         full_name: s.full_name,

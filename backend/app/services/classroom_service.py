@@ -14,6 +14,7 @@ def class_to_dict(class_: Class):
         "name": class_.name,
         "description": class_.description,
         "teacher_id": class_.teacher_id,
+        "student_count": len(class_.students),
         "students": [
             {
                 "id": cs.student.id,
@@ -63,7 +64,8 @@ class ClassService:
                 "id": c.id,
                 "name": c.name,
                 "description": c.description,
-                "teacher_id": c.teacher_id
+                "teacher_id": c.teacher_id,
+                "student_count": len(c.students)
             }
             for c in classes
         ]

@@ -61,6 +61,7 @@ export interface Class {
   description?: string
   teacher_id: number
   students: StudentInClass[]
+  student_count: number
 }
 
 export interface AvailableStudent {

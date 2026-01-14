@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Plus, Trash2, Users, Edit2 } from 'lucide-vue-next'
+import { Plus, Trash2, Users, Edit2, UserMinus, UserPlus } from 'lucide-vue-next'
 import type { Class, AvailableStudent } from '~/types'
 import { useClasses } from '~/composables/useClasses'
 
@@ -87,29 +87,48 @@ const openStudents = async (cls: Class) => {
   selectedStudentId.value = null
 }
 
-const handleRemoveStudent = async (studentId: number) => {
+const handleAddStudent = async (studentId: number) => {
   if (!selectedClass.value) return
 
-  selectedClass.value = await removeStudent(
+  const updated = await addStudent(
     selectedClass.value.id,
     studentId
   )
-  selectedStudentId.value = null
-}
-const handleAddStudent = async () => {
-  if (!selectedClass.value || selectedStudentId.value === null) return
+  console.log('UPDATED CLASS:', updated)
+  // update modal
+  selectedClass.value = updated
 
-  selectedClass.value = await addStudent(
+  // 🔥 UPDATE LIST
+  const cls = classes.value.find(c => c.id === updated.id)
+  if (cls) {
+    cls.student_count = updated.student_count
+  }
+
+  availableStudents.value = await getAvailableStudents(updated.id)
+}
+
+
+const handleRemoveStudent = async (studentId: number) => {
+  if (!selectedClass.value) return
+
+  const updated = await removeStudent(
     selectedClass.value.id,
-    selectedStudentId.value
+    studentId
   )
 
-  availableStudents.value = await getAvailableStudents(
-    selectedClass.value.id
-  )
+  // update modal
+  selectedClass.value = updated
 
-  selectedStudentId.value = null
+  // 🔥 UPDATE LIST
+  const cls = classes.value.find(c => c.id === updated.id)
+  if (cls) {
+    cls.student_count = updated.student_count
+  }
+
+  availableStudents.value = await getAvailableStudents(updated.id)
 }
+
+
 
 
 
@@ -151,7 +170,7 @@ const handleAddStudent = async () => {
         <div class="flex items-center gap-2 text-gray-600 mb-4">
           <Users class="w-5 h-5" />
           <span>
-            {{ cls.students?.length || 0 }} sinh viên
+            {{ cls.student_count }} sinh viên
           </span>
         </div>
 
@@ -205,46 +224,68 @@ const handleAddStudent = async () => {
     </div>
 
     <!-- STUDENT MODAL -->
-    <div v-if="selectedClass" class="fixed inset-0 bg-black/50 flex items-center
-             justify-center p-4 z-40">
+    <div v-if="selectedClass" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40">
       <div class="bg-white rounded-lg p-6 w-full max-w-lg">
-        <h2 class="mb-4 font-bold text-xl">
+        <h2 class="mb-1 font-bold text-xl">
           Quản lý sinh viên – {{ selectedClass.name }}
         </h2>
 
-        <p v-if="!selectedClass.students || !selectedClass.students.length" class="text-center text-gray-500">
-          Chưa có sinh viên
+        <!-- ===== STUDENTS IN CLASS ===== -->
+        <p class="text-gray-600 mb-3">
+          Sinh viên trong lớp ({{ selectedClass.student_count }})
         </p>
 
-        <div v-else class="space-y-2">
-          <div v-for="st in selectedClass.students" :key="st.id" class="flex justify-between items-center p-3
-                   bg-gray-50 rounded-lg">
-            <span>{{ st.full_name }}</span>
+        <div v-if="!selectedClass.students.length" class="text-center text-gray-500 mb-4">
+          Chưa có sinh viên
+        </div>
 
-            <button @click="handleRemoveStudent(st.id)" class="text-red-600 p-2 hover:bg-red-50 rounded">
-              <Trash2 class="w-4 h-4" />
+        <div v-else class="space-y-2 mb-6">
+          <div v-for="st in selectedClass.students" :key="st.id"
+            class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+            <div>
+              <div class="font-medium">{{ st.full_name }}</div>
+              <div class="text-sm text-gray-500">
+                {{ st.student_code || 'N/A' }}
+              </div>
+            </div>
+
+            <button @click="handleRemoveStudent(st.id)" class="text-red-600 hover:bg-red-50 p-2 rounded">
+              <UserMinus class="w-4 h-4" />
             </button>
           </div>
         </div>
-        <!-- ADD STUDENT -->
-        <div class="mb-4 flex gap-2">
-          <select v-model="selectedStudentId" class="flex-1 border px-3 py-2 rounded-lg">
-            <option disabled value="">-- Chọn sinh viên --</option>
 
-            <option v-for="st in availableStudents" :key="st.id" :value="st.id">
-              {{ st.full_name }} ({{ st.student_code || 'N/A' }})
-            </option>
-          </select>
+        <!-- ===== ADD STUDENT ===== -->
+        <p class="text-gray-600 mb-3">
+          Thêm sinh viên
+        </p>
 
-
-          <button @click="handleAddStudent" class="px-4 py-2 bg-green-600 text-white rounded-lg">
-            Thêm
-          </button>
+        <div v-if="!availableStudents.length" class="text-gray-500 mb-4">
+          Không còn sinh viên để thêm
         </div>
-        <button @click="selectedClass = null" class="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg">
+
+        <div v-else class="space-y-2 mb-6">
+          <div v-for="st in availableStudents" :key="st.id"
+            class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+            <div>
+              <div class="font-medium">{{ st.full_name }}</div>
+              <div class="text-sm text-gray-500">
+                {{ st.student_code || 'N/A' }}
+              </div>
+            </div>
+
+            <button @click="handleAddStudent(st.id)" class="text-green-600 hover:bg-green-50 p-2 rounded">
+              <UserPlus class="w-4 h-4" />
+            </button>
+
+          </div>
+        </div>
+
+        <button @click="selectedClass = null" class="w-full bg-blue-600 text-white py-2 rounded-lg">
           Đóng
         </button>
       </div>
     </div>
+
   </div>
 </template>
