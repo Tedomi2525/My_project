@@ -14,15 +14,16 @@ export interface User {
   studentId?: string;
 }
 
+// ~/types/index.ts
 export interface Question {
-  id: string;
-  content: string;
-  imageUrl?: string;
-  options: string[];
-  correctAnswer: number;
-  createdBy: string;
-  createdAt: Date;
+  id: number
+  content: string
+  question_type: string
+  options: Record<string, string> | null
+  correct_answer: string
+  created_by: number
 }
+
 
 export interface Exam {
   id: string;
