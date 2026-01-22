@@ -26,19 +26,19 @@ export interface Question {
 
 
 export interface Exam {
-  id: string;
+  id: number;
   title: string;
-  duration: number; // minutes
-  startTime: Date | string; // Cho phép string để tương thích input date
-  endTime: Date | string;
-  questions: string[]; // question IDs
-  allowedStudents: string[]; // student IDs
-  status: 'draft' | 'active' | 'ended';
-  showAnswers: boolean;
-  createdBy: string;
-  password?: string;
+  description?: string | null;
+  duration_minutes: number;
+  start_time: string | null;
+  end_time: string | null;
+  show_answers: boolean;
+  created_by: number;
+  has_password: boolean;
+  questions?: number[];
+  allowed_students?: number[];
+  status?: 'draft' | 'active' | 'ended';
 }
-
 export interface ExamResult {
   id: string;
   examId: string;
