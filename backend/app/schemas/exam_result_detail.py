@@ -13,4 +13,4 @@ class ExamResultDetailResponse(ExamResultDetailBase):
     is_correct: bool
 
     class Config:
-        from_attributes = True
+        orm_mode = True 

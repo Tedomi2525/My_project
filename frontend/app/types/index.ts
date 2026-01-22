@@ -19,6 +19,7 @@ export interface Question {
   id: number
   content: string
   question_type: string
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD' 
   options: Record<string, string> | null
   correct_answer: string
   created_by: number

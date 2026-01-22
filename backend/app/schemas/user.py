@@ -36,5 +36,4 @@ class UserResponse(UserBase):
     id: int
 
     class Config:
-        orm_mode = True   # pydantic v1
-        # from_attributes = True  # nếu dùng pydantic v2
+        orm_mode = True  

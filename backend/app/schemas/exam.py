@@ -60,4 +60,4 @@ class ExamResponse(BaseModel):
         return bool(self.password)
 
     class Config:
-        from_attributes = True
+        orm_mode = True 

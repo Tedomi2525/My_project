@@ -1,10 +1,18 @@
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
+from enum import Enum
+
+# 1. Định nghĩa Enum cho độ khó
+class DifficultyLevel(str, Enum):
+    EASY = "EASY"
+    MEDIUM = "MEDIUM"
+    HARD = "HARD"
 
 class QuestionBase(BaseModel):
     content: str
     question_type: Optional[str] = "MCQ"
-    # Options nhận vào dict. VD: {"A": "Đáp án A", "B": "Đáp án B"}
+    # 2. Thêm trường difficulty
+    difficulty: DifficultyLevel = DifficultyLevel.EASY
     options: Optional[Dict[str, Any]] = None
     correct_answer: str
 
@@ -16,4 +24,4 @@ class QuestionResponse(QuestionBase):
     created_by: int
 
     class Config:
-        from_attributes = True
+        orm_mode = True 

@@ -16,4 +16,4 @@ class ExamResultResponse(ExamResultBase):
     finished_at: Optional[datetime]
 
     class Config:
-        from_attributes = True  
+        orm_mode = True 

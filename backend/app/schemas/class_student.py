@@ -29,4 +29,4 @@ class ClassStudentResponse(BaseModel):
     student: StudentResponse
 
     class Config:
-        from_attributes = True
+        orm_mode = True 
