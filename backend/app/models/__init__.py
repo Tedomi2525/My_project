@@ -5,6 +5,6 @@ from .class_student import ClassStudent
 from .question import Question
 from .exam import Exam
 from .exam_question import ExamQuestion
-from .exam_allowed_student import ExamAllowedStudent
+from .exam_allowed_class import ExamAllowedClass
 from .exam_result import ExamResult
 from .exam_result_detail import ExamResultDetail

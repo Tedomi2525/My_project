@@ -31,4 +31,4 @@ class User(Base):
 
     # Khác
     exam_results = relationship("ExamResult", back_populates="student")
-    allowed_exams = relationship("ExamAllowedStudent", back_populates="student")
+

@@ -9,31 +9,31 @@ definePageMeta({
 });
 
 // --- Interfaces cho dữ liệu Select ---
-// (Bạn cần đảm bảo backend có API trả về đúng các field này)
 interface Question {
   id: number;
   content: string;
 }
 
-interface Student {
+// [THAY ĐỔI] Interface cho Lớp học thay vì Sinh viên
+interface ClassItem {
   id: number;
-  full_name: string; 
-  code: string; // Mã sinh viên
+  name: string; 
+  code: string; 
+  student_count?: number; // Số lượng SV trong lớp (nếu backend có trả về)
 }
 
 // --- Composables ---
-const { $api } = useNuxtApp(); // Dùng để gọi API questions/users trực tiếp
+const { $api } = useNuxtApp(); 
 const { 
   exams, 
   loading, 
   error, 
   getExams, 
-  getExamById, // Cần hàm này để lấy chi tiết (kèm list questions) khi sửa
+  getExamById, 
   createExam, 
   updateExam, 
   deleteExam, 
-  addQuestionToExam,
-  removeQuestionFromExam 
+  addQuestionToExam
 } = useExams();
 
 // --- State ---
@@ -42,10 +42,10 @@ const showModal = ref(false);
 const isSubmitting = ref(false);
 const editingExamId = ref<number | null>(null);
 
-// State cho danh sách lựa chọn (thay thế Mock)
+// State cho danh sách lựa chọn
 const availableQuestions = ref<Question[]>([]);
-const availableStudents = ref<Student[]>([]);
-const isLoadingResources = ref(false); // Loading cho list câu hỏi/sv
+const availableClasses = ref<ClassItem[]>([]); // [THAY ĐỔI] Danh sách lớp
+const isLoadingResources = ref(false); 
 
 // Form Data
 const formData = ref({
@@ -54,8 +54,8 @@ const formData = ref({
   duration_minutes: 60,
   start_time: '', 
   end_time: '',
-  questions: [] as number[], // Mảng ID câu hỏi được chọn
-  allowedStudents: [] as number[], // Mảng ID sinh viên được chọn
+  questions: [] as number[], 
+  class_ids: [] as number[], // [THAY ĐỔI] Mảng ID lớp được chọn (thay allowedStudents)
   show_answers: true,
   password: ''
 });
@@ -65,17 +65,18 @@ onMounted(async () => {
   // 1. Lấy danh sách đề thi
   getExams(); 
 
-  // 2. Lấy danh sách câu hỏi & sinh viên để fill vào modal
+  // 2. Lấy danh sách câu hỏi & Lớp học
   try {
     isLoadingResources.value = true;
-    const [resQuestions, resStudents] = await Promise.all([
-      $api.get<Question[]>('/questions'), // API lấy tất cả câu hỏi
-      $api.get<Student[]>('/users?role=student') // API lấy danh sách SV (tùy route bên backend của bạn)
+    // [THAY ĐỔI] Gọi API /classes thay vì /users
+    const [resQuestions, resClasses] = await Promise.all([
+      $api.get<Question[]>('/questions'), 
+      $api.get<ClassItem[]>('/classes') 
     ]);
     availableQuestions.value = resQuestions.data || [];
-    availableStudents.value = resStudents.data || [];
+    availableClasses.value = resClasses.data || [];
   } catch (err) {
-    console.error('Không tải được danh sách câu hỏi/sinh viên:', err);
+    console.error('Không tải được danh sách câu hỏi/lớp học:', err);
   } finally {
     isLoadingResources.value = false;
   }
@@ -123,7 +124,7 @@ const resetForm = () => {
     start_time: '',
     end_time: '',
     questions: [],
-    allowedStudents: [],
+    class_ids: [], // [THAY ĐỔI] Reset danh sách lớp
     show_answers: true,
     password: ''
   };
@@ -141,7 +142,6 @@ const handleEditExam = async (examSummary: Exam) => {
   showModal.value = true;
   
   try {
-    // Gọi API lấy chi tiết để có danh sách câu hỏi (vì list bên ngoài có thể không trả về field này)
     const res = await getExamById(examSummary.id);
     const detail = res.data;
 
@@ -151,11 +151,11 @@ const handleEditExam = async (examSummary: Exam) => {
       duration_minutes: detail.duration_minutes,
       start_time: formatDateForInput(detail.start_time),
       end_time: formatDateForInput(detail.end_time),
-      // Map dữ liệu từ API về form
       questions: detail.questions || [], 
-      allowedStudents: detail.allowed_students || [],
+      // [THAY ĐỔI] Map dữ liệu từ API về form (field allowed_classes từ backend)
+      class_ids: detail.allowed_classes || [], 
       show_answers: detail.show_answers,
-      password: '' // Không hiển thị password
+      password: '' 
     };
   } catch (e) {
     alert('Không lấy được chi tiết đề thi');
@@ -173,7 +173,7 @@ const handleSubmit = async () => {
   try {
     isSubmitting.value = true;
     
-    // Payload cơ bản
+    // Payload gửi xuống backend
     const payload = {
       title: formData.value.title,
       description: formData.value.description,
@@ -182,7 +182,9 @@ const handleSubmit = async () => {
       end_time: new Date(formData.value.end_time).toISOString(),
       show_answers: formData.value.show_answers,
       ...(formData.value.password ? { password: formData.value.password } : {}),
-      created_by: 1 
+      created_by: 1,
+      // [THAY ĐỔI] Gửi danh sách lớp
+      class_ids: formData.value.class_ids 
     };
 
     let examId = editingExamId.value;
@@ -190,14 +192,12 @@ const handleSubmit = async () => {
     if (examId) {
       // --- UPDATE ---
       await updateExam(examId, payload);
-      // TODO: Xử lý update list câu hỏi (Logic này phức tạp hơn: phải tìm diff để add/remove)
-      // Tạm thời bạn có thể implement logic xóa hết cũ add lại mới ở Backend hoặc Frontend
     } else {
       // --- CREATE ---
       const newExamResponse = await createExam(payload);
       examId = newExamResponse.data.id;
 
-      // Add Questions
+      // Add Questions (Logic giữ nguyên)
       if (formData.value.questions.length > 0) {
         await Promise.all(formData.value.questions.map(qId => 
            addQuestionToExam({
@@ -207,13 +207,12 @@ const handleSubmit = async () => {
            })
         ));
       }
-      
-      // TODO: Add Allowed Students (tương tự add question)
     }
 
     await getExams(); // Refresh list
     showModal.value = false;
   } catch (err: any) {
+    // Hiển thị lỗi chi tiết từ backend nếu có
     alert('Lỗi: ' + (err.response?.data?.detail || err.message));
   } finally {
     isSubmitting.value = false;
@@ -245,17 +244,11 @@ const getStatusLabel = (status: string) => {
     <div class="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
       <div class="relative flex-1 max-w-md">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Tìm kiếm đề thi..."
-          v-model="searchTerm"
-          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <input type="text" placeholder="Tìm kiếm đề thi..." v-model="searchTerm"
+          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
-      <button
-        @click="handleAddExam"
-        class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-      >
+      <button @click="handleAddExam"
+        class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
         <Plus class="w-5 h-5" />
         Tạo đề thi mới
       </button>
@@ -274,24 +267,22 @@ const getStatusLabel = (status: string) => {
           <div>
             <div class="flex items-center gap-3 mb-2">
               <h3 class="text-lg font-semibold">{{ exam.title }}</h3>
-              <span 
-                :class="`px-3 py-1 rounded-full text-xs font-medium ${getStatusClasses(getExamStatus(exam))}`"
-              >
+              <span :class="`px-3 py-1 rounded-full text-xs font-medium ${getStatusClasses(getExamStatus(exam))}`">
                 {{ getStatusLabel(getExamStatus(exam)) }}
               </span>
             </div>
             <div class="text-sm text-gray-600 space-y-1">
               <p>Thời gian: {{ exam.duration_minutes }} phút</p>
               <p>
-                Mở: {{ formatDateDisplay(exam.start_time) }} - 
+                Mở: {{ formatDateDisplay(exam.start_time) }} -
                 Đóng: {{ formatDateDisplay(exam.end_time) }}
               </p>
               <p v-if="exam.has_password" class="text-amber-600 flex items-center gap-1 font-medium">
-                 Có mật khẩu bảo vệ
+                Có mật khẩu bảo vệ
               </p>
             </div>
           </div>
-          
+
           <div class="flex gap-2">
             <button @click="handleEditExam(exam)" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Sửa">
               <Edit2 class="w-4 h-4" />
@@ -301,7 +292,7 @@ const getStatusLabel = (status: string) => {
             </button>
           </div>
         </div>
-        
+
         <div class="flex items-center gap-2 text-sm border-t pt-3 mt-3">
           <span v-if="exam.show_answers" class="flex items-center gap-2 text-green-600">
             <Eye class="w-4 h-4" /> Xem đáp án: Có
@@ -313,38 +304,45 @@ const getStatusLabel = (status: string) => {
       </div>
     </div>
 
-    <div v-if="showModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+    <div v-if="showModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
       <div class="bg-white rounded-lg p-6 w-full max-w-4xl my-8 max-h-[90vh] overflow-y-auto">
         <h2 class="mb-4 text-xl font-bold">
           {{ editingExamId ? 'Sửa đề thi' : 'Tạo đề thi mới' }}
         </h2>
-        
+
         <form @submit.prevent="handleSubmit">
           <div class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="md:col-span-2">
                 <label class="block mb-2 font-medium">Tên đề thi</label>
-                <input type="text" v-model="formData.title" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required />
+                <input type="text" v-model="formData.title"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required />
               </div>
               <div class="md:col-span-2">
                 <label class="block mb-2 font-medium">Mô tả</label>
-                <textarea v-model="formData.description" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
+                <textarea v-model="formData.description"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
               </div>
               <div>
                 <label class="block mb-2 font-medium">Thời gian (phút)</label>
-                <input type="number" v-model.number="formData.duration_minutes" class="w-full px-4 py-2 border rounded-lg" min="1" required />
+                <input type="number" v-model.number="formData.duration_minutes"
+                  class="w-full px-4 py-2 border rounded-lg" min="1" required />
               </div>
               <div>
                 <label class="block mb-2 font-medium">Mật khẩu (để trống nếu không đổi)</label>
-                <input type="text" v-model="formData.password" class="w-full px-4 py-2 border rounded-lg" placeholder="***" />
+                <input type="text" v-model="formData.password" class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="***" />
               </div>
               <div>
                 <label class="block mb-2 font-medium">Bắt đầu</label>
-                <input type="datetime-local" v-model="formData.start_time" class="w-full px-4 py-2 border rounded-lg" required />
+                <input type="datetime-local" v-model="formData.start_time" class="w-full px-4 py-2 border rounded-lg"
+                  required />
               </div>
               <div>
                 <label class="block mb-2 font-medium">Kết thúc</label>
-                <input type="datetime-local" v-model="formData.end_time" class="w-full px-4 py-2 border rounded-lg" required />
+                <input type="datetime-local" v-model="formData.end_time" class="w-full px-4 py-2 border rounded-lg"
+                  required />
               </div>
               <div class="md:col-span-2">
                 <label class="flex items-center gap-2">
@@ -356,22 +354,18 @@ const getStatusLabel = (status: string) => {
 
             <div>
               <label class="block mb-2 font-medium">Chọn câu hỏi ({{ formData.questions.length }} đã chọn)</label>
-              
+
               <div v-if="isLoadingResources" class="text-sm text-gray-500">Đang tải danh sách câu hỏi...</div>
-              
+
               <div v-else class="max-h-60 overflow-y-auto border rounded-lg p-4 space-y-2">
-                <label v-for="(q, idx) in availableQuestions" :key="q.id" class="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    v-model="formData.questions" 
-                    :value="q.id" 
-                    class="mt-1"
-                  />
+                <label v-for="(q, idx) in availableQuestions" :key="q.id"
+                  class="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                  <input type="checkbox" v-model="formData.questions" :value="q.id" class="mt-1" />
                   <div class="text-sm">
                     <span class="font-bold text-gray-600">#{{ q.id }}</span> {{ q.content }}
                   </div>
                 </label>
-                
+
                 <div v-if="availableQuestions.length === 0" class="text-center text-gray-500 text-sm">
                   Chưa có câu hỏi nào trong ngân hàng đề.
                 </div>
@@ -379,39 +373,54 @@ const getStatusLabel = (status: string) => {
             </div>
 
             <div>
-              <label class="block mb-2 font-medium">Chọn thí sinh ({{ formData.allowedStudents.length }} đã chọn)</label>
-              
-              <div v-if="isLoadingResources" class="text-sm text-gray-500">Đang tải danh sách sinh viên...</div>
-              
+              <label class="block mb-2 font-medium">
+                Áp dụng cho lớp ({{ formData.class_ids.length }} đã chọn)
+              </label>
+
+              <div v-if="isLoadingResources" class="text-sm text-gray-500">
+                <Loader2 class="w-4 h-4 animate-spin inline mr-2" /> Đang tải danh sách lớp...
+              </div>
+
               <div v-else class="max-h-60 overflow-y-auto border rounded-lg p-4 space-y-2">
-                <label v-for="std in availableStudents" :key="std.id" class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    v-model="formData.allowedStudents" 
-                    :value="std.id" 
-                  />
-                  <div class="text-sm">
-                    <p class="font-medium">{{ std.full_name }}</p>
-                    <p class="text-gray-500 text-xs">{{ std.code }}</p>
+                <label v-for="cls in availableClasses" :key="cls.id"
+                  class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors"
+                  :class="{ 'bg-blue-50 border-blue-100': formData.class_ids.includes(cls.id) }">
+                  <input type="checkbox" v-model="formData.class_ids" :value="cls.id"
+                    class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500" />
+                  <div class="flex-1">
+                    <div class="flex justify-between items-center">
+                      <p class="font-medium text-gray-900">{{ cls.name }}</p>
+                      <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                        {{ cls.code }}
+                      </span>
+                    </div>
+                    <p v-if="cls.student_count" class="text-gray-500 text-xs mt-0.5">
+                      Sĩ số: {{ cls.student_count }} sinh viên
+                    </p>
                   </div>
                 </label>
-                 <div v-if="availableStudents.length === 0" class="text-center text-gray-500 text-sm">
-                  Không tìm thấy sinh viên nào.
+
+                <div v-if="availableClasses.length === 0" class="text-center text-gray-500 text-sm py-4">
+                  Không tìm thấy lớp học nào.
                 </div>
               </div>
             </div>
+
+            <div class="flex gap-3 mt-6">
+              <button type="button" @click="showModal = false"
+                class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
+                Hủy
+              </button>
+              <button type="submit" :disabled="isSubmitting"
+                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                <span v-if="isSubmitting">
+                  <Loader2 class="w-4 h-4 animate-spin inline mr-2" />Đang xử lý...
+                </span>
+                <span v-else>{{ editingExamId ? 'Cập nhật' : 'Tạo đề thi' }}</span>
+              </button>
+            </div>
           </div>
-          
-          <div class="flex gap-3 mt-6">
-            <button type="button" @click="showModal = false" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
-              Hủy
-            </button>
-            <button type="submit" :disabled="isSubmitting" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-              <span v-if="isSubmitting"><Loader2 class="w-4 h-4 animate-spin inline mr-2"/>Đang xử lý...</span>
-              <span v-else>{{ editingExamId ? 'Cập nhật' : 'Tạo đề thi' }}</span>
-            </button>
-          </div>
-        </form> 
+        </form>
       </div>
     </div>
   </div>

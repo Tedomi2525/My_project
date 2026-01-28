@@ -36,8 +36,8 @@ export interface Exam {
   show_answers: boolean;
   created_by: number;
   has_password: boolean;
+  allowed_classes?: number[]; 
   questions?: number[];
-  allowed_students?: number[];
   status?: 'draft' | 'active' | 'ended';
 }
 export interface ExamResult {

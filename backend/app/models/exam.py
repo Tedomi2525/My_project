@@ -14,10 +14,25 @@ class Exam(Base):
     start_time = Column(DateTime(timezone=True), nullable=True)
     end_time = Column(DateTime(timezone=True), nullable=True)
 
-    password = Column(String(255), nullable=True)  # 👈 THÊM DÒNG NÀY
+    password = Column(String(255), nullable=True)
 
     created_by = Column(Integer, ForeignKey("user.id"), nullable=False)
 
-    exam_questions = relationship("ExamQuestion", back_populates="exam")
-    allowed_students = relationship("ExamAllowedStudent", back_populates="exam")
-    results = relationship("ExamResult", back_populates="exam")
+    exam_questions = relationship(
+        "ExamQuestion",
+        back_populates="exam",
+        cascade="all, delete-orphan"
+    )
+
+    allowed_classes = relationship(
+        "ExamAllowedClass",
+        back_populates="exam",
+        cascade="all, delete-orphan"
+    )
+
+    # ✅ THÊM DÒNG NÀY
+    results = relationship(
+        "ExamResult",
+        back_populates="exam",
+        cascade="all, delete-orphan"
+    )
