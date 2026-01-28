@@ -2,7 +2,7 @@
 import type { Question } from '~/types'
 
 export const useQuestions = () => {
-  const config = useRuntimeConfig()
+  const { $api } = useNuxtApp()
 
   const questions = ref<Question[]>([])
   const loading = ref(false)
@@ -10,37 +10,25 @@ export const useQuestions = () => {
   const getQuestions = async () => {
     loading.value = true
     try {
-      questions.value = await $fetch<Question[]>('/questions', {
-        baseURL: config.public.apiBase
-      })
+      const res = await $api.get<Question[]>('/questions')
+      questions.value = res.data
     } finally {
       loading.value = false
     }
   }
 
   const createQuestion = async (data: any) => {
-    await $fetch('/questions', {
-      method: 'POST',
-      baseURL: config.public.apiBase,
-      body: data
-    })
+    await $api.post('/questions', data)
     await getQuestions()
   }
 
   const updateQuestion = async (id: number, data: any) => {
-    await $fetch(`/questions/${id}`, {
-      method: 'PUT',
-      baseURL: config.public.apiBase,
-      body: data
-    })
+    await $api.put(`/questions/${id}`, data)
     await getQuestions()
   }
 
   const deleteQuestion = async (id: number) => {
-    await $fetch(`/questions/${id}`, {
-      method: 'DELETE',
-      baseURL: config.public.apiBase
-    })
+    await $api.delete(`/questions/${id}`)
     await getQuestions()
   }
 

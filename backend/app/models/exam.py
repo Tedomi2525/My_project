@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -17,6 +17,8 @@ class Exam(Base):
     password = Column(String(255), nullable=True)
 
     created_by = Column(Integer, ForeignKey("user.id"), nullable=False)
+
+    allow_view_answers = Column(Boolean, nullable=False, default=False)
 
     exam_questions = relationship(
         "ExamQuestion",

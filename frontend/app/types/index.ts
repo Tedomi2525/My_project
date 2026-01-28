@@ -34,6 +34,7 @@ export interface Exam {
   start_time: string | null;
   end_time: string | null;
   show_answers: boolean;
+  allow_view_answers?: boolean;
   created_by: number;
   has_password: boolean;
   allowed_classes?: number[]; 

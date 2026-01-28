@@ -42,8 +42,8 @@ export const useExams = () => {
     end_time?: string
     created_by: number
     password?: string
-    show_answers?: boolean // [Cập nhật]
-    class_ids?: number[]   // [Cập nhật] Thêm danh sách lớp
+    allow_view_answers?: boolean   // ✅ ĐÚNG TÊN BACKEND
+    class_ids?: number[]
   }) => {
     try {
       return await $api.post<Exam>('/exams', payload)
@@ -63,8 +63,8 @@ export const useExams = () => {
       start_time: string
       end_time: string
       password: string | null
-      show_answers: boolean // [Cập nhật]
-      class_ids: number[]   // [Cập nhật] Thêm danh sách lớp
+      allow_view_answers: boolean   // ✅ ĐÚNG TÊN BACKEND
+      class_ids: number[]
     }>
   ) => {
     try {

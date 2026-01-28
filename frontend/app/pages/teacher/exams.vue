@@ -17,22 +17,22 @@ interface Question {
 // [THAY ĐỔI] Interface cho Lớp học thay vì Sinh viên
 interface ClassItem {
   id: number;
-  name: string; 
-  code: string; 
+  name: string;
+  code: string;
   student_count?: number; // Số lượng SV trong lớp (nếu backend có trả về)
 }
 
 // --- Composables ---
-const { $api } = useNuxtApp(); 
-const { 
-  exams, 
-  loading, 
-  error, 
-  getExams, 
-  getExamById, 
-  createExam, 
-  updateExam, 
-  deleteExam, 
+const { $api } = useNuxtApp();
+const {
+  exams,
+  loading,
+  error,
+  getExams,
+  getExamById,
+  createExam,
+  updateExam,
+  deleteExam,
   addQuestionToExam
 } = useExams();
 
@@ -45,33 +45,34 @@ const editingExamId = ref<number | null>(null);
 // State cho danh sách lựa chọn
 const availableQuestions = ref<Question[]>([]);
 const availableClasses = ref<ClassItem[]>([]); // [THAY ĐỔI] Danh sách lớp
-const isLoadingResources = ref(false); 
+const isLoadingResources = ref(false);
 
 // Form Data
 const formData = ref({
   title: '',
   description: '',
   duration_minutes: 60,
-  start_time: '', 
+  start_time: '',
   end_time: '',
-  questions: [] as number[], 
-  class_ids: [] as number[], // [THAY ĐỔI] Mảng ID lớp được chọn (thay allowedStudents)
-  show_answers: true,
+  questions: [] as number[],
+  class_ids: [] as number[],
+  allow_view_answers: true, // ✅ ĐỔI
   password: ''
-});
+})
+
 
 // --- Lifecycle ---
 onMounted(async () => {
   // 1. Lấy danh sách đề thi
-  getExams(); 
+  getExams();
 
   // 2. Lấy danh sách câu hỏi & Lớp học
   try {
     isLoadingResources.value = true;
     // [THAY ĐỔI] Gọi API /classes thay vì /users
     const [resQuestions, resClasses] = await Promise.all([
-      $api.get<Question[]>('/questions'), 
-      $api.get<ClassItem[]>('/classes') 
+      $api.get<Question[]>('/questions'),
+      $api.get<ClassItem[]>('/classes')
     ]);
     availableQuestions.value = resQuestions.data || [];
     availableClasses.value = resClasses.data || [];
@@ -83,7 +84,7 @@ onMounted(async () => {
 });
 
 // --- Computed ---
-const filteredExams = computed(() => 
+const filteredExams = computed(() =>
   exams.value.filter(exam =>
     exam.title.toLowerCase().includes(searchTerm.value.toLowerCase())
   )
@@ -125,7 +126,7 @@ const resetForm = () => {
     end_time: '',
     questions: [],
     class_ids: [], // [THAY ĐỔI] Reset danh sách lớp
-    show_answers: true,
+    allow_view_answers: true,
     password: ''
   };
 };
@@ -137,10 +138,10 @@ const handleAddExam = () => {
 
 const handleEditExam = async (examSummary: Exam) => {
   editingExamId.value = examSummary.id;
-  
+
   // Mở modal trước để UI phản hồi nhanh
   showModal.value = true;
-  
+
   try {
     const res = await getExamById(examSummary.id);
     const detail = res.data;
@@ -151,12 +152,12 @@ const handleEditExam = async (examSummary: Exam) => {
       duration_minutes: detail.duration_minutes,
       start_time: formatDateForInput(detail.start_time),
       end_time: formatDateForInput(detail.end_time),
-      questions: detail.questions || [], 
-      // [THAY ĐỔI] Map dữ liệu từ API về form (field allowed_classes từ backend)
-      class_ids: detail.allowed_classes || [], 
-      show_answers: detail.show_answers,
-      password: '' 
+      questions: detail.questions || [],
+      class_ids: detail.allowed_classes || [],
+      allow_view_answers: detail.allow_view_answers ?? true, // ✅
+      password: ''
     };
+
   } catch (e) {
     alert('Không lấy được chi tiết đề thi');
     showModal.value = false;
@@ -172,7 +173,7 @@ const handleDeleteExam = async (examId: number) => {
 const handleSubmit = async () => {
   try {
     isSubmitting.value = true;
-    
+
     // Payload gửi xuống backend
     const payload = {
       title: formData.value.title,
@@ -180,11 +181,10 @@ const handleSubmit = async () => {
       duration_minutes: formData.value.duration_minutes,
       start_time: new Date(formData.value.start_time).toISOString(),
       end_time: new Date(formData.value.end_time).toISOString(),
-      show_answers: formData.value.show_answers,
+      allow_view_answers: formData.value.allow_view_answers, // ✅
       ...(formData.value.password ? { password: formData.value.password } : {}),
       created_by: 1,
-      // [THAY ĐỔI] Gửi danh sách lớp
-      class_ids: formData.value.class_ids 
+      class_ids: formData.value.class_ids
     };
 
     let examId = editingExamId.value;
@@ -199,12 +199,12 @@ const handleSubmit = async () => {
 
       // Add Questions (Logic giữ nguyên)
       if (formData.value.questions.length > 0) {
-        await Promise.all(formData.value.questions.map(qId => 
-           addQuestionToExam({
-             exam_id: examId!,
-             question_id: qId,
-             point: 1 
-           })
+        await Promise.all(formData.value.questions.map(qId =>
+          addQuestionToExam({
+            exam_id: examId!,
+            question_id: qId,
+            point: 1
+          })
         ));
       }
     }
@@ -294,7 +294,7 @@ const getStatusLabel = (status: string) => {
         </div>
 
         <div class="flex items-center gap-2 text-sm border-t pt-3 mt-3">
-          <span v-if="exam.show_answers" class="flex items-center gap-2 text-green-600">
+          <span v-if="exam.allow_view_answers" class="flex items-center gap-2 text-green-600">
             <Eye class="w-4 h-4" /> Xem đáp án: Có
           </span>
           <span v-else class="flex items-center gap-2 text-gray-600">
@@ -346,7 +346,7 @@ const getStatusLabel = (status: string) => {
               </div>
               <div class="md:col-span-2">
                 <label class="flex items-center gap-2">
-                  <input type="checkbox" v-model="formData.show_answers" class="w-4 h-4" />
+                  <input type="checkbox" v-model="formData.allow_view_answers" class="w-4 h-4" />
                   Cho phép xem đáp án sau khi thi
                 </label>
               </div>
