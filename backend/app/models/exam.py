@@ -32,7 +32,6 @@ class Exam(Base):
         cascade="all, delete-orphan"
     )
 
-    # ✅ THÊM DÒNG NÀY
     results = relationship(
         "ExamResult",
         back_populates="exam",

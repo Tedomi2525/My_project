@@ -1,53 +1,58 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { Search, Plus, Edit2, Trash2, Eye, EyeOff, Loader2 } from 'lucide-vue-next';
-import type { Exam } from '~/types';
-import { useExams } from '~/composables/useExams';
+import { ref, computed, onMounted } from 'vue'
+import { Search, Plus, Edit2, Trash2, Eye, EyeOff, Loader2 } from 'lucide-vue-next'
+import type { Exam } from '~/types'
+import { useExams } from '~/composables/useExams'
+import { useAuth } from '~/composables/useAuth'
 
 definePageMeta({
   layout: 'teacher'
-});
+})
 
-// --- Interfaces cho dữ liệu Select ---
+/* ================= TYPES ================= */
+
 interface Question {
-  id: number;
-  content: string;
+  id: number
+  content: string
 }
 
-// [THAY ĐỔI] Interface cho Lớp học thay vì Sinh viên
 interface ClassItem {
-  id: number;
-  name: string;
-  code: string;
-  student_count?: number; // Số lượng SV trong lớp (nếu backend có trả về)
+  id: number
+  name: string
+  code?: string
+  student_count?: number
 }
 
-// --- Composables ---
-const { $api } = useNuxtApp();
+/* ================= AUTH ================= */
+
+const { user } = useAuth()
+const config = useRuntimeConfig()
+
+/* ================= COMPOSABLE ================= */
+
 const {
   exams,
   loading,
-  error,
   getExams,
   getExamById,
   createExam,
   updateExam,
-  deleteExam,
-  addQuestionToExam
-} = useExams();
+  deleteExam
+} = useExams()
 
-// --- State ---
-const searchTerm = ref('');
-const showModal = ref(false);
-const isSubmitting = ref(false);
-const editingExamId = ref<number | null>(null);
+/* ================= STATE ================= */
 
-// State cho danh sách lựa chọn
-const availableQuestions = ref<Question[]>([]);
-const availableClasses = ref<ClassItem[]>([]); // [THAY ĐỔI] Danh sách lớp
-const isLoadingResources = ref(false);
+const searchTerm = ref('')
+const showModal = ref(false)
+const isSubmitting = ref(false)
+const editingExamId = ref<number | null>(null)
 
-// Form Data
+const availableQuestions = ref<Question[]>([])
+const availableClasses = ref<ClassItem[]>([])
+const isLoadingResources = ref(false)
+
+const error = ref<string | null>(null)
+
 const formData = ref({
   title: '',
   description: '',
@@ -56,68 +61,103 @@ const formData = ref({
   end_time: '',
   questions: [] as number[],
   class_ids: [] as number[],
-  allow_view_answers: true, // ✅ ĐỔI
+  allow_view_answers: true,
   password: ''
 })
 
+/* ================= LOAD DATA ================= */
 
-// --- Lifecycle ---
 onMounted(async () => {
-  // 1. Lấy danh sách đề thi
-  getExams();
+  if (!user.value) return
 
-  // 2. Lấy danh sách câu hỏi & Lớp học
+  // 1. Exams
+  await getExams()
+
+  // 2. Questions + Classes
   try {
-    isLoadingResources.value = true;
-    // [THAY ĐỔI] Gọi API /classes thay vì /users
-    const [resQuestions, resClasses] = await Promise.all([
-      $api.get<Question[]>('/questions'),
-      $api.get<ClassItem[]>('/classes')
-    ]);
-    availableQuestions.value = resQuestions.data || [];
-    availableClasses.value = resClasses.data || [];
+    isLoadingResources.value = true
+
+    const headers = {
+      'x-user-id': String(user.value.id)
+    }
+
+    const [qRes, cRes] = await Promise.all([
+      $fetch<Question[]>('/questions', {
+        baseURL: config.public.apiBase,
+        headers
+      }),
+      $fetch<ClassItem[]>('/classes', {
+        baseURL: config.public.apiBase,
+        headers
+      })
+    ])
+
+    availableQuestions.value = qRes || []
+    availableClasses.value = cRes || []
   } catch (err) {
-    console.error('Không tải được danh sách câu hỏi/lớp học:', err);
+    error.value = 'Không tải được dữ liệu phụ'
+    console.error(err)
   } finally {
-    isLoadingResources.value = false;
+    isLoadingResources.value = false
   }
-});
+})
 
-// --- Computed ---
+/* ================= COMPUTED ================= */
+
 const filteredExams = computed(() =>
-  exams.value.filter(exam =>
-    exam.title.toLowerCase().includes(searchTerm.value.toLowerCase())
+  exams.value.filter(e =>
+    e.title.toLowerCase().includes(searchTerm.value.toLowerCase())
   )
-);
+)
 
-// --- Helpers ---
-const getExamStatus = (exam: Exam) => {
-  const now = new Date();
-  const start = exam.start_time ? new Date(exam.start_time) : null;
-  const end = exam.end_time ? new Date(exam.end_time) : null;
-
-  if (!start) return 'draft';
-  if (now < start) return 'draft';
-  if (end && now > end) return 'ended';
-  return 'active';
-};
-
-const formatDateDisplay = (dateStr: string | null) => {
-  if (!dateStr) return '---';
-  return new Date(dateStr).toLocaleString('vi-VN');
-};
+/* ================= DATE HELPERS ================= */
 
 const formatDateForInput = (dateStr: string | null) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-};
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 16)
+}
 
-// --- Methods ---
+const formatDateDisplay = (dateStr: string | null) => {
+  if (!dateStr) return '---'
+  return new Date(dateStr).toLocaleString('vi-VN')
+}
+
+/* ================= STATUS HELPERS ================= */
+
+const getExamStatus = (exam: Exam) => {
+  const now = new Date()
+  const start = exam.start_time ? new Date(exam.start_time) : null
+  const end = exam.end_time ? new Date(exam.end_time) : null
+
+  if (!start || now < start) return 'draft'
+  if (end && now > end) return 'ended'
+  return 'active'
+}
+
+const getStatusClasses = (status: string) => {
+  const map: Record<string, string> = {
+    draft: 'bg-gray-100 text-gray-700',
+    active: 'bg-green-100 text-green-700',
+    ended: 'bg-red-100 text-red-700'
+  }
+  return map[status] || ''
+}
+
+const getStatusLabel = (status: string) => {
+  const map: Record<string, string> = {
+    draft: 'Sắp diễn ra',
+    active: 'Đang diễn ra',
+    ended: 'Đã kết thúc'
+  }
+  return map[status] || status
+}
+
+/* ================= METHODS ================= */
 
 const resetForm = () => {
-  editingExamId.value = null;
+  editingExamId.value = null
   formData.value = {
     title: '',
     description: '',
@@ -125,26 +165,23 @@ const resetForm = () => {
     start_time: '',
     end_time: '',
     questions: [],
-    class_ids: [], // [THAY ĐỔI] Reset danh sách lớp
+    class_ids: [],
     allow_view_answers: true,
     password: ''
-  };
-};
+  }
+}
 
 const handleAddExam = () => {
-  resetForm();
-  showModal.value = true;
-};
+  resetForm()
+  showModal.value = true
+}
 
-const handleEditExam = async (examSummary: Exam) => {
-  editingExamId.value = examSummary.id;
-
-  // Mở modal trước để UI phản hồi nhanh
-  showModal.value = true;
+const handleEditExam = async (exam: Exam) => {
+  editingExamId.value = exam.id
+  showModal.value = true
 
   try {
-    const res = await getExamById(examSummary.id);
-    const detail = res.data;
+    const detail = await getExamById(exam.id)
 
     formData.value = {
       title: detail.title,
@@ -154,90 +191,61 @@ const handleEditExam = async (examSummary: Exam) => {
       end_time: formatDateForInput(detail.end_time),
       questions: detail.questions || [],
       class_ids: detail.allowed_classes || [],
-      allow_view_answers: detail.allow_view_answers ?? true, // ✅
+      allow_view_answers: detail.allow_view_answers ?? true,
       password: ''
-    };
-
-  } catch (e) {
-    alert('Không lấy được chi tiết đề thi');
-    showModal.value = false;
+    }
+  } catch {
+    alert('Không lấy được chi tiết đề thi')
+    showModal.value = false
   }
-};
+}
 
-const handleDeleteExam = async (examId: number) => {
+const handleDeleteExam = async (id: number) => {
   if (confirm('Bạn có chắc chắn muốn xóa đề thi này?')) {
-    await deleteExam(examId);
+    await deleteExam(id)
   }
-};
+}
 
 const handleSubmit = async () => {
   try {
-    isSubmitting.value = true;
+    isSubmitting.value = true
 
-    // Payload gửi xuống backend
-    const payload = {
+    const payload: any = {
       title: formData.value.title,
       description: formData.value.description,
       duration_minutes: formData.value.duration_minutes,
-      start_time: new Date(formData.value.start_time).toISOString(),
-      end_time: new Date(formData.value.end_time).toISOString(),
-      allow_view_answers: formData.value.allow_view_answers, // ✅
-      ...(formData.value.password ? { password: formData.value.password } : {}),
-      created_by: 1,
-      class_ids: formData.value.class_ids
-    };
-
-    let examId = editingExamId.value;
-
-    if (examId) {
-      // --- UPDATE ---
-      await updateExam(examId, payload);
-    } else {
-      // --- CREATE ---
-      const newExamResponse = await createExam(payload);
-      examId = newExamResponse.data.id;
-
-      // Add Questions (Logic giữ nguyên)
-      if (formData.value.questions.length > 0) {
-        await Promise.all(formData.value.questions.map(qId =>
-          addQuestionToExam({
-            exam_id: examId!,
-            question_id: qId,
-            point: 1
-          })
-        ));
-      }
+      allow_view_answers: formData.value.allow_view_answers,
+      class_ids: formData.value.class_ids,
+      questions: formData.value.questions
     }
 
-    await getExams(); // Refresh list
-    showModal.value = false;
+    if (formData.value.start_time) {
+      payload.start_time = new Date(formData.value.start_time).toISOString()
+    }
+    if (formData.value.end_time) {
+      payload.end_time = new Date(formData.value.end_time).toISOString()
+    }
+    if (formData.value.password) {
+      payload.password = formData.value.password
+    }
+
+    if (editingExamId.value) {
+      await updateExam(editingExamId.value, payload)
+    } else {
+      await createExam(payload)
+    }
+
+    await getExams()
+    showModal.value = false
+    resetForm()
   } catch (err: any) {
-    // Hiển thị lỗi chi tiết từ backend nếu có
-    alert('Lỗi: ' + (err.response?.data?.detail || err.message));
+    alert(err.response?.data?.detail || err.message)
   } finally {
-    isSubmitting.value = false;
+    isSubmitting.value = false
   }
-};
-
-// Styles
-const getStatusClasses = (status: string) => {
-  const colors: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-700',
-    active: 'bg-green-100 text-green-700',
-    ended: 'bg-red-100 text-red-700'
-  };
-  return colors[status] || '';
-};
-
-const getStatusLabel = (status: string) => {
-  const labels: Record<string, string> = {
-    draft: 'Sắp diễn ra',
-    active: 'Đang diễn ra',
-    ended: 'Đã kết thúc'
-  };
-  return labels[status] || status;
-};
+}
 </script>
+
 
 <template>
   <div>

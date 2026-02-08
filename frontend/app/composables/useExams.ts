@@ -1,35 +1,47 @@
-// ~/composables/useExams.ts
 import type { Exam } from '~/types'
+import { useAuth } from '~/composables/useAuth'
 
 export const useExams = () => {
-  const { $api } = useNuxtApp()
+  const config = useRuntimeConfig()
+  const { user } = useAuth()
 
   const exams = ref<Exam[]>([])
   const loading = ref(false)
-  const error = ref<string | null>(null)
+
+  /* ================= HEADER ================= */
+
+  const authHeader = () => {
+    if (!user.value) {
+      throw new Error('Chưa đăng nhập')
+    }
+    return {
+      'x-user-id': String(user.value.id)
+    }
+  }
 
   /* ================= GET ================= */
 
-  const getExams = async () => {
+  const getExams = async (): Promise<Exam[]> => {
+    if (!user.value) return []
+
     loading.value = true
     try {
-      const res = await $api.get<Exam[]>('/exams')
-      exams.value = res.data
+      const res = await $fetch<Exam[]>('/exams', {
+        baseURL: config.public.apiBase,
+        headers: authHeader()
+      })
+      exams.value = res
       return res
-    } catch (err: any) {
-      error.value = err?.data?.detail || 'Không lấy được danh sách đề thi'
-      throw err
     } finally {
       loading.value = false
     }
   }
 
-  const getExamById = async (examId: number) => {
-    try {
-      return await $api.get<Exam>(`/exams/${examId}`)
-    } catch (err) {
-      throw err
-    }
+  const getExamById = async (id: number): Promise<Exam> => {
+    return await $fetch<Exam>(`/exams/${id}`, {
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
   }
 
   /* ================= CREATE ================= */
@@ -40,22 +52,24 @@ export const useExams = () => {
     duration_minutes: number
     start_time?: string
     end_time?: string
-    created_by: number
     password?: string
-    allow_view_answers?: boolean   // ✅ ĐÚNG TÊN BACKEND
+    allow_view_answers?: boolean
     class_ids?: number[]
+    questions?: number[]
   }) => {
-    try {
-      return await $api.post<Exam>('/exams', payload)
-    } catch (err) {
-      throw err
-    }
+    await $fetch('/exams', {
+      method: 'POST',
+      body: payload,
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
+    await getExams()
   }
 
   /* ================= UPDATE ================= */
 
   const updateExam = async (
-    examId: number,
+    id: number,
     payload: Partial<{
       title: string
       description: string
@@ -63,69 +77,69 @@ export const useExams = () => {
       start_time: string
       end_time: string
       password: string | null
-      allow_view_answers: boolean   // ✅ ĐÚNG TÊN BACKEND
+      allow_view_answers: boolean
       class_ids: number[]
+      questions: number[]
     }>
   ) => {
-    try {
-      return await $api.put<Exam>(`/exams/${examId}`, payload)
-    } catch (err) {
-      throw err
-    }
+    await $fetch(`/exams/${id}`, {
+      method: 'PUT',
+      body: payload,
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
+    await getExams()
   }
 
   /* ================= DELETE ================= */
 
-  const deleteExam = async (examId: number) => {
-    try {
-      await $api.delete(`/exams/${examId}`)
-      exams.value = exams.value.filter(e => e.id !== examId)
-    } catch (err) {
-      throw err
-    }
+  const deleteExam = async (id: number) => {
+    await $fetch(`/exams/${id}`, {
+      method: 'DELETE',
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
+    await getExams()
   }
 
   /* ================= QUESTIONS ================= */
 
-  const addQuestionToExam = async (payload: {
-    exam_id: number
-    question_id: number
-    point?: number
-  }) => {
-    try {
-      return await $api.post(
-        `/exams/${payload.exam_id}/questions`,
-        payload
-      )
-    } catch (err) {
-      throw err
-    }
+  const addQuestionToExam = async (examId: number, questionId: number) => {
+    await $fetch(`/exams/${examId}/questions`, {
+      method: 'POST',
+      body: { question_id: questionId },
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
+    return getExamById(examId)
   }
 
-  const removeQuestionFromExam = async (
-    examId: number,
-    questionId: number
-  ) => {
-    try {
-      await $api.delete(`/exams/${examId}/questions/${questionId}`)
-    } catch (err) {
-      throw err
-    }
+  const removeQuestionFromExam = async (examId: number, questionId: number) => {
+    await $fetch(`/exams/${examId}/questions/${questionId}`, {
+      method: 'DELETE',
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
+    return getExamById(examId)
+  }
+
+  const getExamQuestions = async (examId: number) => {
+    return await $fetch(`/exams/${examId}/questions`, {
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
   }
 
   return {
-    // state
     exams,
     loading,
-    error,
-
-    // methods
     getExams,
     getExamById,
     createExam,
     updateExam,
     deleteExam,
     addQuestionToExam,
-    removeQuestionFromExam
+    removeQuestionFromExam,
+    getExamQuestions
   }
 }

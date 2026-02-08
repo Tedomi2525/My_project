@@ -1,68 +1,90 @@
 from sqlalchemy.orm import Session
+
 from app.models.exam import Exam
 from app.models.exam_question import ExamQuestion
 from app.models.exam_allowed_class import ExamAllowedClass
+from app.models.question import Question
+
 from app.schemas.exam import ExamCreate
 
 
 class ExamService:
     # =====================================================
-    # EXAM CRUD
+    # EXAM CRUD (NO AUTH / NO ROLE)
     # =====================================================
 
     @staticmethod
-    def create_exam(db: Session, exam_in: ExamCreate):
-        # 1. Dump data từ schema
+    def create_exam(
+        db: Session,
+        exam_in: ExamCreate,
+        owner_id: int,
+    ):
         exam_data = exam_in.model_dump()
 
         class_ids = exam_data.pop("class_ids", [])
         question_ids = exam_data.pop("questions", [])
 
-        # 2. Tạo Exam (bao gồm allow_view_answers)
+        exam_data["owner_id"] = owner_id
+
         db_exam = Exam(**exam_data)
         db.add(db_exam)
         db.commit()
         db.refresh(db_exam)
 
-        # 3. Gán lớp được phép thi
-        if class_ids:
-            for cls_id in class_ids:
-                db.add(
-                    ExamAllowedClass(
-                        exam_id=db_exam.id,
-                        class_id=cls_id
-                    )
+        # allowed classes
+        for cls_id in class_ids:
+            db.add(
+                ExamAllowedClass(
+                    exam_id=db_exam.id,
+                    class_id=cls_id
                 )
+            )
 
-        # 4. Gán câu hỏi vào đề
-        if question_ids:
-            for q_id in question_ids:
-                db.add(
-                    ExamQuestion(
-                        exam_id=db_exam.id,
-                        question_id=q_id
-                    )
+        # questions
+        for q_id in question_ids:
+            db.add(
+                ExamQuestion(
+                    exam_id=db_exam.id,
+                    question_id=q_id
                 )
+            )
 
         db.commit()
         db.refresh(db_exam)
         return db_exam
 
+    # =====================================================
+    # READ
+    # =====================================================
+
+    @staticmethod
+    def get_exams(db: Session):
+        return db.query(Exam).all()
+
     @staticmethod
     def get_exam(db: Session, exam_id: int):
-        return db.query(Exam).filter(Exam.id == exam_id).first()
+        return db.query(Exam).filter(
+            Exam.id == exam_id
+        ).first()
+
+    # =====================================================
+    # UPDATE / DELETE
+    # =====================================================
 
     @staticmethod
-    def get_exams(db: Session, skip: int = 0, limit: int = 100):
-        return db.query(Exam).offset(skip).limit(limit).all()
+    def update_exam(
+        db: Session,
+        exam_id: int,
+        exam_data: dict,
+    ):
+        db_exam = db.query(Exam).filter(
+            Exam.id == exam_id
+        ).first()
 
-    @staticmethod
-    def update_exam(db: Session, exam_id: int, exam_data: dict):
-        db_exam = db.query(Exam).filter(Exam.id == exam_id).first()
         if not db_exam:
             return None
 
-        # ================= CLASS IDS =================
+        # ---------- class ids ----------
         if "class_ids" in exam_data:
             new_class_ids = exam_data.pop("class_ids")
 
@@ -70,16 +92,15 @@ class ExamService:
                 ExamAllowedClass.exam_id == exam_id
             ).delete()
 
-            if new_class_ids:
-                for cls_id in new_class_ids:
-                    db.add(
-                        ExamAllowedClass(
-                            exam_id=exam_id,
-                            class_id=cls_id
-                        )
+            for cls_id in new_class_ids:
+                db.add(
+                    ExamAllowedClass(
+                        exam_id=exam_id,
+                        class_id=cls_id
                     )
+                )
 
-        # ================= QUESTIONS =================
+        # ---------- questions ----------
         if "questions" in exam_data:
             new_question_ids = exam_data.pop("questions")
 
@@ -87,17 +108,15 @@ class ExamService:
                 ExamQuestion.exam_id == exam_id
             ).delete()
 
-            if new_question_ids:
-                for q_id in new_question_ids:
-                    db.add(
-                        ExamQuestion(
-                            exam_id=exam_id,
-                            question_id=q_id
-                        )
+            for q_id in new_question_ids:
+                db.add(
+                    ExamQuestion(
+                        exam_id=exam_id,
+                        question_id=q_id
                     )
+                )
 
-        # ================= BASIC FIELDS =================
-        # title, description, duration, time, password, allow_view_answers...
+        # ---------- basic fields ----------
         for key, value in exam_data.items():
             setattr(db_exam, key, value)
 
@@ -106,8 +125,14 @@ class ExamService:
         return db_exam
 
     @staticmethod
-    def delete_exam(db: Session, exam_id: int):
-        db_exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    def delete_exam(
+        db: Session,
+        exam_id: int,
+    ):
+        db_exam = db.query(Exam).filter(
+            Exam.id == exam_id
+        ).first()
+
         if not db_exam:
             return False
 
@@ -116,38 +141,65 @@ class ExamService:
         return True
 
     # =====================================================
-    # QUESTION MANAGEMENT (OPTIONAL APIs)
+    # QUESTION MANAGEMENT
     # =====================================================
 
     @staticmethod
-    def add_question_to_exam(db: Session, exam_id: int, question_id: int):
-        existing = db.query(ExamQuestion).filter(
+    def add_question_to_exam(
+        db: Session,
+        exam_id: int,
+        question_id: int,
+    ):
+        exam = db.query(Exam).filter(
+            Exam.id == exam_id
+        ).first()
+
+        if not exam:
+            return None
+
+        exists = db.query(ExamQuestion).filter(
             ExamQuestion.exam_id == exam_id,
             ExamQuestion.question_id == question_id
         ).first()
 
-        if existing:
-            return existing
+        if exists:
+            return exists
 
-        db_link = ExamQuestion(
+        link = ExamQuestion(
             exam_id=exam_id,
             question_id=question_id
         )
-        db.add(db_link)
+        db.add(link)
         db.commit()
-        db.refresh(db_link)
-        return db_link
+        db.refresh(link)
+        return link
 
     @staticmethod
-    def remove_question_from_exam(db: Session, exam_id: int, question_id: int):
-        db_link = db.query(ExamQuestion).filter(
+    def remove_question_from_exam(
+        db: Session,
+        exam_id: int,
+        question_id: int,
+    ):
+        link = db.query(ExamQuestion).filter(
             ExamQuestion.exam_id == exam_id,
             ExamQuestion.question_id == question_id
         ).first()
 
-        if not db_link:
+        if not link:
             return False
 
-        db.delete(db_link)
+        db.delete(link)
         db.commit()
         return True
+
+    @staticmethod
+    def get_exam_questions(
+        db: Session,
+        exam_id: int,
+    ):
+        return (
+            db.query(Question)
+            .join(ExamQuestion, Question.id == ExamQuestion.question_id)
+            .filter(ExamQuestion.exam_id == exam_id)
+            .all()
+        )
