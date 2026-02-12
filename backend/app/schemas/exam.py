@@ -40,7 +40,7 @@ class ExamBase(BaseModel):
 # Create Schema
 # =====================================================
 class ExamCreate(ExamBase):
-    created_by: int
+
     class_ids: List[int] = Field(default_factory=list)
     questions: List[int] = Field(default_factory=list)
 
@@ -91,11 +91,10 @@ class ExamResponse(BaseModel):
 
     password: Optional[str] = Field(default=None, exclude=True)
 
-    # ✅ Trả trạng thái cho FE
     allow_view_answers: bool
 
     allowed_classes: List[int] = Field(default_factory=list)
-    questions: List[int] = Field(default_factory=list)
+    exam_questions: List[int] = Field(default_factory=list)
 
     @computed_field
     def has_password(self) -> bool:
@@ -110,7 +109,7 @@ class ExamResponse(BaseModel):
         return v or []
 
     # ===== Extract question_id from ExamQuestion =====
-    @field_validator("questions", mode="before")
+    @field_validator("exam_questions", mode="before")
     @classmethod
     def extract_question_ids(cls, v):
         if v and isinstance(v, list) and hasattr(v[0], "question_id"):

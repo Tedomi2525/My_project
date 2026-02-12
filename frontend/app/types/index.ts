@@ -33,12 +33,12 @@ export interface Exam {
   duration_minutes: number;
   start_time: string | null;
   end_time: string | null;
-  show_answers: boolean;
+  // show_answers: boolean;
   allow_view_answers?: boolean;
   created_by: number;
   has_password: boolean;
-  allowed_classes?: number[]; 
-  questions?: number[];
+  allowed_classes: number[]; 
+  exam_questions: number[];
   status?: 'draft' | 'active' | 'ended';
 }
 export interface ExamResult {

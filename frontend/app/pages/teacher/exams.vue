@@ -50,9 +50,13 @@ const editingExamId = ref<number | null>(null)
 const availableQuestions = ref<Question[]>([])
 const availableClasses = ref<ClassItem[]>([])
 const isLoadingResources = ref(false)
-
 const error = ref<string | null>(null)
 
+/**
+ * Form state
+ * - questions + class_ids là nguồn sự thật
+ * - KHÔNG reset khi EDIT
+ */
 const formData = ref({
   title: '',
   description: '',
@@ -70,10 +74,8 @@ const formData = ref({
 onMounted(async () => {
   if (!user.value) return
 
-  // 1. Exams
   await getExams()
 
-  // 2. Questions + Classes
   try {
     isLoadingResources.value = true
 
@@ -120,7 +122,7 @@ const formatDateForInput = (dateStr: string | null) => {
 }
 
 const formatDateDisplay = (dateStr: string | null) => {
-  if (!dateStr) return '---'
+  if (!dateStr) return 'Không xác định'
   return new Date(dateStr).toLocaleString('vi-VN')
 }
 
@@ -131,32 +133,38 @@ const getExamStatus = (exam: Exam) => {
   const start = exam.start_time ? new Date(exam.start_time) : null
   const end = exam.end_time ? new Date(exam.end_time) : null
 
-  if (!start || now < start) return 'draft'
-  if (end && now > end) return 'ended'
+  if (!start || !end) return 'draft'
+  if (now < start) return 'upcoming'
+  if (now > end) return 'closed'
   return 'active'
 }
 
-const getStatusClasses = (status: string) => {
-  const map: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-700',
-    active: 'bg-green-100 text-green-700',
-    ended: 'bg-red-100 text-red-700'
+const getStatusLabel = (status: string) => {
+  const labels: Record<string, string> = {
+    draft: 'Nháp',
+    upcoming: 'Sắp diễn ra',
+    active: 'Đang diễn ra',
+    closed: 'Đã kết thúc'
   }
-  return map[status] || ''
+  return labels[status] || 'Không xác định'
 }
 
-const getStatusLabel = (status: string) => {
-  const map: Record<string, string> = {
-    draft: 'Sắp diễn ra',
-    active: 'Đang diễn ra',
-    ended: 'Đã kết thúc'
+const getStatusClasses = (status: string) => {
+  const classes: Record<string, string> = {
+    draft: 'bg-gray-100 text-gray-800',
+    upcoming: 'bg-blue-100 text-blue-800',
+    active: 'bg-green-100 text-green-800',
+    closed: 'bg-red-100 text-red-800'
   }
-  return map[status] || status
+  return classes[status] || 'bg-gray-100 text-gray-800'
 }
 
 /* ================= METHODS ================= */
 
-const resetForm = () => {
+/**
+ * ⚠️ CHỈ dùng cho CREATE
+ */
+const resetFormForCreate = () => {
   editingExamId.value = null
   formData.value = {
     title: '',
@@ -172,7 +180,7 @@ const resetForm = () => {
 }
 
 const handleAddExam = () => {
-  resetForm()
+  resetFormForCreate()
   showModal.value = true
 }
 
@@ -189,12 +197,16 @@ const handleEditExam = async (exam: Exam) => {
       duration_minutes: detail.duration_minutes,
       start_time: formatDateForInput(detail.start_time),
       end_time: formatDateForInput(detail.end_time),
-      questions: detail.questions || [],
-      class_ids: detail.allowed_classes || [],
+
+      // 🔥 luôn sync FULL list
+      questions: [...(detail.exam_questions ?? [])],
+      class_ids: [...(detail.allowed_classes ?? [])],
+
       allow_view_answers: detail.allow_view_answers ?? true,
       password: ''
     }
-  } catch {
+  } catch (err) {
+    console.error(err)
     alert('Không lấy được chi tiết đề thi')
     showModal.value = false
   }
@@ -207,37 +219,40 @@ const handleDeleteExam = async (id: number) => {
 }
 
 const handleSubmit = async () => {
+  if (isSubmitting.value) return
+
   try {
     isSubmitting.value = true
+    console.log('SUBMIT QUESTIONS:', formData.value.questions)
 
     const payload: any = {
       title: formData.value.title,
       description: formData.value.description,
       duration_minutes: formData.value.duration_minutes,
       allow_view_answers: formData.value.allow_view_answers,
-      class_ids: formData.value.class_ids,
-      questions: formData.value.questions
+      class_ids: [...formData.value.class_ids],
+      questions: [...formData.value.questions]
     }
 
-    if (formData.value.start_time) {
+    if (formData.value.start_time)
       payload.start_time = new Date(formData.value.start_time).toISOString()
-    }
-    if (formData.value.end_time) {
+
+    if (formData.value.end_time)
       payload.end_time = new Date(formData.value.end_time).toISOString()
-    }
-    if (formData.value.password) {
+
+    if (formData.value.password)
       payload.password = formData.value.password
-    }
 
     if (editingExamId.value) {
       await updateExam(editingExamId.value, payload)
+      showModal.value = false
     } else {
       await createExam(payload)
+      resetFormForCreate()
+      showModal.value = false
     }
 
     await getExams()
-    showModal.value = false
-    resetForm()
   } catch (err: any) {
     alert(err.response?.data?.detail || err.message)
   } finally {
@@ -245,7 +260,6 @@ const handleSubmit = async () => {
   }
 }
 </script>
-
 
 <template>
   <div>

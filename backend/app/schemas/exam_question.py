@@ -3,7 +3,6 @@ from pydantic import BaseModel
 class ExamQuestionBase(BaseModel):
     exam_id: int
     question_id: int
-    point: int = 1
 
 class ExamQuestionCreate(ExamQuestionBase):
     pass

@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.exam import Exam
 from app.models.exam_question import ExamQuestion
@@ -21,10 +21,13 @@ class ExamService:
     ):
         exam_data = exam_in.model_dump()
 
+        print("EXAM DATA:", exam_data)
+        print("QUESTIONS:", question_ids := exam_data.get("questions"))
+
         class_ids = exam_data.pop("class_ids", [])
         question_ids = exam_data.pop("questions", [])
 
-        exam_data["owner_id"] = owner_id
+        exam_data["created_by"] = owner_id
 
         db_exam = Exam(**exam_data)
         db.add(db_exam)
@@ -59,13 +62,26 @@ class ExamService:
 
     @staticmethod
     def get_exams(db: Session):
-        return db.query(Exam).all()
+        return (
+            db.query(Exam)
+            .options(
+                joinedload(Exam.allowed_classes),
+                joinedload(Exam.exam_questions)
+            )
+            .all()
+        )
 
     @staticmethod
     def get_exam(db: Session, exam_id: int):
-        return db.query(Exam).filter(
-            Exam.id == exam_id
-        ).first()
+        return (
+            db.query(Exam)
+            .options(
+                joinedload(Exam.allowed_classes),
+                joinedload(Exam.exam_questions)
+            )
+            .filter(Exam.id == exam_id)
+            .first()
+        )
 
     # =====================================================
     # UPDATE / DELETE
@@ -81,44 +97,51 @@ class ExamService:
             Exam.id == exam_id
         ).first()
 
+        print("EXAM DATA:", exam_data)
+        print("QUESTIONS:", exam_data.get("questions"))
+
         if not db_exam:
             return None
 
         # ---------- class ids ----------
         if "class_ids" in exam_data:
             new_class_ids = exam_data.pop("class_ids")
+            
+            # Chỉ xóa và thêm lại nếu new_class_ids là list
+            if isinstance(new_class_ids, list):
+                db.query(ExamAllowedClass).filter(
+                    ExamAllowedClass.exam_id == exam_id
+                ).delete()
 
-            db.query(ExamAllowedClass).filter(
-                ExamAllowedClass.exam_id == exam_id
-            ).delete()
-
-            for cls_id in new_class_ids:
-                db.add(
-                    ExamAllowedClass(
-                        exam_id=exam_id,
-                        class_id=cls_id
+                for cls_id in new_class_ids:
+                    db.add(
+                        ExamAllowedClass(
+                            exam_id=exam_id,
+                            class_id=cls_id
+                        )
                     )
-                )
 
         # ---------- questions ----------
-        if "questions" in exam_data:
-            new_question_ids = exam_data.pop("questions")
+        if "exam_questions" in exam_data:
+            new_question_ids = exam_data.pop("exam_questions")
 
-            db.query(ExamQuestion).filter(
-                ExamQuestion.exam_id == exam_id
-            ).delete()
+            if isinstance(new_question_ids, list):
+                db.query(ExamQuestion).filter(
+                    ExamQuestion.exam_id == exam_id
+                ).delete()
 
-            for q_id in new_question_ids:
-                db.add(
-                    ExamQuestion(
-                        exam_id=exam_id,
-                        question_id=q_id
+                for q_id in new_question_ids:
+                    db.add(
+                        ExamQuestion(
+                            exam_id=exam_id,
+                            question_id=q_id
+                        )
                     )
-                )
 
         # ---------- basic fields ----------
         for key, value in exam_data.items():
-            setattr(db_exam, key, value)
+            if hasattr(db_exam, key):  # Kiểm tra attribute tồn tại
+                setattr(db_exam, key, value)
 
         db.commit()
         db.refresh(db_exam)

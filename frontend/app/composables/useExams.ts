@@ -55,15 +55,17 @@ export const useExams = () => {
     password?: string
     allow_view_answers?: boolean
     class_ids?: number[]
-    questions?: number[]
-  }) => {
-    await $fetch('/exams', {
+    questions: number[]
+  }): Promise<Exam> => {
+    const exam = await $fetch<Exam>('/exams', {
       method: 'POST',
       body: payload,
       baseURL: config.public.apiBase,
       headers: authHeader()
     })
+
     await getExams()
+    return exam
   }
 
   /* ================= UPDATE ================= */
@@ -88,6 +90,7 @@ export const useExams = () => {
       baseURL: config.public.apiBase,
       headers: authHeader()
     })
+
     await getExams()
   }
 
@@ -99,35 +102,8 @@ export const useExams = () => {
       baseURL: config.public.apiBase,
       headers: authHeader()
     })
+
     await getExams()
-  }
-
-  /* ================= QUESTIONS ================= */
-
-  const addQuestionToExam = async (examId: number, questionId: number) => {
-    await $fetch(`/exams/${examId}/questions`, {
-      method: 'POST',
-      body: { question_id: questionId },
-      baseURL: config.public.apiBase,
-      headers: authHeader()
-    })
-    return getExamById(examId)
-  }
-
-  const removeQuestionFromExam = async (examId: number, questionId: number) => {
-    await $fetch(`/exams/${examId}/questions/${questionId}`, {
-      method: 'DELETE',
-      baseURL: config.public.apiBase,
-      headers: authHeader()
-    })
-    return getExamById(examId)
-  }
-
-  const getExamQuestions = async (examId: number) => {
-    return await $fetch(`/exams/${examId}/questions`, {
-      baseURL: config.public.apiBase,
-      headers: authHeader()
-    })
   }
 
   return {
@@ -137,9 +113,6 @@ export const useExams = () => {
     getExamById,
     createExam,
     updateExam,
-    deleteExam,
-    addQuestionToExam,
-    removeQuestionFromExam,
-    getExamQuestions
+    deleteExam
   }
 }
