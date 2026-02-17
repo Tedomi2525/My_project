@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, Header, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
+from app.models.class_student import ClassStudent
 
 # -------------------------------------------------------------------
 # 1. Dependency lấy User hiện tại từ Header (Thay cho Token)
@@ -23,7 +24,6 @@ def get_current_user(
             detail="Header x-user-id phải là số nguyên"
         )
 
-    # Tìm user trong DB
     user = db.query(User).filter(User.id == user_id_int).first()
     
     if not user:
@@ -34,24 +34,23 @@ def get_current_user(
     
     return user
 
-# -------------------------------------------------------------------
-# 2. Dependency kiểm tra quyền Giáo viên
-# -------------------------------------------------------------------
-def get_current_teacher(current_user: User = Depends(get_current_user)):
-    # Lấy role ra (xử lý cả trường hợp nó là Enum hoặc String để tránh lỗi)
-    role_name = current_user.role.value if hasattr(current_user.role, "value") else current_user.role
-    
-    # Cho phép cả Admin và Teacher
-    if role_name not in ["Teacher", "Admin"]:
+def get_current_teacher(
+    current_user: User = Depends(get_current_user)
+):
+    role = (
+        current_user.role.value
+        if hasattr(current_user.role, "value")
+        else current_user.role
+    )
+
+    if role != "teacher":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Bạn không có quyền Giáo viên (Role required: Teacher/Admin)"
+            status_code=403,
+            detail="Teacher permission required"
         )
+
     return current_user
 
-# -------------------------------------------------------------------
-# 3. Dependency kiểm tra quyền Admin
-# -------------------------------------------------------------------
 def get_current_admin(current_user: User = Depends(get_current_user)):
     role_name = current_user.role.value if hasattr(current_user.role, "value") else current_user.role
 
@@ -61,3 +60,32 @@ def get_current_admin(current_user: User = Depends(get_current_user)):
             detail="Bạn không có quyền Admin"
         )
     return current_user
+
+
+def get_current_student(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    role = (
+        current_user.role.value
+        if hasattr(current_user.role, "value")
+        else current_user.role
+    )
+
+    if role != "student":
+        raise HTTPException(403, "Student permission required")
+
+    class_student = (
+        db.query(ClassStudent)
+        .filter(ClassStudent.student_id == current_user.id)
+        .first()
+    )
+
+    if not class_student:
+        raise HTTPException(400, "Student has no class")
+
+    # gán tạm class_id cho user (dùng tiếp)
+    current_user.class_id = class_student.class_id
+
+    return current_user
+

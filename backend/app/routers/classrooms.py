@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_current_student
 from app.models.user import User
 
 from app.schemas.classroom import (
@@ -20,9 +20,8 @@ router = APIRouter(
     tags=["Classes"]
 )
 
-
-# ---------- ROLE CHECK ----------
-def require_teacher(user: User):
+# ---------- ROLE CHECK (DEPENDENCY) ----------
+def get_current_teacher(user: User = Depends(get_current_user)) -> User:
     if user.role != "teacher":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -30,17 +29,15 @@ def require_teacher(user: User):
         )
     return user
 
-
 # ---------- GET /classes ----------
 @router.get("/", response_model=List[ClassResponse])
 def get_classes(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_teacher: User = Depends(get_current_teacher)
 ):
-    require_teacher(current_user)
     return ClassService.get_classes_by_teacher(
         db=db,
-        teacher_id=current_user.id
+        teacher_id=current_teacher.id
     )
 
 
@@ -49,13 +46,12 @@ def get_classes(
 def create_class(
     data: ClassCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_teacher: User = Depends(get_current_teacher)
 ):
-    require_teacher(current_user)
     return ClassService.create_class(
         db=db,
         data=data,
-        teacher_id=current_user.id
+        teacher_id=current_teacher.id
     )
 
 
@@ -64,30 +60,27 @@ def create_class(
 def get_class_detail(
     class_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_teacher: User = Depends(get_current_teacher)
 ):
-    require_teacher(current_user)
     cls = ClassService.get_class(db, class_id)
 
-    if cls["teacher_id"] != current_user.id:
-        raise HTTPException(status_code=403)
+    if cls["teacher_id"] != current_teacher.id:
+        raise HTTPException(status_code=403, detail="Not your class")
 
     return cls
 
+# ---------- GET /classes/{id}/available-students ----------
 @router.get("/{class_id}/available-students")
 def get_available_students(
     class_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_teacher: User = Depends(get_current_teacher)
 ):
-    require_teacher(current_user)
-
     cls = ClassService.get_class(db, class_id)
-    if cls["teacher_id"] != current_user.id:
-        raise HTTPException(status_code=403)
+    if cls["teacher_id"] != current_teacher.id:
+        raise HTTPException(status_code=403, detail="Not your class")
 
     return ClassService.get_available_students(db, class_id)
-
 
 
 # ---------- PUT /classes/{id} ----------
@@ -96,13 +89,12 @@ def update_class(
     class_id: int,
     data: ClassUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_teacher: User = Depends(get_current_teacher)
 ):
-    require_teacher(current_user)
     cls = ClassService.get_class(db, class_id)
 
-    if cls["teacher_id"] != current_user.id:
-        raise HTTPException(status_code=403)
+    if cls["teacher_id"] != current_teacher.id:
+        raise HTTPException(status_code=403, detail="Not your class")
 
     return ClassService.update_class(
         db=db,
@@ -116,13 +108,12 @@ def update_class(
 def delete_class(
     class_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_teacher: User = Depends(get_current_teacher)
 ):
-    require_teacher(current_user)
     cls = ClassService.get_class(db, class_id)
 
-    if cls["teacher_id"] != current_user.id:
-        raise HTTPException(status_code=403)
+    if cls["teacher_id"] != current_teacher.id:
+        raise HTTPException(status_code=403, detail="Not your class")
 
     ClassService.delete_class(db, class_id)
     return {"message": "Class deleted successfully"}
@@ -133,15 +124,13 @@ def delete_class(
 def add_student(
     class_id: int,
     student_id: int,
-    # data: ClassStudentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_teacher: User = Depends(get_current_teacher)
 ):
-    require_teacher(current_user)
     cls = ClassService.get_class(db, class_id)
 
-    if cls["teacher_id"] != current_user.id:
-        raise HTTPException(status_code=403)
+    if cls["teacher_id"] != current_teacher.id:
+        raise HTTPException(status_code=403, detail="Not your class")
 
     ClassService.add_student(
         db=db,
@@ -157,13 +146,12 @@ def remove_student(
     class_id: int,
     student_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_teacher: User = Depends(get_current_teacher)
 ):
-    require_teacher(current_user)
     cls = ClassService.get_class(db, class_id)
 
-    if cls["teacher_id"] != current_user.id:
-        raise HTTPException(status_code=403)
+    if cls["teacher_id"] != current_teacher.id:
+        raise HTTPException(status_code=403, detail="Not your class")
 
     ClassService.remove_student(
         db=db,

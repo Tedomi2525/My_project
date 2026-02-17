@@ -1,46 +1,72 @@
 <script setup lang="ts">
 import { Clock, Lock, CheckCircle, X } from 'lucide-vue-next'
 import type { Exam } from '~/types'
+import { useExams } from '~/composables/useExams'
+import { useAuth } from '~/composables/useAuth'
 
 definePageMeta({ layout: 'student' })
+
 const router = useRouter()
-const studentId = 'student1' // Mock ID
+const config = useRuntimeConfig()
 
-// Mock Data
-const mockExams: Exam[] = [
-  {
-    id: 'exam1', title: 'Kiểm tra giữa kỳ - Lập trình Web', duration: 60,
-    startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    endTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    questions: ['q1', 'q2'], allowedStudents: ['student1', 'student2'],
-    status: 'active', showAnswers: true, createdBy: 'teacher1', password: 'web123'
-  },
-  {
-    id: 'exam2', title: 'Bài tập tuần 5', duration: 30,
-    startTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    endTime: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    questions: ['q3'], allowedStudents: ['student1', 'student2', 'student3'],
-    status: 'active', showAnswers: false, createdBy: 'teacher1'
-  }
-]
+/* ================= STATE ================= */
+const exams = ref<Exam[]>([])
+const loading = ref(false)
 
-// State
 const showPasswordModal = ref(false)
 const selectedExam = ref<Exam | null>(null)
 const password = ref('')
 const error = ref('')
+const { user } = useAuth()
 
-const availableExams = computed(() => 
-  mockExams.filter(exam => exam.allowedStudents.includes(studentId) && exam.status === 'active')
+/* ================= FETCH EXAMS ================= */
+const loadExams = async () => {
+  if (!user.value) return
+  
+  loading.value = true
+  try {
+    exams.value = await $fetch<Exam[]>('/exams/my-exams', {
+      baseURL: config.public.apiBase,
+      headers: {
+        // Gửi ID để backend thực hiện get_current_student
+        'x-user-id': String(user.value.id) 
+      }
+    })
+  } catch (err) {
+    console.error("Lỗi xác nhận sinh viên:", err)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadExams)
+
+/* ================= COMPUTED ================= */
+const availableExams = computed(() =>
+  exams.value.filter(exam => {
+    const now = new Date()
+    if (!exam.start_time || !exam.end_time) return false
+
+    return (
+      now >= new Date(exam.start_time) &&
+      now <= new Date(exam.end_time)
+    )
+  })
 )
 
+/* ================= METHODS ================= */
 const isExamAvailable = (exam: Exam) => {
   const now = new Date()
-  return now >= new Date(exam.startTime) && now <= new Date(exam.endTime)
+  return (
+    exam.start_time &&
+    exam.end_time &&
+    now >= new Date(exam.start_time) &&
+    now <= new Date(exam.end_time)
+  )
 }
 
 const handleStartExam = (exam: Exam) => {
-  if (exam.password) {
+  if (exam.has_password) {
     selectedExam.value = exam
     password.value = ''
     error.value = ''
@@ -50,10 +76,17 @@ const handleStartExam = (exam: Exam) => {
   }
 }
 
-const handlePasswordSubmit = () => {
-  if (selectedExam.value && password.value === selectedExam.value.password) {
+const handlePasswordSubmit = async () => {
+  if (!selectedExam.value) return
+
+  try {
+    await $fetch(`/exams/${selectedExam.value.id}/check-password`, {
+      method: 'POST',
+      baseURL: config.public.apiBase,
+      body: { password: password.value }
+    })
     router.push(`/student/exam/${selectedExam.value.id}`)
-  } else {
+  } catch {
     error.value = 'Mật khẩu không đúng!'
   }
 }
@@ -63,7 +96,11 @@ const handlePasswordSubmit = () => {
   <div>
     <h2 class="mb-6 font-bold text-xl">Bài thi của bạn</h2>
 
-    <div v-if="availableExams.length === 0" class="bg-white rounded-lg shadow p-12 text-center">
+    <div v-if="loading" class="flex justify-center p-12">
+      <Loader2 class="w-8 h-8 animate-spin text-blue-600" />
+    </div>
+
+    <div v-else-if="availableExams.length === 0" class="bg-white rounded-lg shadow p-12 text-center">
       <p class="text-gray-500">Bạn chưa có bài thi nào</p>
     </div>
 
@@ -71,7 +108,7 @@ const handlePasswordSubmit = () => {
       <div v-for="exam in availableExams" :key="exam.id" class="bg-white rounded-lg shadow p-6">
         <div class="mb-4">
           <h3 class="mb-2 font-semibold text-lg">{{ exam.title }}</h3>
-          <span v-if="exam.password" class="inline-flex items-center gap-1 text-sm text-orange-600 bg-orange-50 px-2 py-1 rounded">
+          <span v-if="exam.has_password" class="inline-flex items-center gap-1 text-sm text-orange-600 bg-orange-50 px-2 py-1 rounded">
             <Lock class="w-4 h-4" /> Có mật khẩu
           </span>
         </div>
@@ -79,14 +116,14 @@ const handlePasswordSubmit = () => {
         <div class="space-y-2 text-gray-600 mb-6 text-sm">
           <div class="flex items-center gap-2">
             <Clock class="w-4 h-4" />
-            <span>Thời gian: {{ exam.duration }} phút</span>
+            <span>Thời gian: {{ exam.duration_minutes }} phút</span>
           </div>
           <div class="flex items-center gap-2">
             <CheckCircle class="w-4 h-4" />
-            <span>Số câu hỏi: {{ exam.questions.length }}</span>
+            <span>Số câu hỏi: {{ exam.exam_questions?.length || 0 }}</span>
           </div>
-          <p>Mở: {{ new Date(exam.startTime).toLocaleString('vi-VN') }}</p>
-          <p>Đóng: {{ new Date(exam.endTime).toLocaleString('vi-VN') }}</p>
+          <p v-if="exam.start_time">Mở: {{ new Date(exam.start_time).toLocaleString('vi-VN') }}</p>
+          <p v-if="exam.end_time">Đóng: {{ new Date(exam.end_time).toLocaleString('vi-VN') }}</p>
         </div>
 
         <button
@@ -97,7 +134,7 @@ const handlePasswordSubmit = () => {
           Vào thi
         </button>
         <div v-else class="w-full px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-center font-medium">
-          {{ new Date() < new Date(exam.startTime) ? 'Chưa đến giờ thi' : 'Đã hết hạn' }}
+          {{ (exam.start_time && new Date() < new Date(exam.start_time)) ? 'Chưa đến giờ thi' : 'Đã hết hạn' }}
         </div>
       </div>
     </div>
@@ -136,10 +173,6 @@ const handlePasswordSubmit = () => {
             <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Vào thi</button>
           </div>
         </form>
-        
-        <div class="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-           💡 Mật khẩu demo: <code class="bg-blue-100 px-2 py-1 rounded font-mono font-bold">web123</code>
-        </div>
       </div>
     </div>
   </div>

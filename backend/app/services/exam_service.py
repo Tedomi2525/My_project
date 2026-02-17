@@ -226,3 +226,15 @@ class ExamService:
             .filter(ExamQuestion.exam_id == exam_id)
             .all()
         )
+    
+    @staticmethod
+    def get_exams_for_student(
+        db: Session,
+        class_id: int,
+    ):
+        return (
+            db.query(Exam)
+            .join(ExamAllowedClass)
+            .filter(ExamAllowedClass.class_id == class_id)
+            .all()
+        )

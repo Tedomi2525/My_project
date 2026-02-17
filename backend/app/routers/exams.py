@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_student, get_current_user
 from app.models.user import User
 
 from app.schemas.exam import ExamCreate, ExamResponse, ExamUpdate
@@ -51,6 +51,14 @@ def create_exam(
 ):
     require_teacher(current_user)
     return ExamService.create_exam(db, exam, current_user)
+
+@router.get("/my-exams", response_model=List[ExamResponse])
+def get_my_exams(
+    db: Session = Depends(get_db),
+    current_student: User = Depends(get_current_student)
+):
+    class_id = current_student.class_id
+    return ExamService.get_exams_for_student(db, class_id)
 
 
 @router.get("/{exam_id}", response_model=ExamResponse)
@@ -101,10 +109,6 @@ def delete_exam(
     return {"message": "Exam deleted successfully"}
 
 
-# ==========================================
-#        QUẢN LÝ CÂU HỎI TRONG ĐỀ
-# ==========================================
-
 @router.get("/{exam_id}/questions", response_model=List[QuestionResponse])
 def get_exam_questions(
     exam_id: int,
@@ -118,5 +122,4 @@ def get_exam_questions(
         raise HTTPException(status_code=404, detail="Exam not found")
 
     return ExamService.get_exam_questions(db, exam_id)
-
 
