@@ -122,8 +122,8 @@ class ExamService:
                     )
 
         # ---------- questions ----------
-        if "exam_questions" in exam_data:
-            new_question_ids = exam_data.pop("exam_questions")
+        if "questions" in exam_data:
+            new_question_ids = exam_data.pop("questions")
 
             if isinstance(new_question_ids, list):
                 db.query(ExamQuestion).filter(

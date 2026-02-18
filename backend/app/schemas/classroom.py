@@ -24,6 +24,7 @@ class ClassResponse(BaseModel):
     name: str
     description: Optional[str]
     teacher_id: int
+    student_count: int = 0
 
 
 class ClassDetailResponse(ClassResponse):

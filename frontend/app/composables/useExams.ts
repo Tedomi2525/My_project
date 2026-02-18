@@ -1,28 +1,33 @@
-import type { Exam } from '~/types'
+import type { Exam, Question } from '~/types'
 import { useAuth } from '~/composables/useAuth'
 
 export const useExams = () => {
   const config = useRuntimeConfig()
-  const { user } = useAuth()
+  const { user, fetchUser } = useAuth()
 
   const exams = ref<Exam[]>([])
   const loading = ref(false)
 
-  /* ================= HEADER ================= */
+  const ensureAuth = async () => {
+    if (!user.value) {
+      await fetchUser()
+    }
+    if (!user.value) {
+      throw new Error('Chua dang nhap')
+    }
+  }
 
   const authHeader = () => {
     if (!user.value) {
-      throw new Error('Chưa đăng nhập')
+      throw new Error('Chua dang nhap')
     }
     return {
       'x-user-id': String(user.value.id)
     }
   }
 
-  /* ================= GET ================= */
-
   const getExams = async (): Promise<Exam[]> => {
-    if (!user.value) return []
+    await ensureAuth()
 
     loading.value = true
     try {
@@ -38,13 +43,40 @@ export const useExams = () => {
   }
 
   const getExamById = async (id: number): Promise<Exam> => {
+    await ensureAuth()
     return await $fetch<Exam>(`/exams/${id}`, {
       baseURL: config.public.apiBase,
       headers: authHeader()
     })
   }
 
-  /* ================= CREATE ================= */
+  const getExamQuestions = async (id: number): Promise<Question[]> => {
+    await ensureAuth()
+    return await $fetch<Question[]>(`/exams/${id}/questions`, {
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
+  }
+
+  const submitExam = async (
+    examId: number,
+    answers: Array<{ question_id: number; student_answer: string }>
+  ) => {
+    await ensureAuth()
+
+    const payload = answers.map((answer) => ({
+      result_id: 0,
+      question_id: answer.question_id,
+      student_answer: answer.student_answer
+    }))
+
+    return await $fetch(`/results/submit/${examId}/${user.value.id}`, {
+      method: 'POST',
+      body: payload,
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
+  }
 
   const createExam = async (payload: {
     title: string
@@ -57,6 +89,7 @@ export const useExams = () => {
     class_ids?: number[]
     questions: number[]
   }): Promise<Exam> => {
+    await ensureAuth()
     const exam = await $fetch<Exam>('/exams', {
       method: 'POST',
       body: payload,
@@ -67,8 +100,6 @@ export const useExams = () => {
     await getExams()
     return exam
   }
-
-  /* ================= UPDATE ================= */
 
   const updateExam = async (
     id: number,
@@ -84,6 +115,7 @@ export const useExams = () => {
       questions: number[]
     }>
   ) => {
+    await ensureAuth()
     await $fetch(`/exams/${id}`, {
       method: 'PUT',
       body: payload,
@@ -94,9 +126,8 @@ export const useExams = () => {
     await getExams()
   }
 
-  /* ================= DELETE ================= */
-
   const deleteExam = async (id: number) => {
+    await ensureAuth()
     await $fetch(`/exams/${id}`, {
       method: 'DELETE',
       baseURL: config.public.apiBase,
@@ -111,6 +142,8 @@ export const useExams = () => {
     loading,
     getExams,
     getExamById,
+    getExamQuestions,
+    submitExam,
     createExam,
     updateExam,
     deleteExam

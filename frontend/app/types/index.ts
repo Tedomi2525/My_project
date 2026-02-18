@@ -42,12 +42,12 @@ export interface Exam {
   status?: 'draft' | 'active' | 'ended';
 }
 export interface ExamResult {
-  id: string;
-  examId: string;
-  studentId: string;
-  answers: number[]; // indices of selected answers
-  score: number;
-  submittedAt: Date;
+  id: number;
+  exam_id: number;
+  student_id: number;
+  total_score: number;
+  started_at: string | null;
+  finished_at: string | null;
 }
 
 export interface StudentInClass {

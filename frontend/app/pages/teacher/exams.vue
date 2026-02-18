@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Search, Plus, Edit2, Trash2, Eye, EyeOff, Loader2 } from 'lucide-vue-next'
 import type { Exam } from '~/types'
 import { useExams } from '~/composables/useExams'
@@ -25,7 +25,7 @@ interface ClassItem {
 
 /* ================= AUTH ================= */
 
-const { user } = useAuth()
+const { user, fetchUser } = useAuth()
 const config = useRuntimeConfig()
 
 /* ================= COMPOSABLE ================= */
@@ -71,12 +71,18 @@ const formData = ref({
 
 /* ================= LOAD DATA ================= */
 
-onMounted(async () => {
-  if (!user.value) return
-
-  await getExams()
+const loadPageData = async () => {
+  if (!user.value) {
+    await fetchUser()
+  }
+  if (!user.value) {
+    error.value = 'Chua dang nhap hoac phien da het han'
+    return
+  }
 
   try {
+    await getExams()
+
     isLoadingResources.value = true
 
     const headers = {
@@ -102,7 +108,17 @@ onMounted(async () => {
   } finally {
     isLoadingResources.value = false
   }
-})
+}
+
+onMounted(loadPageData)
+
+watch(
+  () => user.value?.id,
+  async () => {
+    await loadPageData()
+  },
+  { immediate: true }
+)
 
 /* ================= COMPUTED ================= */
 
@@ -416,7 +432,7 @@ const handleSubmit = async () => {
                         {{ cls.code }}
                       </span>
                     </div>
-                    <p v-if="cls.student_count" class="text-gray-500 text-xs mt-0.5">
+                    <p v-if="cls.student_count !== undefined" class="text-gray-500 text-xs mt-0.5">
                       Sĩ số: {{ cls.student_count }} sinh viên
                     </p>
                   </div>

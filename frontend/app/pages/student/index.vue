@@ -17,7 +17,7 @@ const showPasswordModal = ref(false)
 const selectedExam = ref<Exam | null>(null)
 const password = ref('')
 const error = ref('')
-const { user } = useAuth()
+const { user, fetchUser } = useAuth()
 
 /* ================= FETCH EXAMS ================= */
 const loadExams = async () => {
@@ -39,7 +39,23 @@ const loadExams = async () => {
   }
 }
 
-onMounted(loadExams)
+const initExams = async () => {
+  if (!user.value) {
+    await fetchUser()
+  }
+  await loadExams()
+}
+
+onMounted(initExams)
+
+watch(
+  () => user.value?.id,
+  async (id, prevId) => {
+    if (id && id !== prevId) {
+      await loadExams()
+    }
+  }
+)
 
 /* ================= COMPUTED ================= */
 const availableExams = computed(() =>
