@@ -152,10 +152,10 @@ const loadExams = async () => {
       headers: headers.value
     })
     exams.value = data || []
-    selectedExam.value = exams.value.length > 0 ? exams.value[0].id : null
+    selectedExam.value = exams.value[0]?.id ?? null
   } catch (err) {
-    console.error('Loi tai danh sach de thi:', err)
-    error.value = 'Khong tai duoc danh sach de thi'
+    console.error('Lỗi tải danh sách đề thi:', err)
+    error.value = 'Không tải được danh sách đề thi'
   }
 }
 
@@ -177,8 +177,8 @@ const loadExamResults = async () => {
     })
     examResults.value = data || []
   } catch (err) {
-    console.error('Loi tai ket qua de thi:', err)
-    error.value = 'Khong tai duoc ket qua de thi'
+    console.error('Lỗi tải kết quả đề thi:', err)
+    error.value = 'Không tải được kết quả đề thi'
     examResults.value = []
   } finally {
     loadingResults.value = false
@@ -197,8 +197,8 @@ const handleViewAnswers = async (resultId: number) => {
     selectedReview.value = review
     showAnswersModal.value = true
   } catch (err: any) {
-    console.error('Loi tai chi tiet bai lam:', err)
-    reviewError.value = err?.data?.detail || 'Khong tai duoc chi tiet bai lam'
+    console.error('Lỗi tải chi tiết bài làm:', err)
+    reviewError.value = err?.data?.detail || 'Không tải được chi tiết bài làm'
   } finally {
     loadingReview.value = false
   }
@@ -209,7 +209,7 @@ const handleExportExcel = () => {
     return `${idx + 1},${result.student_code || ''},${result.student_name},${result.total_score.toFixed(2)},${formatDate(result.finished_at)}`
   }).join('\n')
 
-  const blob = new Blob([`STT,Ma SV,Ho ten,Diem,Thoi gian nop\n${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob([`STT,Mã SV,Họ tên,Điểm,Thời gian nộp\n${csv}`], { type: 'text/csv;charset=utf-8;' })
   const url = window.URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -225,7 +225,7 @@ onMounted(async () => {
   try {
     if (!user.value) await fetchUser()
     if (!user.value) {
-      error.value = 'Khong xac dinh duoc tai khoan giao vien'
+      error.value = 'Không xác định được tài khoản giáo viên'
       return
     }
 
@@ -266,33 +266,33 @@ watch(selectedExam, async () => {
 
       <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <div class="bg-white rounded-lg shadow p-6">
-          <p class="text-gray-600 mb-2">So thi sinh</p>
+          <p class="text-gray-600 mb-2">Số thí sinh</p>
           <p class="text-3xl font-bold">{{ examResults.length }}</p>
         </div>
         <div class="bg-white rounded-lg shadow p-6">
-          <p class="text-gray-600 mb-2">Diem trung binh</p>
+          <p class="text-gray-600 mb-2">Điểm trung bình</p>
           <p class="text-3xl font-bold text-blue-600">{{ avgScore }}</p>
         </div>
         <div class="bg-white rounded-lg shadow p-6">
-          <p class="text-gray-600 mb-2">Diem cao nhat</p>
+          <p class="text-gray-600 mb-2">Điểm cao nhất</p>
           <p class="text-3xl font-bold text-green-600">{{ maxScore }}</p>
         </div>
         <div class="bg-white rounded-lg shadow p-6">
-          <p class="text-gray-600 mb-2">Diem thap nhat</p>
+          <p class="text-gray-600 mb-2">Điểm thấp nhất</p>
           <p class="text-3xl font-bold text-red-600">{{ minScore }}</p>
         </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white rounded-lg shadow p-6">
-          <h3 class="mb-4 font-bold text-lg">Pho diem</h3>
+          <h3 class="mb-4 font-bold text-lg">Phân bố điểm</h3>
           <div class="h-72">
             <Bar :data="barChartData" :options="chartOptions" />
           </div>
         </div>
 
         <div class="bg-white rounded-lg shadow p-6">
-          <h3 class="mb-4 font-bold text-lg">Phan loai hoc luc</h3>
+          <h3 class="mb-4 font-bold text-lg">Phân loại học lực</h3>
           <div class="h-72">
             <Pie :data="pieChartData" :options="chartOptions" />
           </div>
@@ -301,13 +301,13 @@ watch(selectedExam, async () => {
 
       <div class="bg-white rounded-lg shadow overflow-hidden">
         <div class="p-6 border-b border-gray-200 flex justify-between items-center">
-          <h3 class="font-bold text-lg">Bang diem chi tiet</h3>
+          <h3 class="font-bold text-lg">Bảng điểm chi tiết</h3>
           <button
             @click="handleExportExcel"
             class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
             <Download class="w-5 h-5" />
-            Xuat CSV
+            Xuất CSV
           </button>
         </div>
 
@@ -316,7 +316,7 @@ watch(selectedExam, async () => {
         </div>
 
         <div v-else-if="examResults.length === 0" class="p-8 text-center text-gray-500">
-          Chua co ket qua cho de thi nay.
+          Chưa có kết quả cho đề thi này.
         </div>
 
         <div v-else class="overflow-x-auto">
@@ -324,11 +324,11 @@ watch(selectedExam, async () => {
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-6 py-3 text-left">STT</th>
-                <th class="px-6 py-3 text-left">Ma SV</th>
-                <th class="px-6 py-3 text-left">Ho ten</th>
-                <th class="px-6 py-3 text-left">Diem</th>
-                <th class="px-6 py-3 text-left">Thoi gian nop</th>
-                <th class="px-6 py-3 text-right">Thao tac</th>
+                <th class="px-6 py-3 text-left">Mã SV</th>
+                <th class="px-6 py-3 text-left">Họ tên</th>
+                <th class="px-6 py-3 text-left">Điểm</th>
+                <th class="px-6 py-3 text-left">Thời gian nộp</th>
+                <th class="px-6 py-3 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
@@ -350,7 +350,7 @@ watch(selectedExam, async () => {
                       class="flex items-center gap-2 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
                     >
                       <Eye class="w-4 h-4" />
-                      Xem dap an
+                      Xem đáp án
                     </button>
                   </div>
                 </td>
@@ -365,7 +365,7 @@ watch(selectedExam, async () => {
       <div class="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[88vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-bold">
-            Chi tiet bai lam - {{ selectedReview.exam_title }}
+            Chi tiết bài làm - {{ selectedReview.exam_title }}
           </h2>
           <button @click="showAnswersModal = false" class="p-1 hover:bg-gray-100 rounded">
             <X class="w-5 h-5" />
@@ -400,8 +400,8 @@ watch(selectedExam, async () => {
               >
                 <span class="font-semibold mr-2">{{ String.fromCharCode(65 + optIdx) }}.</span>
                 <span>{{ value }}</span>
-                <span v-if="key === q.correct_answer" class="ml-2 text-green-700 font-medium">(Dap an dung)</span>
-                <span v-if="key === q.student_answer && key !== q.correct_answer" class="ml-2 text-red-700 font-medium">(Da chon)</span>
+                <span v-if="key === q.correct_answer" class="ml-2 text-green-700 font-medium">(Đáp án đúng)</span>
+                <span v-if="key === q.student_answer && key !== q.correct_answer" class="ml-2 text-red-700 font-medium">(Đã chọn)</span>
               </div>
             </div>
           </div>

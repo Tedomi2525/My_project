@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Plus, Trash2, Users, Edit2, UserMinus, UserPlus } from 'lucide-vue-next'
+import { Search, Plus, Trash2, Users, Edit2, UserMinus, UserPlus } from 'lucide-vue-next'
 import type { Class, AvailableStudent } from '~/types'
 import { useClasses } from '~/composables/useClasses'
 
@@ -36,6 +36,17 @@ const searchTerm = ref('')
 
 const availableStudents = ref<any[]>([])
 const selectedStudentId = ref<number | null>(null)
+
+const filteredClasses = computed(() => {
+  const keyword = (searchTerm.value || '').trim().toLowerCase()
+  if (!keyword) return classes.value
+
+  return classes.value.filter((cls) => {
+    const name = (cls.name || '').toLowerCase()
+    const description = (cls.description || '').toLowerCase()
+    return name.includes(keyword) || description.includes(keyword)
+  })
+})
 
 
 /* ================= LOAD ================= */
@@ -158,7 +169,7 @@ const handleRemoveStudent = async (studentId: number) => {
 
     <!-- Class list -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div v-for="cls in classes" :key="cls.id" class="bg-white rounded-lg shadow p-6">
+      <div v-for="cls in filteredClasses" :key="cls.id" class="bg-white rounded-lg shadow p-6">
         <h3 class="mb-2 font-semibold text-lg">
           {{ cls.name }}
         </h3>

@@ -61,7 +61,7 @@ const maxScore = computed(() => {
 })
 
 const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return 'Khong xac dinh'
+  if (!dateStr) return 'Không xác định'
   return new Date(dateStr).toLocaleString('vi-VN')
 }
 
@@ -95,8 +95,8 @@ const loadReview = async (resultId: number) => {
     selectedReview.value = review
     showReviewModal.value = true
   } catch (err: any) {
-    console.error('Loi tai chi tiet bai lam:', err)
-    reviewError.value = err?.data?.detail || 'Khong tai duoc chi tiet bai lam'
+    console.error('Lỗi tải chi tiết bài làm:', err)
+    reviewError.value = err?.data?.detail || 'Không tải được chi tiết bài làm'
   } finally {
     loadingReview.value = false
   }
@@ -112,7 +112,7 @@ const loadHistory = async () => {
     }
 
     if (!user.value) {
-      error.value = 'Khong xac dinh duoc tai khoan sinh vien'
+      error.value = 'Không xác định được tài khoản sinh viên'
       return
     }
 
@@ -134,8 +134,8 @@ const loadHistory = async () => {
     results.value = historyRes || []
     exams.value = examsRes || []
   } catch (err) {
-    console.error('Loi tai lich su thi:', err)
-    error.value = 'Khong tai duoc lich su thi'
+    console.error('Lỗi tải lịch sử thi:', err)
+    error.value = 'Không tải được lịch sử thi'
   } finally {
     loading.value = false
   }
@@ -159,31 +159,31 @@ onMounted(loadHistory)
     <template v-else>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div class="bg-white p-6 rounded shadow">
-          <p class="text-gray-500">Tong bai thi</p>
+          <p class="text-gray-500">Tổng bài thi</p>
           <p class="text-3xl font-bold">{{ studentResults.length }}</p>
         </div>
         <div class="bg-white p-6 rounded shadow">
-          <p class="text-gray-500">Diem TB</p>
+          <p class="text-gray-500">Điểm TB</p>
           <p class="text-3xl font-bold text-blue-600">{{ avgScore }}</p>
         </div>
         <div class="bg-white p-6 rounded shadow">
-          <p class="text-gray-500">Cao nhat</p>
+          <p class="text-gray-500">Cao nhất</p>
           <p class="text-3xl font-bold text-green-600">{{ maxScore }}</p>
         </div>
       </div>
 
       <div v-if="studentResults.length === 0" class="bg-white p-12 text-center rounded shadow text-gray-500">
-        Ban chua co bai thi nao
+        Bạn chưa có bài thi nào
       </div>
 
       <div v-else class="bg-white rounded shadow overflow-hidden">
         <table class="w-full">
           <thead class="bg-gray-50 border-b">
             <tr>
-              <th class="p-4 text-left">Bai thi</th>
-              <th class="p-4 text-left">Diem</th>
-              <th class="p-4 text-left">Ngay nop</th>
-              <th class="p-4 text-right">Thao tac</th>
+              <th class="p-4 text-left">Bài thi</th>
+              <th class="p-4 text-left">Điểm</th>
+              <th class="p-4 text-left">Ngày nộp</th>
+              <th class="p-4 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -206,11 +206,11 @@ onMounted(loadHistory)
                   class="text-blue-600 text-sm inline-flex items-center gap-1 justify-end w-full disabled:opacity-50"
                 >
                   <Eye class="w-4 h-4" />
-                  Xem bai
+                  Xem bài
                 </button>
                 <span v-else class="text-gray-400 text-sm inline-flex items-center gap-1 justify-end w-full">
                   <EyeOff class="w-4 h-4" />
-                  Chua mo
+                  Chưa mở
                 </span>
               </td>
             </tr>
@@ -228,7 +228,7 @@ onMounted(loadHistory)
           <div>
             <h3 class="font-bold text-lg">{{ selectedReview.exam_title }}</h3>
             <p class="text-sm text-gray-500">
-              Diem: {{ selectedReview.total_score.toFixed(1) }} | Nop bai: {{ formatDate(selectedReview.finished_at) }}
+              Điểm: {{ selectedReview.total_score.toFixed(1) }} | Nộp bài: {{ formatDate(selectedReview.finished_at) }}
             </p>
           </div>
           <button @click="showReviewModal = false" class="p-1 rounded hover:bg-gray-100">
@@ -245,7 +245,7 @@ onMounted(loadHistory)
             class="border rounded-lg p-4"
           >
             <div class="flex items-start gap-2 mb-3">
-              <span class="font-semibold">Cau {{ idx + 1 }}:</span>
+              <span class="font-semibold">Câu {{ idx + 1 }}:</span>
               <p class="flex-1">{{ q.content }}</p>
               <span
                 :class="['text-xs px-2 py-1 rounded-full inline-flex items-center gap-1', q.is_correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700']"
@@ -271,8 +271,8 @@ onMounted(loadHistory)
               >
                 <span class="font-semibold mr-2">{{ String.fromCharCode(65 + optIdx) }}.</span>
                 <span>{{ value }}</span>
-                <span v-if="key === q.correct_answer" class="ml-2 text-green-700 font-medium">(Dap an dung)</span>
-                <span v-if="key === q.student_answer && key !== q.correct_answer" class="ml-2 text-red-700 font-medium">(Ban chon)</span>
+                <span v-if="key === q.correct_answer" class="ml-2 text-green-700 font-medium">(Đáp án đúng)</span>
+                <span v-if="key === q.student_answer && key !== q.correct_answer" class="ml-2 text-red-700 font-medium">(Bạn chọn)</span>
               </div>
             </div>
           </div>

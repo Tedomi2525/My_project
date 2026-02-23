@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { Clock, AlertCircle, CheckCircle, ArrowLeft, ArrowRight } from 'lucide-vue-next'
 import type { Question, Exam } from '~/types'
 import { useExams } from '~/composables/useExams'
@@ -21,8 +21,13 @@ const answers = ref<string[]>([])
 const timeLeft = ref(0)
 const showConfirmModal = ref(false)
 const score = ref(0)
+const violationCount = ref(0)
+const maxViolations = 3
+const antiCheatNotice = ref('')
+const antiCheatWarningVisible = ref(false)
 
 let timer: ReturnType<typeof setInterval> | null = null
+let warningTimer: ReturnType<typeof setTimeout> | null = null
 
 const questionData = computed(() => {
   if (mockQuestions.value.length === 0) return undefined
@@ -35,8 +40,94 @@ const getOptionEntries = (options: Question['options']): Array<[string, string]>
 }
 
 const currentOptionEntries = computed(() => getOptionEntries(questionData.value?.options ?? null))
+const isExamInProgress = computed(() => started.value && !submitted.value)
+
+const showWarning = (message: string) => {
+  antiCheatNotice.value = message
+  antiCheatWarningVisible.value = true
+  if (warningTimer) clearTimeout(warningTimer)
+  warningTimer = setTimeout(() => {
+    antiCheatWarningVisible.value = false
+  }, 4000)
+}
+
+const registerViolation = async (reason: string) => {
+  if (!isExamInProgress.value) return
+
+  violationCount.value += 1
+  showWarning(`${reason} (Vi phạm ${violationCount.value}/${maxViolations})`)
+
+  if (violationCount.value >= maxViolations) {
+    showWarning('Vượt quá giới hạn vi phạm. Hệ thống sẽ tự động nộp bài.')
+    await handleSubmit()
+  }
+}
+
+const enterFullscreen = async () => {
+  if (!document.fullscreenEnabled || document.fullscreenElement) return
+  try {
+    await document.documentElement.requestFullscreen()
+  } catch (error) {
+    await registerViolation('Không thể bật toàn màn hình')
+  }
+}
+
+const exitFullscreen = async () => {
+  if (!document.fullscreenElement) return
+  try {
+    await document.exitFullscreen()
+  } catch (error) {
+    // no-op
+  }
+}
+
+const handleVisibilityChange = async () => {
+  if (document.hidden) await registerViolation('Phát hiện rời khỏi tab bài thi')
+}
+
+const handleWindowBlur = async () => {
+  await registerViolation('Phát hiện chuyển sang cửa sổ khác')
+}
+
+const handleFullscreenChange = async () => {
+  if (!isExamInProgress.value) return
+  if (!document.fullscreenElement) await registerViolation('Phát hiện thoát toàn màn hình')
+}
+
+const handleKeydown = async (event: KeyboardEvent) => {
+  if (!isExamInProgress.value) return
+
+  const key = event.key.toLowerCase()
+  const blockedCombo = (event.ctrlKey || event.metaKey) && ['c', 'v', 'x', 'p', 's', 'u'].includes(key)
+
+  if (blockedCombo || event.key === 'PrintScreen') {
+    event.preventDefault()
+    await registerViolation('Phát hiện thao tác bị cấm')
+  }
+}
+
+const preventClipboardActions = (event: Event) => {
+  if (!isExamInProgress.value) return
+  event.preventDefault()
+}
+
+const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+  if (!isExamInProgress.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
 
 onMounted(async () => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('blur', handleWindowBlur)
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
+  window.addEventListener('keydown', handleKeydown, true)
+  document.addEventListener('copy', preventClipboardActions)
+  document.addEventListener('cut', preventClipboardActions)
+  document.addEventListener('paste', preventClipboardActions)
+  document.addEventListener('contextmenu', preventClipboardActions)
+  window.addEventListener('beforeunload', handleBeforeUnload)
+
   try {
     const [examRes, questionsRes] = await Promise.all([
       getExamById(examId),
@@ -54,7 +145,7 @@ onMounted(async () => {
       answers.value = new Array(mockQuestions.value.length).fill('')
     }
   } catch (error) {
-    console.error('Loi khi tai du lieu bai thi:', error)
+    console.error('Lỗi khi tải dữ liệu bài thi:', error)
   } finally {
     pending.value = false
   }
@@ -74,8 +165,24 @@ watch(started, (newValue) => {
   }
 })
 
+watch(submitted, async (newValue) => {
+  if (newValue) {
+    await exitFullscreen()
+  }
+})
+
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (warningTimer) clearTimeout(warningTimer)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('blur', handleWindowBlur)
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  window.removeEventListener('keydown', handleKeydown, true)
+  document.removeEventListener('copy', preventClipboardActions)
+  document.removeEventListener('cut', preventClipboardActions)
+  document.removeEventListener('paste', preventClipboardActions)
+  document.removeEventListener('contextmenu', preventClipboardActions)
+  window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 
 const handleAnswerSelect = (optionKey: string) => {
@@ -110,8 +217,8 @@ const handleSubmit = async () => {
     submitted.value = true
     showConfirmModal.value = false
   } catch (error) {
-    console.error('Loi khi nop bai:', error)
-    alert('Co loi xay ra khi nop bai, vui long thu lai!')
+    console.error('Lỗi khi nộp bài:', error)
+    alert('Có lỗi xảy ra khi nộp bài, vui lòng thử lại!')
   }
 }
 
@@ -127,6 +234,12 @@ const nextQuestion = () => {
 
 const prevQuestion = () => {
   if (currentQuestion.value > 0) currentQuestion.value--
+}
+
+const startExam = async () => {
+  started.value = true
+  await nextTick()
+  await enterFullscreen()
 }
 </script>
 
@@ -168,7 +281,17 @@ const prevQuestion = () => {
         </div>
       </div>
 
-      <button @click="started = true" class="w-full px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-bold">
+      <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
+        <p class="font-semibold mb-2">Quy định chống gian lận</p>
+        <ul class="list-disc pl-5 space-y-1">
+          <li>Bắt buộc làm bài ở chế độ toàn màn hình.</li>
+          <li>Rời tab, thoát toàn màn hình hoặc dùng phím tắt bị cấm sẽ bị tính vi phạm.</li>
+          <li>Vi phạm từ 3 lần trở lên sẽ tự động nộp bài.</li>
+          <li>Trình duyệt không thể chặn chụp màn hình 100%, hệ thống chỉ phát hiện được một số hành vi.</li>
+        </ul>
+      </div>
+
+      <button @click="startExam" class="w-full px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-bold">
         Bắt đầu làm bài
       </button>
     </div>
@@ -209,10 +332,21 @@ const prevQuestion = () => {
   </div>
 
   <div v-else class="flex flex-col lg:flex-row gap-6">
+    <div
+      v-if="antiCheatWarningVisible"
+      class="fixed top-4 right-4 z-50 max-w-sm rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 shadow-lg"
+    >
+      <p class="font-semibold mb-1"> Cảnh báo gian lận</p>
+      <p class="text-sm">{{ antiCheatNotice }}</p>
+    </div>
+
     <div class="w-full lg:w-64 shrink-0 order-2 lg:order-1">
       <div class="bg-white rounded-lg shadow p-6 sticky top-6">
         <div :class="['flex items-center gap-2 px-4 py-3 rounded-lg mb-4 font-bold text-xl', timeLeft < 300 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700']">
           <Clock class="w-5 h-5" /> {{ formatTime(timeLeft) }}
+        </div>
+        <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Vi phạm: <strong>{{ violationCount }}/{{ maxViolations }}</strong>
         </div>
         <h3 class="mb-4 font-bold">Danh sách câu hỏi</h3>
         <div class="grid grid-cols-4 gap-2 mb-6">
