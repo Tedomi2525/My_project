@@ -93,12 +93,15 @@ const handleStartExam = (exam: Exam) => {
 }
 
 const handlePasswordSubmit = async () => {
-  if (!selectedExam.value) return
+  if (!selectedExam.value || !user.value) return
 
   try {
     await $fetch(`/exams/${selectedExam.value.id}/check-password`, {
       method: 'POST',
       baseURL: config.public.apiBase,
+      headers: {
+        'x-user-id': String(user.value?.id || '')
+      },
       body: { password: password.value }
     })
     router.push(`/student/exam/${selectedExam.value.id}`)

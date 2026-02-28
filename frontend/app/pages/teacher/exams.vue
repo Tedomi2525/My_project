@@ -63,6 +63,10 @@ const formData = ref({
   duration_minutes: 60,
   start_time: '',
   end_time: '',
+  attempt_mode: 'ONCE' as 'ONCE' | 'LIMITED' | 'UNLIMITED',
+  max_attempts_limit: 2,
+  shuffle_questions: false,
+  shuffle_options: false,
   questions: [] as number[],
   class_ids: [] as number[],
   allow_view_answers: true,
@@ -175,6 +179,20 @@ const getStatusClasses = (status: string) => {
   return classes[status] || 'bg-gray-100 text-gray-800'
 }
 
+const getAttemptModeFromMaxAttempts = (
+  maxAttempts?: number | null
+): 'ONCE' | 'LIMITED' | 'UNLIMITED' => {
+  if (maxAttempts == null) return 'UNLIMITED'
+  if (maxAttempts === 1) return 'ONCE'
+  return 'LIMITED'
+}
+
+const getAttemptLabel = (maxAttempts?: number | null) => {
+  if (maxAttempts == null) return 'Lượt làm: Không giới hạn'
+  if (maxAttempts === 1) return 'Lượt làm: 1 lần'
+  return `Lượt làm: Tối đa ${maxAttempts} lần`
+}
+
 /* ================= METHODS ================= */
 
 /**
@@ -188,6 +206,10 @@ const resetFormForCreate = () => {
     duration_minutes: 60,
     start_time: '',
     end_time: '',
+    attempt_mode: 'ONCE',
+    max_attempts_limit: 2,
+    shuffle_questions: false,
+    shuffle_options: false,
     questions: [],
     class_ids: [],
     allow_view_answers: true,
@@ -213,6 +235,10 @@ const handleEditExam = async (exam: Exam) => {
       duration_minutes: detail.duration_minutes,
       start_time: formatDateForInput(detail.start_time),
       end_time: formatDateForInput(detail.end_time),
+      attempt_mode: getAttemptModeFromMaxAttempts(detail.max_attempts),
+      max_attempts_limit: detail.max_attempts && detail.max_attempts > 1 ? detail.max_attempts : 2,
+      shuffle_questions: detail.shuffle_questions ?? false,
+      shuffle_options: detail.shuffle_options ?? false,
 
       // 🔥 luôn sync FULL list
       questions: [...(detail.exam_questions ?? [])],
@@ -246,8 +272,18 @@ const handleSubmit = async () => {
       description: formData.value.description,
       duration_minutes: formData.value.duration_minutes,
       allow_view_answers: formData.value.allow_view_answers,
+      shuffle_questions: formData.value.shuffle_questions,
+      shuffle_options: formData.value.shuffle_options,
       class_ids: [...formData.value.class_ids],
       questions: [...formData.value.questions]
+    }
+
+    if (formData.value.attempt_mode === 'UNLIMITED') {
+      payload.max_attempts = null
+    } else if (formData.value.attempt_mode === 'ONCE') {
+      payload.max_attempts = 1
+    } else {
+      payload.max_attempts = Math.max(2, Number(formData.value.max_attempts_limit) || 2)
     }
 
     if (formData.value.start_time)
@@ -315,6 +351,7 @@ const handleSubmit = async () => {
                 Mở: {{ formatDateDisplay(exam.start_time) }} -
                 Đóng: {{ formatDateDisplay(exam.end_time) }}
               </p>
+              <p>{{ getAttemptLabel(exam.max_attempts) }}</p>
               <p v-if="exam.has_password" class="text-amber-600 flex items-center gap-1 font-medium">
                 Có mật khẩu bảo vệ
               </p>
@@ -338,6 +375,8 @@ const handleSubmit = async () => {
           <span v-else class="flex items-center gap-2 text-gray-600">
             <EyeOff class="w-4 h-4" /> Xem đáp án: Không
           </span>
+          <span class="text-gray-600">| Trộn câu: {{ exam.shuffle_questions ? 'Có' : 'Không' }}</span>
+          <span class="text-gray-600">| Trộn đáp án: {{ exam.shuffle_options ? 'Có' : 'Không' }}</span>
         </div>
       </div>
     </div>
@@ -368,6 +407,25 @@ const handleSubmit = async () => {
                   class="w-full px-4 py-2 border rounded-lg" min="1" required />
               </div>
               <div>
+                <label class="block mb-2 font-medium">Số lần làm bài</label>
+                <select v-model="formData.attempt_mode" class="w-full px-4 py-2 border rounded-lg bg-white">
+                  <option value="ONCE">1 lần</option>
+                  <option value="LIMITED">Giới hạn số lần</option>
+                  <option value="UNLIMITED">Không giới hạn</option>
+                </select>
+              </div>
+              <div v-if="formData.attempt_mode === 'LIMITED'">
+                <label class="block mb-2 font-medium">Giới hạn số lần</label>
+                <input
+                  type="number"
+                  v-model.number="formData.max_attempts_limit"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  min="2"
+                  required
+                />
+              </div>
+              <div v-else></div>
+              <div>
                 <label class="block mb-2 font-medium">Mật khẩu (để trống nếu không đổi)</label>
                 <input type="text" v-model="formData.password" class="w-full px-4 py-2 border rounded-lg"
                   placeholder="***" />
@@ -386,6 +444,14 @@ const handleSubmit = async () => {
                 <label class="flex items-center gap-2">
                   <input type="checkbox" v-model="formData.allow_view_answers" class="w-4 h-4" />
                   Cho phép xem đáp án sau khi thi
+                </label>
+                <label class="flex items-center gap-2 mt-2">
+                  <input type="checkbox" v-model="formData.shuffle_questions" class="w-4 h-4" />
+                  Trộn thứ tự câu hỏi
+                </label>
+                <label class="flex items-center gap-2 mt-2">
+                  <input type="checkbox" v-model="formData.shuffle_options" class="w-4 h-4" />
+                  Trộn thứ tự đáp án
                 </label>
               </div>
             </div>

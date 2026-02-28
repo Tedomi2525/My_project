@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.dependencies import get_current_student, get_current_user
@@ -15,6 +16,10 @@ from app.services.exam_service import ExamService
 
 
 router = APIRouter(prefix="/exams", tags=["Exams"])
+
+
+class PasswordCheckRequest(BaseModel):
+    password: str
 
 
 def get_role_name(user: User) -> str:
@@ -156,3 +161,17 @@ def get_exam_questions(
         raise HTTPException(status_code=404, detail="Exam not found")
 
     return ExamService.get_exam_questions(db, exam_id)
+
+
+@router.post("/{exam_id}/check-password")
+def check_exam_password(
+    exam_id: int,
+    payload: PasswordCheckRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    require_exam_access(db, exam_id, current_user)
+    is_ok = ExamService.check_exam_password(db, exam_id, payload.password)
+    if not is_ok:
+        raise HTTPException(status_code=400, detail="Wrong exam password")
+    return {"success": True}

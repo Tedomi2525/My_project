@@ -70,7 +70,7 @@ export const useExams = () => {
       student_answer: answer.student_answer
     }))
 
-    return await $fetch(`/results/submit/${examId}/${user.value.id}`, {
+    return await $fetch(`/results/submit/${examId}`, {
       method: 'POST',
       body: payload,
       baseURL: config.public.apiBase,
@@ -86,6 +86,9 @@ export const useExams = () => {
     end_time?: string
     password?: string
     allow_view_answers?: boolean
+    max_attempts?: number | null
+    shuffle_questions?: boolean
+    shuffle_options?: boolean
     class_ids?: number[]
     questions: number[]
   }): Promise<Exam> => {
@@ -111,6 +114,9 @@ export const useExams = () => {
       end_time: string
       password: string | null
       allow_view_answers: boolean
+      max_attempts: number | null
+      shuffle_questions: boolean
+      shuffle_options: boolean
       class_ids: number[]
       questions: number[]
     }>

@@ -11,10 +11,13 @@ export const useExamApi = () => {
       useFetch<Exam[]>('/exams/student-available', { baseURL: apiBase }),
 
     // Kiểm tra mật khẩu bài thi qua backend
-    verifyPassword: (examId: string, password: string) => 
-      $fetch<{ success: boolean }>(`/exams/${examId}/verify-password`, {
+    verifyPassword: (examId: string, password: string, userId: number) => 
+      $fetch<{ success: boolean }>(`/exams/${examId}/check-password`, {
         method: 'POST',
         baseURL: apiBase,
+        headers: {
+          'x-user-id': String(userId)
+        },
         body: { password }
       })
   }

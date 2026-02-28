@@ -39,6 +39,31 @@ const getOptionEntries = (options: Question['options']): Array<[string, string]>
   return Object.entries(options).map(([key, value]) => [key, String(value)])
 }
 
+const shuffleArray = <T>(arr: T[]): T[] => {
+  const cloned = [...arr]
+  for (let i = cloned.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[cloned[i], cloned[j]] = [cloned[j], cloned[i]]
+  }
+  return cloned
+}
+
+const shuffleQuestionOptions = (question: Question): Question => {
+  const entries = getOptionEntries(question.options)
+  if (entries.length <= 1) return question
+
+  const shuffledEntries = shuffleArray(entries)
+  const shuffledOptions = shuffledEntries.reduce<Record<string, string>>((acc, [key, text]) => {
+    acc[key] = text
+    return acc
+  }, {})
+
+  return {
+    ...question,
+    options: shuffledOptions
+  }
+}
+
 const currentOptionEntries = computed(() => getOptionEntries(questionData.value?.options ?? null))
 const isExamInProgress = computed(() => started.value && !submitted.value)
 
@@ -135,7 +160,15 @@ onMounted(async () => {
     ])
 
     mockExam.value = examRes
-    mockQuestions.value = questionsRes
+
+    let preparedQuestions = [...questionsRes]
+    if (mockExam.value?.shuffle_options) {
+      preparedQuestions = preparedQuestions.map((q) => shuffleQuestionOptions(q))
+    }
+    if (mockExam.value?.shuffle_questions) {
+      preparedQuestions = shuffleArray(preparedQuestions)
+    }
+    mockQuestions.value = preparedQuestions
 
     if (mockExam.value?.duration_minutes) {
       timeLeft.value = mockExam.value.duration_minutes * 60
@@ -218,7 +251,18 @@ const handleSubmit = async () => {
     showConfirmModal.value = false
   } catch (error) {
     console.error('Lỗi khi nộp bài:', error)
-    alert('Có lỗi xảy ra khi nộp bài, vui lòng thử lại!')
+    const err = error as any
+    const detail =
+      err?.data?.detail ||
+      err?.response?._data?.detail ||
+      err?.message ||
+      ''
+
+    if (typeof detail === 'string' && detail.toLowerCase().includes('attempt limit reached')) {
+      alert('Bạn đã hết số lần làm bài cho đề thi này.')
+    } else {
+      alert('Có lỗi xảy ra khi nộp bài, vui lòng thử lại!')
+    }
   }
 }
 
@@ -316,11 +360,11 @@ const startExam = async () => {
           </div>
           <div class="ml-16 space-y-2">
             <div
-              v-for="([key, opt], i) in getOptionEntries(q.options)"
+              v-for="[key, opt] in getOptionEntries(q.options)"
               :key="key"
               :class="['p-3 rounded-lg flex border', key === q.correct_answer ? 'bg-green-50 border-green-200' : answers[idx] === key && key !== q.correct_answer ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-transparent']"
             >
-              <span class="mr-2 font-bold">{{ String.fromCharCode(65 + i) }}.</span>
+              <span class="mr-2 font-bold">{{ key }}.</span>
               <span class="flex-1">{{ opt }}</span>
               <span v-if="key === q.correct_answer" class="text-green-600 ml-2 font-medium">(Đáp án đúng)</span>
               <span v-if="answers[idx] === key && key !== q.correct_answer" class="text-red-600 ml-2 font-medium">(Bạn chọn)</span>
@@ -376,7 +420,7 @@ const startExam = async () => {
 
         <div class="space-y-3">
           <label
-            v-for="([key, opt], i) in currentOptionEntries"
+            v-for="[key, opt] in currentOptionEntries"
             :key="key"
             :class="['flex items-start gap-4 p-5 rounded-lg cursor-pointer transition-all border-2', answers[currentQuestion] === key ? 'bg-blue-50 border-blue-500 shadow-md' : 'bg-gray-50 border-transparent hover:bg-gray-100']"
           >
@@ -388,7 +432,7 @@ const startExam = async () => {
               class="mt-1.5 w-5 h-5 accent-blue-600"
             />
             <div class="flex-1">
-              <span class="font-bold mr-3">{{ String.fromCharCode(65 + i) }}.</span>
+              <span class="font-bold mr-3">{{ key }}.</span>
               <span>{{ opt }}</span>
             </div>
           </label>

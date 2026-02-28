@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.exam import Exam
 from app.models.exam_question import ExamQuestion
 from app.models.exam_allowed_class import ExamAllowedClass
+from app.models.exam_result import ExamResult
 from app.models.question import Question
 
 from app.schemas.exam import ExamCreate
@@ -83,6 +84,21 @@ class ExamService:
             .first()
         )
 
+    @staticmethod
+    def check_exam_password(
+        db: Session,
+        exam_id: int,
+        password: str,
+    ) -> bool:
+        exam = db.query(Exam).filter(Exam.id == exam_id).first()
+        if not exam:
+            return False
+
+        if not exam.password:
+            return True
+
+        return exam.password == password
+
     # =====================================================
     # UPDATE / DELETE
     # =====================================================
@@ -126,17 +142,46 @@ class ExamService:
             new_question_ids = exam_data.pop("questions")
 
             if isinstance(new_question_ids, list):
-                db.query(ExamQuestion).filter(
-                    ExamQuestion.exam_id == exam_id
-                ).delete()
+                # Normalize: unique IDs, keep original order
+                normalized_question_ids = list(dict.fromkeys(new_question_ids))
 
-                for q_id in new_question_ids:
-                    db.add(
-                        ExamQuestion(
-                            exam_id=exam_id,
-                            question_id=q_id
+                has_results = (
+                    db.query(ExamResult)
+                    .filter(ExamResult.exam_id == exam_id)
+                    .first()
+                    is not None
+                )
+
+                if has_results:
+                    # Preserve historic structure for exams that already have attempts:
+                    # only append new questions, do not wipe old links.
+                    existing_ids = {
+                        row[0]
+                        for row in db.query(ExamQuestion.question_id)
+                        .filter(ExamQuestion.exam_id == exam_id)
+                        .all()
+                    }
+                    ids_to_add = [q_id for q_id in normalized_question_ids if q_id not in existing_ids]
+
+                    for q_id in ids_to_add:
+                        db.add(
+                            ExamQuestion(
+                                exam_id=exam_id,
+                                question_id=q_id
+                            )
                         )
-                    )
+                else:
+                    db.query(ExamQuestion).filter(
+                        ExamQuestion.exam_id == exam_id
+                    ).delete()
+
+                    for q_id in normalized_question_ids:
+                        db.add(
+                            ExamQuestion(
+                                exam_id=exam_id,
+                                question_id=q_id
+                            )
+                        )
 
         # ---------- basic fields ----------
         for key, value in exam_data.items():
@@ -224,6 +269,7 @@ class ExamService:
             db.query(Question)
             .join(ExamQuestion, Question.id == ExamQuestion.question_id)
             .filter(ExamQuestion.exam_id == exam_id)
+            .order_by(ExamQuestion.id.asc())
             .all()
         )
     

@@ -21,14 +21,19 @@ def get_role_name(user: User) -> str:
     return str(role).lower()
 
 # 1. Nộp bài thi
-@router.post("/submit/{exam_id}/{student_id}", response_model=ExamResultResponse)
+@router.post("/submit/{exam_id}", response_model=ExamResultResponse)
 def submit_exam(
     exam_id: int,
-    student_id: int,
     answers: List[ExamResultDetailBase],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    return ResultService.submit_exam(db, exam_id, student_id, answers)
+    if get_role_name(current_user) != "student":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student permission required"
+        )
+    return ResultService.submit_exam(db, exam_id, current_user.id, answers)
 
 # 2. Xem chi tiết 1 kết quả
 @router.get("/{result_id}", response_model=ExamResultResponse)

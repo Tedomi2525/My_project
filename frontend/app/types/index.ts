@@ -35,6 +35,9 @@ export interface Exam {
   end_time: string | null;
   // show_answers: boolean;
   allow_view_answers?: boolean;
+  max_attempts?: number | null;
+  shuffle_questions?: boolean;
+  shuffle_options?: boolean;
   created_by: number;
   has_password: boolean;
   allowed_classes: number[]; 

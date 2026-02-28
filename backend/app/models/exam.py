@@ -19,6 +19,10 @@ class Exam(Base):
     created_by = Column(Integer, ForeignKey("user.id"), nullable=False)
 
     allow_view_answers = Column(Boolean, nullable=False, default=False)
+    # None = unlimited attempts, 1 = once, N > 1 = limited attempts
+    max_attempts = Column(Integer, nullable=True, default=1)
+    shuffle_questions = Column(Boolean, nullable=False, default=False)
+    shuffle_options = Column(Boolean, nullable=False, default=False)
 
     exam_questions = relationship(
         "ExamQuestion",

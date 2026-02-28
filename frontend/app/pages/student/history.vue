@@ -252,7 +252,7 @@ onMounted(loadHistory)
               >
                 <CircleCheck v-if="q.is_correct" class="w-3 h-3" />
                 <CircleX v-else class="w-3 h-3" />
-                {{ q.is_correct ? 'Dung' : 'Sai' }}
+                {{ q.is_correct ? 'Đúng' : 'Sai' }}
               </span>
             </div>
 

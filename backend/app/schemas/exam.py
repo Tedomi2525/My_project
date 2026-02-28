@@ -24,6 +24,10 @@ class ExamBase(BaseModel):
 
     # ✅ Cho phép xem đáp án hay không
     allow_view_answers: bool = False
+    # None = unlimited attempts, 1 = once, N > 1 = limited attempts
+    max_attempts: Optional[int] = 1
+    shuffle_questions: bool = False
+    shuffle_options: bool = False
 
     @field_validator("start_time", "end_time")
     @classmethod
@@ -33,6 +37,13 @@ class ExamBase(BaseModel):
                 vn_timezone = timezone(timedelta(hours=7))
                 v = v.astimezone(vn_timezone)
             return v.replace(tzinfo=None)
+        return v
+
+    @field_validator("max_attempts")
+    @classmethod
+    def validate_max_attempts(cls, v):
+        if v is not None and v < 1:
+            raise ValueError("max_attempts must be >= 1 or null")
         return v
 
 
@@ -60,6 +71,9 @@ class ExamUpdate(BaseModel):
 
     # ✅ Có thể bật/tắt cho xem đáp án
     allow_view_answers: Optional[bool] = None
+    max_attempts: Optional[int] = None
+    shuffle_questions: Optional[bool] = None
+    shuffle_options: Optional[bool] = None
 
     class_ids: Optional[List[int]] = None
     questions: Optional[List[int]] = None
@@ -72,6 +86,13 @@ class ExamUpdate(BaseModel):
                 vn_timezone = timezone(timedelta(hours=7))
                 v = v.astimezone(vn_timezone)
             return v.replace(tzinfo=None)
+        return v
+
+    @field_validator("max_attempts")
+    @classmethod
+    def validate_max_attempts(cls, v):
+        if v is not None and v < 1:
+            raise ValueError("max_attempts must be >= 1 or null")
         return v
 
 
@@ -92,6 +113,9 @@ class ExamResponse(BaseModel):
     password: Optional[str] = Field(default=None, exclude=True)
 
     allow_view_answers: bool
+    max_attempts: Optional[int] = None
+    shuffle_questions: bool
+    shuffle_options: bool
 
     allowed_classes: List[int] = Field(default_factory=list)
     exam_questions: List[int] = Field(default_factory=list)

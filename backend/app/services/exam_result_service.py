@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 from datetime import datetime
+from fastapi import HTTPException, status
 
 from app.models.exam_result import ExamResult
 from app.models.exam_result_detail import ExamResultDetail
@@ -14,6 +15,28 @@ class ResultService:
     # --- CREATE (Nop bai & Cham diem) ---
     @staticmethod
     def submit_exam(db: Session, exam_id: int, student_id: int, answers: List[ExamResultDetailBase]):
+        exam = db.query(Exam).filter(Exam.id == exam_id).first()
+        if not exam:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Exam not found"
+            )
+
+        if exam.max_attempts is not None:
+            attempt_count = (
+                db.query(ExamResult)
+                .filter(
+                    ExamResult.exam_id == exam_id,
+                    ExamResult.student_id == student_id
+                )
+                .count()
+            )
+            if attempt_count >= exam.max_attempts:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Attempt limit reached ({exam.max_attempts})"
+                )
+
         db_result = ExamResult(
             exam_id=exam_id,
             student_id=student_id,
