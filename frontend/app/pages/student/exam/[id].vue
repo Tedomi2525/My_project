@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { Clock, AlertCircle, CheckCircle, ArrowLeft, ArrowRight } from 'lucide-vue-next'
+import { Clock, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, Flag } from 'lucide-vue-next'
 import type { Question, Exam } from '~/types'
 import { useExams } from '~/composables/useExams'
 
@@ -18,6 +18,7 @@ const started = ref(false)
 const submitted = ref(false)
 const currentQuestion = ref(0)
 const answers = ref<string[]>([])
+const flaggedQuestions = ref<boolean[]>([])
 const timeLeft = ref(0)
 const showConfirmModal = ref(false)
 const score = ref(0)
@@ -66,6 +67,8 @@ const shuffleQuestionOptions = (question: Question): Question => {
 
 const currentOptionEntries = computed(() => getOptionEntries(questionData.value?.options ?? null))
 const isExamInProgress = computed(() => started.value && !submitted.value)
+const flaggedCount = computed(() => flaggedQuestions.value.filter(Boolean).length)
+const isCurrentQuestionFlagged = computed(() => Boolean(flaggedQuestions.value[currentQuestion.value]))
 
 const showWarning = (message: string) => {
   antiCheatNotice.value = message
@@ -176,6 +179,7 @@ onMounted(async () => {
 
     if (mockQuestions.value.length > 0) {
       answers.value = new Array(mockQuestions.value.length).fill('')
+      flaggedQuestions.value = new Array(mockQuestions.value.length).fill(false)
     }
   } catch (error) {
     console.error('Lỗi khi tải dữ liệu bài thi:', error)
@@ -220,6 +224,17 @@ onUnmounted(() => {
 
 const handleAnswerSelect = (optionKey: string) => {
   answers.value[currentQuestion.value] = optionKey
+}
+
+const toggleFlagCurrentQuestion = () => {
+  flaggedQuestions.value[currentQuestion.value] = !flaggedQuestions.value[currentQuestion.value]
+}
+
+const getQuestionNavClass = (index: number) => {
+  if (currentQuestion.value === index) return 'bg-blue-600 text-white ring-2 ring-blue-300'
+  if (flaggedQuestions.value[index]) return 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+  if (answers.value[index]) return 'bg-green-100 text-green-700'
+  return 'bg-gray-100 text-gray-600 hover:bg-gray-200'
 }
 
 const handleSubmit = async () => {
@@ -398,11 +413,13 @@ const startExam = async () => {
             v-for="(_, i) in mockQuestions"
             :key="i"
             @click="currentQuestion = i"
-            :class="['aspect-square rounded-lg flex items-center justify-center font-medium transition-colors', currentQuestion === i ? 'bg-blue-600 text-white ring-2 ring-blue-300' : answers[i] ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200']"
+            :class="['relative aspect-square rounded-lg flex items-center justify-center font-medium transition-colors', getQuestionNavClass(i)]"
           >
             {{ i + 1 }}
+            <Flag v-if="flaggedQuestions[i]" class="absolute top-1 right-1 w-3.5 h-3.5" />
           </button>
         </div>
+        <p class="mb-6 text-xs text-gray-500">Màu vàng là câu đang đánh dấu phân vân.</p>
         <button @click="showConfirmModal = true" class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-bold transition-colors">Nộp bài</button>
       </div>
     </div>
@@ -416,6 +433,19 @@ const startExam = async () => {
         <div class="flex items-start gap-4 mb-6">
           <span class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-bold whitespace-nowrap">Cau {{ currentQuestion + 1 }}/{{ mockQuestions.length }}</span>
           <h2 class="flex-1 text-lg font-medium">{{ questionData.content }}</h2>
+          <button
+            type="button"
+            @click="toggleFlagCurrentQuestion"
+            :class="[
+              'inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors',
+              isCurrentQuestionFlagged
+                ? 'border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200'
+                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+            ]"
+          >
+            <Flag class="w-4 h-4" />
+            {{ isCurrentQuestionFlagged ? 'Bỏ đánh dấu' : 'Đánh dấu' }}
+          </button>
         </div>
 
         <div class="space-y-3">
@@ -457,6 +487,10 @@ const startExam = async () => {
           <div v-if="answers.some((a) => !a)" class="mt-2 bg-orange-50 border border-orange-200 p-3 rounded text-orange-700 flex gap-2">
             <AlertCircle class="w-5 h-5 shrink-0" />
             <span>Còn <strong>{{ answers.filter((a) => !a).length }}</strong> câu chưa làm.</span>
+          </div>
+          <div v-if="flaggedCount > 0" class="mt-2 bg-amber-50 border border-amber-200 p-3 rounded text-amber-700 flex gap-2">
+            <Flag class="w-5 h-5 shrink-0" />
+            <span>Bạn đang đánh dấu <strong>{{ flaggedCount }}</strong> câu cần xem lại.</span>
           </div>
         </div>
         <div class="flex gap-3">
