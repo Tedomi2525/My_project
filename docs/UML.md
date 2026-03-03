@@ -158,19 +158,19 @@ flowchart LR
   Client[Client/Monitoring]
 
   subgraph System[Quiz Exam System]
-    U1([Dang nhap])
-    U2([Kiem tra trang thai he thong])
-    U3([Quan ly nguoi dung])
-    U4([Quan ly lop hoc])
-    U5([Quan ly hoc sinh trong lop])
-    U6([Quan ly cau hoi])
-    U7([Quan ly de thi])
-    U8([Kiem tra mat khau de])
-    U9([Xem de duoc phep thi])
-    U10([Nop bai va cham diem])
-    U11([Xem lich su/ket qua])
-    U12([Review bai lam])
-    U13([Sua diem/Xoa ket qua])
+    U1([Đăng nhập])
+    U2([Kiểm tra trạng thái hệ thống])
+    U3([Quản lý người dùng])
+    U4([Quản lý lớp học])
+    U5([Quản lý học sinh trong lớp])
+    U6([Quản lý câu hỏi])
+    U7([Quản lý đề thi])
+    U8([Kiểm tra mật khẩu đề])
+    U9([Xem đề được phép thi])
+    U10([Nộp bài va chấm điểm])
+    U11([Xem lịch sử/kết quả])
+    U12([Review bài làm])
+    U13([Sửa điểm/Xóa kết quả])
   end
 
   Admin --> U1
@@ -204,14 +204,14 @@ flowchart LR
   Student[Student]
 
   subgraph ExamModule[Exam Module]
-    E1([Tao de])
-    E2([Sua de])
-    E3([Xoa de])
-    E4([Xem de])
-    E5([Xem cau hoi trong de])
-    E6([Kiem tra mat khau de])
-    E7([Nop bai])
-    E8([Review ket qua])
+    E1([Tạo đề])
+    E2([Sửa đề])
+    E3([Xóa đề])
+    E4([Xem đề])
+    E5([Xem câu hỏi trong đề])
+    E6([Kiểm tra mật khẩu đề])
+    E7([Nộp bài])
+    E8([Review kết quả])
   end
 
   Teacher --> E1
