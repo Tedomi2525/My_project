@@ -151,87 +151,82 @@ Lưu ý triển khai hiện tại:
 ## 2) Mô hình Use-case tổng quan
 
 ```mermaid
-usecaseDiagram
-actor Admin
-actor Teacher
-actor Student
-actor Client as "Client/Monitoring"
+flowchart LR
+  Admin[Admin]
+  Teacher[Teacher]
+  Student[Student]
+  Client[Client/Monitoring]
 
-rectangle "Quiz Exam System" {
-  usecase U1 as "Đăng nhập"
-  usecase U2 as "Kiểm tra trạng thái hệ thống"
+  subgraph System[Quiz Exam System]
+    U1([Dang nhap])
+    U2([Kiem tra trang thai he thong])
+    U3([Quan ly nguoi dung])
+    U4([Quan ly lop hoc])
+    U5([Quan ly hoc sinh trong lop])
+    U6([Quan ly cau hoi])
+    U7([Quan ly de thi])
+    U8([Kiem tra mat khau de])
+    U9([Xem de duoc phep thi])
+    U10([Nop bai va cham diem])
+    U11([Xem lich su/ket qua])
+    U12([Review bai lam])
+    U13([Sua diem/Xoa ket qua])
+  end
 
-  usecase U3 as "Quản lý người dùng"
+  Admin --> U1
+  Admin --> U3
 
-  usecase U4 as "Quản lý lớp học"
-  usecase U5 as "Quản lý học sinh trong lớp"
+  Teacher --> U1
+  Teacher --> U4
+  Teacher --> U5
+  Teacher --> U6
+  Teacher --> U7
+  Teacher --> U8
+  Teacher --> U11
+  Teacher --> U12
+  Teacher --> U13
 
-  usecase U6 as "Quản lý câu hỏi"
+  Student --> U1
+  Student --> U8
+  Student --> U9
+  Student --> U10
+  Student --> U11
+  Student --> U12
 
-  usecase U7 as "Quản lý đề thi"
-  usecase U8 as "Kiểm tra mật khẩu đề"
-  usecase U9 as "Xem đề được phép thi"
-
-  usecase U10 as "Nộp bài & chấm điểm"
-  usecase U11 as "Xem lịch sử/kết quả"
-  usecase U12 as "Review bài làm"
-  usecase U13 as "Sửa điểm/Xóa kết quả"
-}
-
-Admin --> U1
-Admin --> U3
-
-Teacher --> U1
-Teacher --> U4
-Teacher --> U5
-Teacher --> U6
-Teacher --> U7
-Teacher --> U8
-Teacher --> U11
-Teacher --> U12
-Teacher --> U13
-
-Student --> U1
-Student --> U8
-Student --> U9
-Student --> U10
-Student --> U11
-Student --> U12
-
-Client --> U2
+  Client --> U2
 ```
 
 ## 3) Mô hình Use-case chi tiết theo phân hệ
 
 ```mermaid
-usecaseDiagram
-actor Teacher
-actor Student
+flowchart LR
+  Teacher[Teacher]
+  Student[Student]
 
-rectangle "Exam Module" {
-  usecase E1 as "Tạo đề"
-  usecase E2 as "Sửa đề"
-  usecase E3 as "Xóa đề"
-  usecase E4 as "Xem đề"
-  usecase E5 as "Xem câu hỏi trong đề"
-  usecase E6 as "Kiểm tra mật khẩu đề"
-  usecase E7 as "Nộp bài"
-  usecase E8 as "Review kết quả"
-}
+  subgraph ExamModule[Exam Module]
+    E1([Tao de])
+    E2([Sua de])
+    E3([Xoa de])
+    E4([Xem de])
+    E5([Xem cau hoi trong de])
+    E6([Kiem tra mat khau de])
+    E7([Nop bai])
+    E8([Review ket qua])
+  end
 
-Teacher --> E1
-Teacher --> E2
-Teacher --> E3
-Teacher --> E4
-Teacher --> E5
-Teacher --> E6
-Teacher --> E8
+  Teacher --> E1
+  Teacher --> E2
+  Teacher --> E3
+  Teacher --> E4
+  Teacher --> E5
+  Teacher --> E6
+  Teacher --> E8
 
-Student --> E4
-Student --> E5
-Student --> E6
-Student --> E7
-Student --> E8
+  Student --> E4
+  Student --> E5
+  Student --> E6
+  Student --> E7
+  Student --> E8
 ```
 
 ## 4) Mô hình lớp (Class Diagram)
