@@ -151,12 +151,10 @@ const handleRemoveStudent = async (studentId: number) => {
     <div class="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
       <div class="relative flex-1 max-w-md">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input type="text" placeholder="Tìm kiếm lớp học..." v-model="searchTerm" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg
-                 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <input type="text" placeholder="Tìm kiếm lớp học..." v-model="searchTerm" class="input-field pl-10 pr-4" />
       </div>
 
-      <button @click="openCreateModal" class="flex items-center gap-2 px-4 py-2 bg-blue-600
-               text-white rounded-lg hover:bg-blue-700 transition-colors">
+      <button @click="openCreateModal" class="btn-primary">
         <Plus class="w-5 h-5" />
         Tạo lớp học mới
       </button>
@@ -169,7 +167,7 @@ const handleRemoveStudent = async (studentId: number) => {
 
     <!-- Class list -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div v-for="cls in filteredClasses" :key="cls.id" class="bg-white rounded-lg shadow p-6">
+      <div v-for="cls in filteredClasses" :key="cls.id" class="panel-card card-hover">
         <h3 class="mb-2 font-semibold text-lg">
           {{ cls.name }}
         </h3>
@@ -205,29 +203,28 @@ const handleRemoveStudent = async (studentId: number) => {
     </div>
 
     <!-- CREATE / EDIT MODAL -->
-    <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center
-             justify-center p-4 z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-md">
+    <div v-if="showModal" class="modal-overlay">
+      <div class="modal-card max-w-md">
         <h2 class="mb-4 font-bold text-xl">
           {{ editingClass ? 'Sửa lớp học' : 'Tạo lớp học mới' }}
         </h2>
 
         <div class="mb-4">
           <label class="block mb-2">Tên lớp học</label>
-          <input v-model="className" class="w-full px-4 py-2 border rounded-lg" />
+          <input v-model="className" class="input-field" />
         </div>
 
         <div class="mb-4">
           <label class="block mb-2">Mô tả</label>
-          <textarea v-model="description" class="w-full px-4 py-2 border rounded-lg" />
+          <textarea v-model="description" class="textarea-field" />
         </div>
 
         <div class="flex gap-3">
-          <button @click="showModal = false" class="flex-1 px-4 py-2 border rounded-lg">
+          <button @click="showModal = false" class="btn-secondary flex-1">
             Hủy
           </button>
 
-          <button @click="handleSubmit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg">
+          <button @click="handleSubmit" class="btn-primary flex-1">
             {{ editingClass ? 'Cập nhật' : 'Tạo' }}
           </button>
         </div>
@@ -235,8 +232,8 @@ const handleRemoveStudent = async (studentId: number) => {
     </div>
 
     <!-- STUDENT MODAL -->
-    <div v-if="selectedClass" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40">
-      <div class="bg-white rounded-lg p-6 w-full max-w-lg">
+    <div v-if="selectedClass" class="modal-overlay">
+      <div class="modal-card max-w-lg">
         <h2 class="mb-1 font-bold text-xl">
           Quản lý sinh viên – {{ selectedClass.name }}
         </h2>
@@ -252,7 +249,7 @@ const handleRemoveStudent = async (studentId: number) => {
 
         <div v-else class="space-y-2 mb-6">
           <div v-for="st in selectedClass.students" :key="st.id"
-            class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+            class="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
             <div>
               <div class="font-medium">{{ st.full_name }}</div>
               <div class="text-sm text-gray-500">
@@ -277,7 +274,7 @@ const handleRemoveStudent = async (studentId: number) => {
 
         <div v-else class="space-y-2 mb-6">
           <div v-for="st in availableStudents" :key="st.id"
-            class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+            class="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
             <div>
               <div class="font-medium">{{ st.full_name }}</div>
               <div class="text-sm text-gray-500">
@@ -292,7 +289,7 @@ const handleRemoveStudent = async (studentId: number) => {
           </div>
         </div>
 
-        <button @click="selectedClass = null" class="w-full bg-blue-600 text-white py-2 rounded-lg">
+        <button @click="selectedClass = null" class="btn-primary w-full">
           Đóng
         </button>
       </div>
@@ -300,3 +297,4 @@ const handleRemoveStudent = async (studentId: number) => {
 
   </div>
 </template>
+

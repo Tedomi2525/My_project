@@ -319,10 +319,9 @@ const handleSubmit = async () => {
       <div class="relative flex-1 max-w-md">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
         <input type="text" placeholder="Tìm kiếm đề thi..." v-model="searchTerm"
-          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          class="input-field pl-10 pr-4" />
       </div>
-      <button @click="handleAddExam"
-        class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+      <button @click="handleAddExam" class="btn-primary">
         <Plus class="w-5 h-5" />
         Tạo đề thi mới
       </button>
@@ -336,7 +335,7 @@ const handleSubmit = async () => {
     </div>
 
     <div v-else class="space-y-4">
-      <div v-for="exam in filteredExams" :key="exam.id" class="bg-white rounded-lg shadow p-6">
+      <div v-for="exam in filteredExams" :key="exam.id" class="panel-card card-hover">
         <div class="flex justify-between items-start mb-4">
           <div>
             <div class="flex items-center gap-3 mb-2">
@@ -381,9 +380,8 @@ const handleSubmit = async () => {
       </div>
     </div>
 
-    <div v-if="showModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div class="bg-white rounded-lg p-6 w-full max-w-4xl my-8 max-h-[90vh] overflow-y-auto">
+    <div v-if="showModal" class="modal-overlay z-100 items-start pt-16 sm:pt-20 overflow-y-auto">
+      <div class="modal-card my-8 max-h-[90vh] w-full max-w-4xl overflow-y-auto">
         <h2 class="mb-4 text-xl font-bold">
           {{ editingExamId ? 'Sửa đề thi' : 'Tạo đề thi mới' }}
         </h2>
@@ -394,21 +392,21 @@ const handleSubmit = async () => {
               <div class="md:col-span-2">
                 <label class="block mb-2 font-medium">Tên đề thi</label>
                 <input type="text" v-model="formData.title"
-                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required />
+                  class="input-field" required />
               </div>
               <div class="md:col-span-2">
                 <label class="block mb-2 font-medium">Mô tả</label>
                 <textarea v-model="formData.description"
-                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
+                  class="textarea-field" rows="2"></textarea>
               </div>
               <div>
                 <label class="block mb-2 font-medium">Thời gian (phút)</label>
                 <input type="number" v-model.number="formData.duration_minutes"
-                  class="w-full px-4 py-2 border rounded-lg" min="1" required />
+                  class="input-field" min="1" required />
               </div>
               <div>
                 <label class="block mb-2 font-medium">Số lần làm bài</label>
-                <select v-model="formData.attempt_mode" class="w-full px-4 py-2 border rounded-lg bg-white">
+                <select v-model="formData.attempt_mode" class="input-field bg-white">
                   <option value="ONCE">1 lần</option>
                   <option value="LIMITED">Giới hạn số lần</option>
                   <option value="UNLIMITED">Không giới hạn</option>
@@ -419,7 +417,7 @@ const handleSubmit = async () => {
                 <input
                   type="number"
                   v-model.number="formData.max_attempts_limit"
-                  class="w-full px-4 py-2 border rounded-lg"
+                  class="input-field"
                   min="2"
                   required
                 />
@@ -427,17 +425,17 @@ const handleSubmit = async () => {
               <div v-else></div>
               <div>
                 <label class="block mb-2 font-medium">Mật khẩu (để trống nếu không đổi)</label>
-                <input type="text" v-model="formData.password" class="w-full px-4 py-2 border rounded-lg"
+                <input type="text" v-model="formData.password" class="input-field"
                   placeholder="***" />
               </div>
               <div>
                 <label class="block mb-2 font-medium">Bắt đầu</label>
-                <input type="datetime-local" v-model="formData.start_time" class="w-full px-4 py-2 border rounded-lg"
+                <input type="datetime-local" v-model="formData.start_time" class="input-field"
                   required />
               </div>
               <div>
                 <label class="block mb-2 font-medium">Kết thúc</label>
-                <input type="datetime-local" v-model="formData.end_time" class="w-full px-4 py-2 border rounded-lg"
+                <input type="datetime-local" v-model="formData.end_time" class="input-field"
                   required />
               </div>
               <div class="md:col-span-2">
@@ -461,7 +459,7 @@ const handleSubmit = async () => {
 
               <div v-if="isLoadingResources" class="text-sm text-gray-500">Đang tải danh sách câu hỏi...</div>
 
-              <div v-else class="max-h-60 overflow-y-auto border rounded-lg p-4 space-y-2">
+              <div v-else class="max-h-60 overflow-y-auto rounded-xl border border-slate-200 p-4 space-y-2">
                 <label v-for="(q, idx) in availableQuestions" :key="q.id"
                   class="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
                   <input type="checkbox" v-model="formData.questions" :value="q.id" class="mt-1" />
@@ -485,7 +483,7 @@ const handleSubmit = async () => {
                 <Loader2 class="w-4 h-4 animate-spin inline mr-2" /> Đang tải danh sách lớp...
               </div>
 
-              <div v-else class="max-h-60 overflow-y-auto border rounded-lg p-4 space-y-2">
+              <div v-else class="max-h-60 overflow-y-auto rounded-xl border border-slate-200 p-4 space-y-2">
                 <label v-for="cls in availableClasses" :key="cls.id"
                   class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors"
                   :class="{ 'bg-blue-50 border-blue-100': formData.class_ids.includes(cls.id) }">
@@ -511,12 +509,10 @@ const handleSubmit = async () => {
             </div>
 
             <div class="flex gap-3 mt-6">
-              <button type="button" @click="showModal = false"
-                class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
+              <button type="button" @click="showModal = false" class="btn-secondary flex-1">
                 Hủy
               </button>
-              <button type="submit" :disabled="isSubmitting"
-                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              <button type="submit" :disabled="isSubmitting" class="btn-primary flex-1 disabled:opacity-50">
                 <span v-if="isSubmitting">
                   <Loader2 class="w-4 h-4 animate-spin inline mr-2" />Đang xử lý...
                 </span>

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class ResultReviewQuestion(BaseModel):
     question_id: int
     content: str
+    difficulty: Optional[str] = None
     options: Optional[Dict[str, Any]] = None
     correct_answer: str
     student_answer: str = ""

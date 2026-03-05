@@ -35,6 +35,7 @@ interface TeacherResult {
 interface ReviewQuestion {
   question_id: number
   content: string
+  difficulty?: string | null
   options: Record<string, string> | null
   correct_answer: string
   student_answer: string
@@ -68,6 +69,18 @@ const showAnswersModal = ref(false)
 const loadingReview = ref(false)
 const selectedReview = ref<ReviewPayload | null>(null)
 const reviewError = ref('')
+const loadingDifficultyStats = ref(false)
+
+type DifficultyKey = 'EASY' | 'MEDIUM' | 'HARD'
+type DifficultyStats = Record<DifficultyKey, { correct: number; total: number }>
+
+const createEmptyDifficultyStats = (): DifficultyStats => ({
+  EASY: { correct: 0, total: 0 },
+  MEDIUM: { correct: 0, total: 0 },
+  HARD: { correct: 0, total: 0 }
+})
+
+const difficultyStats = ref<DifficultyStats>(createEmptyDifficultyStats())
 
 const avgScore = computed(() => {
   if (examResults.value.length === 0) return '0.00'
@@ -104,10 +117,10 @@ const barChartData = computed(() => {
 
 const pieChartData = computed(() => {
   const distribution = [
-    { name: 'Gioi (8-10)', value: examResults.value.filter(r => r.total_score >= 8).length, color: '#22c55e' },
-    { name: 'Kha (6.5-8)', value: examResults.value.filter(r => r.total_score >= 6.5 && r.total_score < 8).length, color: '#3b82f6' },
+    { name: 'Giỏi (8-10)', value: examResults.value.filter(r => r.total_score >= 8).length, color: '#22c55e' },
+    { name: 'Khá (6.5-8)', value: examResults.value.filter(r => r.total_score >= 6.5 && r.total_score < 8).length, color: '#3b82f6' },
     { name: 'TB (5-6.5)', value: examResults.value.filter(r => r.total_score >= 5 && r.total_score < 6.5).length, color: '#f59e0b' },
-    { name: 'Yeu (<5)', value: examResults.value.filter(r => r.total_score < 5).length, color: '#ef4444' }
+    { name: 'Yếu (<5)', value: examResults.value.filter(r => r.total_score < 5).length, color: '#ef4444' }
   ]
 
   return {
@@ -124,8 +137,62 @@ const chartOptions = {
   maintainAspectRatio: false
 }
 
+const difficultyChartData = computed(() => {
+  const labels = ['Dễ', 'Trung bình', 'Khó']
+  const keys: DifficultyKey[] = ['EASY', 'MEDIUM', 'HARD']
+  const data = keys.map((key) => {
+    const stat = difficultyStats.value[key]
+    if (stat.total === 0) return 0
+    return Number(((stat.correct / stat.total) * 100).toFixed(1))
+  })
+
+  return {
+    labels,
+    datasets: [
+      {
+        label: 'Tỉ lệ đúng (%)',
+        data,
+        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444']
+      }
+    ]
+  }
+})
+
+const difficultyChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  scales: {
+    y: {
+      beginAtZero: true,
+      max: 100,
+      ticks: {
+        callback: (value: number | string) => `${value}%`
+      }
+    }
+  }
+}
+
+const difficultyRows = computed(() => {
+  const rows: Array<{ key: DifficultyKey; label: string; correct: number; total: number; percent: string }> = [
+    { key: 'EASY', label: 'Dễ', correct: 0, total: 0, percent: '0.0' },
+    { key: 'MEDIUM', label: 'Trung bình', correct: 0, total: 0, percent: '0.0' },
+    { key: 'HARD', label: 'Khó', correct: 0, total: 0, percent: '0.0' }
+  ]
+
+  return rows.map((row) => {
+    const stat = difficultyStats.value[row.key]
+    const percent = stat.total > 0 ? ((stat.correct / stat.total) * 100).toFixed(1) : '0.0'
+    return {
+      ...row,
+      correct: stat.correct,
+      total: stat.total,
+      percent
+    }
+  })
+})
+
 const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return 'Khong xac dinh'
+  if (!dateStr) return 'Không xác định'
   return new Date(dateStr).toLocaleString('vi-VN')
 }
 
@@ -141,9 +208,51 @@ const optionEntries = (options: Record<string, string> | null) => {
   return Object.entries(options)
 }
 
+const normalizeDifficulty = (difficulty?: string | null): DifficultyKey => {
+  if (!difficulty) return 'MEDIUM'
+  const normalized = difficulty.toUpperCase()
+  if (normalized === 'EASY' || normalized === 'MEDIUM' || normalized === 'HARD') {
+    return normalized
+  }
+  return 'MEDIUM'
+}
+
 const headers = computed(() => ({
   'x-user-id': String(user.value?.id || '')
 }))
+
+const loadDifficultyStats = async () => {
+  difficultyStats.value = createEmptyDifficultyStats()
+
+  if (!selectedExam.value || examResults.value.length === 0) return
+
+  loadingDifficultyStats.value = true
+  try {
+    const reviews = await Promise.all(
+      examResults.value.map((result) =>
+        $fetch<ReviewPayload>(`/results/${result.id}/review`, {
+          baseURL: config.public.apiBase,
+          headers: headers.value
+        })
+      )
+    )
+
+    const nextStats = createEmptyDifficultyStats()
+    reviews.forEach((review) => {
+      review.questions.forEach((question) => {
+        const key = normalizeDifficulty(question.difficulty)
+        nextStats[key].total += 1
+        if (question.is_correct) nextStats[key].correct += 1
+      })
+    })
+
+    difficultyStats.value = nextStats
+  } catch (err) {
+    console.error('Lỗi tải thống kê độ khó:', err)
+  } finally {
+    loadingDifficultyStats.value = false
+  }
+}
 
 const loadExams = async () => {
   try {
@@ -162,20 +271,24 @@ const loadExams = async () => {
 const loadExamResults = async () => {
   if (!selectedExam.value) {
     examResults.value = []
+    difficultyStats.value = createEmptyDifficultyStats()
     return
   }
   if (!exams.value.some(exam => exam.id === selectedExam.value)) {
     examResults.value = []
+    difficultyStats.value = createEmptyDifficultyStats()
     return
   }
 
   loadingResults.value = true
+  difficultyStats.value = createEmptyDifficultyStats()
   try {
     const data = await $fetch<TeacherResult[]>(`/results/exam/${selectedExam.value}`, {
       baseURL: config.public.apiBase,
       headers: headers.value
     })
     examResults.value = data || []
+    await loadDifficultyStats()
   } catch (err) {
     console.error('Lỗi tải kết quả đề thi:', err)
     error.value = 'Không tải được kết quả đề thi'
@@ -253,7 +366,7 @@ watch(selectedExam, async () => {
 
     <template v-else>
       <div class="mb-6 bg-white rounded-lg shadow p-6">
-        <label class="block mb-2 font-medium">Chon de thi</label>
+        <label class="block mb-2 font-medium">Chon đề thi</label>
         <select
           v-model="selectedExam"
           class="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -295,6 +408,25 @@ watch(selectedExam, async () => {
           <h3 class="mb-4 font-bold text-lg">Phân loại học lực</h3>
           <div class="h-72">
             <Pie :data="pieChartData" :options="chartOptions" />
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 class="mb-4 font-bold text-lg">Tỉ lệ trả lời đúng theo độ khó</h3>
+        <div v-if="loadingDifficultyStats" class="flex justify-center py-8">
+          <Loader2 class="w-6 h-6 animate-spin text-blue-600" />
+        </div>
+        <div v-else class="space-y-4">
+          <div class="h-72">
+            <Bar :data="difficultyChartData" :options="difficultyChartOptions" />
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div v-for="row in difficultyRows" :key="row.key" class="rounded-lg border border-gray-200 p-3 text-sm">
+              <p class="font-semibold mb-1">{{ row.label }}</p>
+              <p>Đúng: {{ row.correct }}/{{ row.total }}</p>
+              <p>Tỉ lệ: {{ row.percent }}%</p>
+            </div>
           </div>
         </div>
       </div>
@@ -361,7 +493,7 @@ watch(selectedExam, async () => {
       </div>
     </template>
 
-    <div v-if="showAnswersModal && selectedReview" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div v-if="showAnswersModal && selectedReview" class="modal-overlay z-100 items-start pt-16 sm:pt-20 overflow-y-auto">
       <div class="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[88vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-bold">

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { Clock, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, Flag } from 'lucide-vue-next'
 import type { Question, Exam } from '~/types'
 import { useExams } from '~/composables/useExams'
@@ -309,14 +309,14 @@ const startExam = async () => {
   </div>
 
   <div v-else-if="!mockExam" class="max-w-4xl mx-auto text-center py-8">
-    <div class="bg-white rounded-lg shadow p-8">
+    <div class="panel-card p-8">
       <h2 class="text-xl font-bold mb-4">Không tìm thấy bài thi</h2>
       <button @click="router.push('/student')" class="bg-blue-600 text-white px-6 py-2 rounded-lg">Quay lai</button>
     </div>
   </div>
 
   <div v-else-if="!started && !submitted" class="max-w-4xl mx-auto">
-    <div class="bg-white rounded-lg shadow-lg p-8">
+    <div class="panel-card p-8">
       <div class="text-center mb-8">
         <div class="inline-block p-4 bg-blue-100 rounded-full mb-4">
           <CheckCircle class="w-12 h-12 text-blue-600" />
@@ -357,7 +357,7 @@ const startExam = async () => {
   </div>
 
   <div v-else-if="submitted" class="max-w-4xl mx-auto">
-    <div class="bg-white rounded-lg shadow p-8 mb-6 text-center">
+    <div class="panel-card mb-6 p-8 text-center">
       <h2 class="mb-4 font-bold text-2xl">Đã nộp bài thành công!</h2>
       <div class="text-6xl mb-4">{{ score >= 8 ? 'Tốt' : score >= 5 ? 'Khá' : 'Cần cố gắng hơn' }}</div>
       <p class="text-gray-600 mb-2">Điểm số của bạn</p>
@@ -365,7 +365,7 @@ const startExam = async () => {
       <button @click="router.push('/student/history')" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">Xem lịch sử thi</button>
     </div>
 
-    <div v-if="mockExam.allow_view_answers" class="bg-white rounded-lg shadow p-8">
+    <div v-if="mockExam.allow_view_answers" class="panel-card p-8">
       <h3 class="mb-6 font-bold text-xl">Đáp án chi tiết</h3>
       <div class="space-y-6">
         <div v-for="(q, idx) in mockQuestions" :key="q.id" class="border-b pb-6">
@@ -400,7 +400,7 @@ const startExam = async () => {
     </div>
 
     <div class="w-full lg:w-64 shrink-0 order-2 lg:order-1">
-      <div class="bg-white rounded-lg shadow p-6 sticky top-6">
+      <div class="panel-card sticky top-6">
         <div :class="['flex items-center gap-2 px-4 py-3 rounded-lg mb-4 font-bold text-xl', timeLeft < 300 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700']">
           <Clock class="w-5 h-5" /> {{ formatTime(timeLeft) }}
         </div>
@@ -429,7 +429,7 @@ const startExam = async () => {
         <AlertCircle class="w-5 h-5" /> Sắp hết thời gian!
       </div>
 
-      <div v-if="questionData" class="bg-white rounded-lg shadow p-8 mb-6">
+      <div v-if="questionData" class="panel-card mb-6 p-8">
         <div class="flex items-start gap-4 mb-6">
           <span class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-bold whitespace-nowrap">Cau {{ currentQuestion + 1 }}/{{ mockQuestions.length }}</span>
           <h2 class="flex-1 text-lg font-medium">{{ questionData.content }}</h2>
@@ -479,8 +479,8 @@ const startExam = async () => {
       </div>
     </div>
 
-    <div v-if="showConfirmModal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div class="bg-white rounded-lg p-8 w-full max-w-md shadow-xl transform transition-all">
+    <div v-if="showConfirmModal" class="modal-overlay">
+      <div class="modal-card w-full max-w-md p-8">
         <h2 class="mb-4 font-bold text-xl">Xác nhận nộp bài</h2>
         <div class="mb-6">
           <p>Bạn đã trả lời <strong>{{ answers.filter((a) => !!a).length }}/{{ mockQuestions.length }}</strong> câu hỏi.</p>
@@ -494,7 +494,7 @@ const startExam = async () => {
           </div>
         </div>
         <div class="flex gap-3">
-          <button @click="showConfirmModal = false" class="flex-1 py-3 border rounded-lg hover:bg-gray-50 font-medium">Làm tiếp</button>
+          <button @click="showConfirmModal = false" class="btn-secondary flex-1">Làm tiếp</button>
           <button @click="handleSubmit" class="flex-1 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-lg">Nộp bài</button>
         </div>
       </div>

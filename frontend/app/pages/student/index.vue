@@ -119,12 +119,12 @@ const handlePasswordSubmit = async () => {
       <Loader2 class="w-8 h-8 animate-spin text-blue-600" />
     </div>
 
-    <div v-else-if="availableExams.length === 0" class="bg-white rounded-lg shadow p-12 text-center">
+    <div v-else-if="availableExams.length === 0" class="panel-card p-12 text-center">
       <p class="text-gray-500">Bạn chưa có bài thi nào</p>
     </div>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div v-for="exam in availableExams" :key="exam.id" class="bg-white rounded-lg shadow p-6">
+      <div v-for="exam in availableExams" :key="exam.id" class="panel-card card-hover">
         <div class="mb-4">
           <h3 class="mb-2 font-semibold text-lg">{{ exam.title }}</h3>
           <span v-if="exam.has_password" class="inline-flex items-center gap-1 text-sm text-orange-600 bg-orange-50 px-2 py-1 rounded">
@@ -148,7 +148,7 @@ const handlePasswordSubmit = async () => {
         <button
           v-if="isExamAvailable(exam)"
           @click="handleStartExam(exam)"
-          class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          class="btn-primary w-full"
         >
           Vào thi
         </button>
@@ -158,11 +158,11 @@ const handlePasswordSubmit = async () => {
       </div>
     </div>
 
-    <div v-if="showPasswordModal && selectedExam" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-md">
+    <div v-if="showPasswordModal && selectedExam" class="modal-overlay">
+      <div class="modal-card max-w-md">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-bold text-lg">Nhập mật khẩu</h2>
-          <button @click="showPasswordModal = false" class="p-1 hover:bg-gray-100 rounded transition-colors">
+          <button @click="showPasswordModal = false" class="rounded-lg p-1 transition-colors hover:bg-gray-100">
             <X class="w-5 h-5" />
           </button>
         </div>
@@ -179,7 +179,7 @@ const handlePasswordSubmit = async () => {
               type="password"
               v-model="password"
               @input="error = ''"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="input-field"
               placeholder="Nhập mật khẩu"
               autofocus
               required
@@ -188,8 +188,8 @@ const handlePasswordSubmit = async () => {
           </div>
 
           <div class="flex gap-3">
-            <button type="button" @click="showPasswordModal = false" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">Hủy</button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Vào thi</button>
+            <button type="button" @click="showPasswordModal = false" class="btn-secondary flex-1">Hủy</button>
+            <button type="submit" class="btn-primary flex-1">Vào thi</button>
           </div>
         </form>
       </div>

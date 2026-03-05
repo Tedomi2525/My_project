@@ -148,6 +148,7 @@ class ResultService:
                 {
                     "question_id": q.id,
                     "content": q.content,
+                    "difficulty": q.difficulty.value if q.difficulty else None,
                     "options": q.options,
                     "correct_answer": q.correct_answer,
                     "student_answer": detail.student_answer if detail else "",

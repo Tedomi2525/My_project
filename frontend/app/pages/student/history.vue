@@ -221,7 +221,7 @@ onMounted(loadHistory)
 
     <div
       v-if="showReviewModal && selectedReview"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      class="modal-overlay z-100 items-start pt-16 sm:pt-20 overflow-y-auto"
     >
       <div class="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[88vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">

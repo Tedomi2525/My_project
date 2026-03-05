@@ -74,11 +74,13 @@ const handleForgotPassword = () => {
 </script>
 
 <template>
-  <div v-if="showForgotPassword" class="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+  <div v-if="showForgotPassword" class="relative flex min-h-screen items-center justify-center overflow-hidden bg-linear-to-br from-slate-50 via-blue-50 to-slate-100 p-4">
+    <div class="pointer-events-none absolute -top-20 -left-20 h-52 w-52 rounded-full bg-blue-200/15 blur-3xl" />
+    <div class="pointer-events-none absolute -right-24 -bottom-24 h-64 w-64 rounded-full bg-cyan-200/15 blur-3xl" />
+    <div class="surface-card soft-enter card-hover w-full max-w-md p-8">
       <h2 class="text-center mb-6 font-bold text-2xl">Quên mật khẩu</h2>
       
-      <div v-if="resetMessage" class="bg-green-50 text-green-700 p-4 rounded-lg mb-4">
+      <div v-if="resetMessage" class="mb-4 rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-green-700">
         {{ resetMessage }}
       </div>
       
@@ -89,13 +91,13 @@ const handleForgotPassword = () => {
             type="email"
             id="email"
             v-model="email"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 transition focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
             required
           />
         </div>
         <button
           type="submit"
-          class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors mb-4 font-bold"
+          class="mb-4 w-full rounded-xl bg-linear-to-r from-blue-600 to-cyan-600 px-4 py-2.5 font-bold text-white shadow-sm shadow-blue-200 transition hover:brightness-105"
         >
           Gửi email khôi phục
         </button>
@@ -110,17 +112,19 @@ const handleForgotPassword = () => {
     </div>
   </div>
 
-  <div v-else class="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+  <div v-else class="relative flex min-h-screen items-center justify-center overflow-hidden bg-linear-to-br from-slate-50 via-blue-50 to-slate-100 p-4">
+    <div class="pointer-events-none absolute -top-20 -left-20 h-52 w-52 rounded-full bg-blue-200/15 blur-3xl" />
+    <div class="pointer-events-none absolute -right-24 -bottom-24 h-64 w-64 rounded-full bg-cyan-200/15 blur-3xl" />
+    <div class="surface-card soft-enter card-hover w-full max-w-md p-8">
       <div class="flex items-center justify-center mb-6">
-        <div class="bg-blue-600 p-3 rounded-full">
+        <div class="rounded-full bg-linear-to-r from-blue-600 to-cyan-600 p-3 shadow-sm shadow-blue-200">
           <LogIn class="w-8 h-8 text-white" />
         </div>
       </div>
       <h1 class="text-center mb-2 font-bold text-2xl">Hệ thống Thi trắc nghiệm</h1>
       <p class="text-center text-gray-600 mb-6">Đăng nhập để tiếp tục</p>
 
-      <div v-if="error" class="bg-red-50 text-red-600 p-3 rounded-lg mb-4 flex gap-2 items-center">
+      <div v-if="error" class="mb-4 flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-red-600">
         <span>⚠️</span> {{ error }}
       </div>
 
@@ -131,7 +135,7 @@ const handleForgotPassword = () => {
             type="text"
             id="username"
             v-model="username"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 transition focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
             required
             :disabled="isLoading" 
           />
@@ -143,7 +147,7 @@ const handleForgotPassword = () => {
             type="password"
             id="password"
             v-model="password"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 transition focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-100"
             required
             :disabled="isLoading"
           />
@@ -152,7 +156,7 @@ const handleForgotPassword = () => {
         <button
           type="submit"
           :disabled="isLoading"
-          class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors mb-4 font-bold disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
+          class="mb-4 flex w-full items-center justify-center rounded-xl bg-linear-to-r from-blue-600 to-cyan-600 px-4 py-2.5 font-bold text-white shadow-sm shadow-blue-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
         >
           <span v-if="isLoading" class="mr-2 animate-spin">⚪</span>
           {{ isLoading ? 'Đang xử lý...' : 'Đăng nhập' }}
