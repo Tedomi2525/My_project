@@ -229,7 +229,175 @@ flowchart LR
   Student --> E8
 ```
 
-## 4) Mô hình lớp (Class Diagram)
+## 4) Biểu đồ luồng dữ liệu (DFD)
+
+### 4.1 DFD mức ngữ cảnh (Context Diagram)
+
+```mermaid
+flowchart LR
+  Admin[Admin]
+  Teacher[Teacher]
+  Student[Student]
+
+  System((He thong thi trac nghiem))
+
+  Admin -->|Thong tin tai khoan, yeu cau quan ly user| System
+  System -->|Danh sach user, ket qua xu ly| Admin
+
+  Teacher -->|Thong tin lop, cau hoi, de thi, yeu cau thong ke| System
+  System -->|Danh sach lop, cau hoi, de thi, ket qua, thong ke| Teacher
+
+  Student -->|Thong tin dang nhap, mat khau de, bai lam| System
+  System -->|Danh sach de thi, cau hoi, ket qua, lich su thi| Student
+```
+
+### 4.2 DFD mức 0
+
+```mermaid
+flowchart TB
+  Admin[Admin]
+  Teacher[Teacher]
+  Student[Student]
+
+  P1((1. Quan ly xac thuc))
+  P2((2. Quan ly nguoi dung))
+  P3((3. Quan ly lop hoc))
+  P4((4. Quan ly cau hoi))
+  P5((5. Quan ly de thi))
+  P6((6. Quan ly bai thi va ket qua))
+  P7((7. Thong ke va review))
+
+  D1[(D1. User)]
+  D2[(D2. Class)]
+  D3[(D3. Class_Student)]
+  D4[(D4. Question)]
+  D5[(D5. Exam)]
+  D6[(D6. Exam_Question)]
+  D7[(D7. Exam_Allowed_Class)]
+  D8[(D8. Exam_Result)]
+  D9[(D9. Exam_Result_Detail)]
+
+  Admin -->|Thong tin dang nhap| P1
+  Teacher -->|Thong tin dang nhap| P1
+  Student -->|Thong tin dang nhap| P1
+  P1 -->|Kiem tra tai khoan| D1
+  P1 -->|Token, role, user_id| Admin
+  P1 -->|Token, role, user_id| Teacher
+  P1 -->|Token, role, user_id| Student
+
+  Admin -->|Them/sua/xoa/xem user| P2
+  P2 -->|Doc/ghi user| D1
+  P2 -->|Danh sach user, thong bao| Admin
+
+  Teacher -->|Tao/sua/xoa/xem lop, them/xoa SV| P3
+  P3 -->|Doc/ghi lop hoc| D2
+  P3 -->|Doc/ghi phan lop| D3
+  P3 -->|Doc user sinh vien| D1
+  P3 -->|Thong tin lop hoc| Teacher
+
+  Teacher -->|Tao/sua/xoa/xem cau hoi| P4
+  P4 -->|Doc/ghi cau hoi| D4
+  P4 -->|Danh sach cau hoi| Teacher
+
+  Teacher -->|Tao/sua/xoa/xem de thi| P5
+  Student -->|Yeu cau xem de thi| P5
+  Student -->|Nhap mat khau de| P5
+  P5 -->|Doc/ghi de thi| D5
+  P5 -->|Doc/ghi cau hoi trong de| D6
+  P5 -->|Doc/ghi lop duoc phep thi| D7
+  P5 -->|Thong tin de thi| Teacher
+  P5 -->|Danh sach de, chi tiet de, ket qua kiem tra mat khau| Student
+
+  Student -->|Bai lam, dap an| P6
+  P6 -->|Doc de thi| D5
+  P6 -->|Doc cau hoi de thi| D6
+  P6 -->|Ghi ket qua thi| D8
+  P6 -->|Ghi chi tiet bai lam| D9
+  P6 -->|Ket qua thi, lich su thi| Student
+
+  Teacher -->|Yeu cau thong ke, review bai lam| P7
+  Student -->|Yeu cau xem review| P7
+  P7 -->|Doc ket qua thi| D8
+  P7 -->|Doc chi tiet bai lam| D9
+  P7 -->|Doc cau hoi| D4
+  P7 -->|Doc de thi| D5
+  P7 -->|Bao cao, thong ke, review| Teacher
+  P7 -->|Chi tiet bai lam| Student
+```
+
+### 4.3 DFD mức 1 cho phân hệ làm bài thi
+
+```mermaid
+flowchart LR
+  Student[Student]
+
+  P61((6.1 Lay de thi va cau hoi))
+  P62((6.2 Lam bai va ghi nhan dap an))
+  P63((6.3 Nop bai va cham diem))
+  P64((6.4 Luu ket qua va lich su))
+
+  D5[(Exam)]
+  D6[(Exam_Question)]
+  D4[(Question)]
+  D8[(Exam_Result)]
+  D9[(Exam_Result_Detail)]
+
+  Student -->|Yeu cau vao thi| P61
+  P61 -->|Doc thong tin de| D5
+  P61 -->|Doc danh sach cau hoi| D6
+  P61 -->|Doc noi dung cau hoi| D4
+  P61 -->|De thi + cau hoi| Student
+
+  Student -->|Lua chon dap an| P62
+  P62 -->|Danh sach dap an tam thoi| P63
+
+  Student -->|Yeu cau nop bai| P63
+  P63 -->|Doc dap an dung| D4
+  P63 -->|Tinh diem| P64
+
+  P64 -->|Luu ket qua tong| D8
+  P64 -->|Luu chi tiet tung cau| D9
+  P64 -->|Ket qua thi| Student
+```
+
+### 4.4 DFD mức 1 cho phân hệ thống kê và review
+
+```mermaid
+flowchart LR
+  Teacher[Teacher]
+  Student[Student]
+
+  P71((7.1 Lay ket qua theo de thi))
+  P72((7.2 Tong hop thong ke))
+  P73((7.3 Lay chi tiet review))
+  P74((7.4 Tra bao cao va bai lam))
+
+  D8[(Exam_Result)]
+  D9[(Exam_Result_Detail)]
+  D4[(Question)]
+  D5[(Exam)]
+
+  Teacher -->|Chon de thi can xem thong ke| P71
+  P71 -->|Doc ket qua theo de| D8
+  P71 -->|Danh sach ket qua| P72
+
+  P72 -->|Doc chi tiet bai lam| D9
+  P72 -->|Doc cau hoi| D4
+  P72 -->|Thong ke diem, do kho| P74
+
+  Teacher -->|Chon bai lam can review| P73
+  Student -->|Yeu cau xem bai lam| P73
+  P73 -->|Doc ket qua thi| D8
+  P73 -->|Doc chi tiet bai lam| D9
+  P73 -->|Doc cau hoi va thong tin de| D4
+  P73 -->|Doc thong tin de thi| D5
+  P73 -->|Du lieu review| P74
+
+  P74 -->|Bao cao thong ke, chi tiet bai lam| Teacher
+  P74 -->|Chi tiet bai lam| Student
+```
+
+## 5) Mô hình lớp (Class Diagram)
 
 ```mermaid
 classDiagram
@@ -325,7 +493,7 @@ ExamResult "1" --> "0..*" ExamResultDetail
 Question "1" --> "0..*" ExamResultDetail
 ```
 
-## 5) Mô hình đối tượng (Object Snapshot)
+## 6) Mô hình đối tượng (Object Snapshot)
 
 - `admin_1:User {id=1, role="admin"}`
 - `teacher_5:User {id=5, role="teacher"}`
@@ -339,256 +507,323 @@ Question "1" --> "0..*" ExamResultDetail
 - `result_55:ExamResult {exam_id=10, student_id=12, total_score=8.0}`
 - `result_detail_1:ExamResultDetail {result_id=55, question_id=101, is_correct=true}`
 
-## 6) Các biểu đồ tuần tự (Sequence Diagrams)
+## 7) Các biểu đồ tuần tự theo giao diện hiện tại
 
-### SD-01: Đăng nhập
+Lưu ý: phần này chỉ giữ các luồng đang có màn hình ở frontend hiện tại. Các API backend chưa có màn hình riêng như `sửa điểm` hoặc `xóa kết quả` không đưa vào đây.
+
+### SD-01: Đăng nhập và điều hướng theo vai trò
 ```mermaid
 sequenceDiagram
 actor User
-participant FE as Frontend
-participant AuthAPI as /login
+participant LoginPage as Login Page
+participant AuthComposable as useAuth.login()
+participant AuthAPI as POST /login
 participant UserService
 participant DB
 
-User->>FE: Nhập username/password
-FE->>AuthAPI: POST /login
+User->>LoginPage: Nhập username/password
+LoginPage->>AuthComposable: handleSubmit()
+AuthComposable->>AuthAPI: Gửi thông tin đăng nhập
 AuthAPI->>UserService: get_user_by_username()
 UserService->>DB: SELECT user
 DB-->>UserService: user
 UserService-->>AuthAPI: verify_password()
-AuthAPI-->>FE: access_token + user profile
-FE-->>User: Đăng nhập thành công
+AuthAPI-->>AuthComposable: access_token + user_id + role
+AuthComposable-->>LoginPage: Lưu user/token
+LoginPage-->>User: Điều hướng /admin, /teacher hoặc /student
 ```
 
-### SD-02: Tạo người dùng
+### SD-02: Admin quản lý tài khoản người dùng
 ```mermaid
 sequenceDiagram
 actor Admin
-participant FE
+participant AdminPage as admin/index.vue
 participant UserAPI as /users
 participant UserService
 participant DB
 
-Admin->>FE: Nhập thông tin user mới
-FE->>UserAPI: POST /users
-UserAPI->>UserService: create_user()
-UserService->>UserService: hash password
-UserService->>DB: INSERT user
-DB-->>UserService: created user
-UserService-->>UserAPI: user
-UserAPI-->>FE: UserResponse
+Admin->>AdminPage: Mở trang quản lý user
+AdminPage->>UserAPI: GET /users
+UserAPI->>UserService: get_users()
+UserService->>DB: SELECT users
+DB-->>UserService: user list
+UserService-->>UserAPI: users
+UserAPI-->>AdminPage: danh sách tài khoản
+
+alt Thêm tài khoản
+  Admin->>AdminPage: Nhập form tạo mới
+  AdminPage->>UserAPI: POST /users
+  UserAPI->>UserService: create_user()
+  UserService->>DB: INSERT user
+  DB-->>UserService: created user
+  UserAPI-->>AdminPage: UserResponse
+else Sửa tài khoản
+  Admin->>AdminPage: Cập nhật thông tin
+  AdminPage->>UserAPI: PUT /users/{id}
+  UserAPI->>UserService: update_user()
+  UserService->>DB: UPDATE user
+  DB-->>UserService: updated user
+  UserAPI-->>AdminPage: UserResponse
+else Xóa tài khoản
+  Admin->>AdminPage: Xác nhận xóa
+  AdminPage->>UserAPI: DELETE /users/{id}
+  UserAPI->>UserService: delete_user()
+  UserService->>DB: DELETE user
+  UserAPI-->>AdminPage: success
+end
+
+AdminPage->>UserAPI: GET /users
+UserAPI-->>AdminPage: danh sách mới
 ```
 
-### SD-03: Giáo viên tạo lớp và thêm học sinh
+### SD-03: Teacher quản lý lớp học và sinh viên trong lớp
 ```mermaid
 sequenceDiagram
 actor Teacher
-participant FE
+participant TeacherClassPage as teacher/index.vue
 participant ClassAPI as /classes
 participant Dep as get_current_user
 participant ClassService
 participant DB
 
-Teacher->>FE: Tạo lớp
-FE->>ClassAPI: POST /classes
-ClassAPI->>Dep: kiểm tra teacher
+Teacher->>TeacherClassPage: Mở trang lớp học
+TeacherClassPage->>ClassAPI: GET /classes
+ClassAPI->>Dep: Kiểm tra teacher
 Dep-->>ClassAPI: current_teacher
-ClassAPI->>ClassService: create_class()
-ClassService->>DB: INSERT class
-DB-->>ClassService: class
-ClassService-->>ClassAPI: class detail
-ClassAPI-->>FE: class detail
+ClassAPI->>ClassService: get_classes_by_teacher()
+ClassService->>DB: SELECT class by teacher_id
+DB-->>ClassService: class list
+ClassService-->>ClassAPI: classes
+ClassAPI-->>TeacherClassPage: danh sách lớp
 
-Teacher->>FE: Thêm học sinh
-FE->>ClassAPI: POST /classes/{id}/students/{student_id}
-ClassAPI->>ClassService: add_student()
-ClassService->>DB: INSERT class_student
-ClassAPI-->>FE: Student added
+alt Tạo hoặc sửa lớp
+  Teacher->>TeacherClassPage: Nhập form lớp học
+  TeacherClassPage->>ClassAPI: POST/PUT /classes
+  ClassAPI->>ClassService: create_class()/update_class()
+  ClassService->>DB: INSERT/UPDATE class
+  ClassAPI-->>TeacherClassPage: class detail
+else Quản lý sinh viên trong lớp
+  Teacher->>TeacherClassPage: Mở modal sinh viên
+  TeacherClassPage->>ClassAPI: GET /classes/{id}
+  TeacherClassPage->>ClassAPI: GET /classes/{id}/available-students
+  ClassAPI->>ClassService: get_class()/get_available_students()
+  ClassService->>DB: SELECT class + students
+  ClassService->>DB: SELECT available students
+  ClassAPI-->>TeacherClassPage: class detail + available students
+  TeacherClassPage->>ClassAPI: POST/DELETE /classes/{id}/students/{student_id}
+  ClassAPI->>ClassService: add_student()/remove_student()
+  ClassService->>DB: INSERT/DELETE class_student
+  ClassAPI-->>TeacherClassPage: success
+end
 ```
 
-### SD-04: Tạo câu hỏi
+### SD-04: Teacher quản lý ngân hàng câu hỏi
 ```mermaid
 sequenceDiagram
 actor Teacher
-participant FE
+participant QuestionPage as teacher/questions.vue
 participant QuestionAPI as /questions
 participant QuestionService
 participant DB
 
-Teacher->>FE: Nhập nội dung câu hỏi
-FE->>QuestionAPI: POST /questions
-QuestionAPI->>QuestionService: create_question()
-QuestionService->>DB: INSERT question
-DB-->>QuestionService: question
-QuestionService-->>QuestionAPI: question
-QuestionAPI-->>FE: QuestionResponse
-```
+Teacher->>QuestionPage: Mở trang câu hỏi
+QuestionPage->>QuestionAPI: GET /questions
+QuestionAPI->>QuestionService: get_questions()
+QuestionService->>DB: SELECT questions
+DB-->>QuestionService: question list
+QuestionAPI-->>QuestionPage: danh sách câu hỏi
 
-### SD-05: Giáo viên tạo đề thi
-```mermaid
-sequenceDiagram
-actor Teacher
-participant FE
-participant ExamAPI as /exams
-participant Dep as get_current_user
-participant ExamService
-participant DB
-
-Teacher->>FE: Nhập thông tin đề + class_ids + questions
-FE->>ExamAPI: POST /exams
-ExamAPI->>Dep: kiểm tra teacher
-Dep-->>ExamAPI: current_user
-ExamAPI->>ExamService: create_exam(exam_in, owner_id)
-ExamService->>DB: INSERT exam
-ExamService->>DB: INSERT exam_allowed_class*
-ExamService->>DB: INSERT exam_question*
-DB-->>ExamService: commit
-ExamService-->>ExamAPI: exam
-ExamAPI-->>FE: ExamResponse
-```
-
-### SD-06: Học sinh lấy danh sách đề được thi
-```mermaid
-sequenceDiagram
-actor Student
-participant FE
-participant ExamAPI as /exams/my-exams
-participant Dep as get_current_student
-participant ExamService
-participant DB
-
-Student->>FE: Mở danh sách đề thi
-FE->>ExamAPI: GET /exams/my-exams
-ExamAPI->>Dep: xác thực student + lấy class_id
-Dep-->>ExamAPI: current_student(class_id)
-ExamAPI->>ExamService: get_exams_for_student(class_id)
-ExamService->>DB: SELECT exam by allowed class
-DB-->>ExamService: list exams
-ExamService-->>ExamAPI: exams
-ExamAPI-->>FE: danh sách đề
-```
-
-### SD-07: Kiểm tra mật khẩu đề
-```mermaid
-sequenceDiagram
-actor Student
-participant FE
-participant ExamAPI as /exams/{exam_id}/check-password
-participant ExamService
-participant DB
-
-Student->>FE: Nhập mật khẩu đề
-FE->>ExamAPI: POST check-password
-ExamAPI->>ExamService: check_exam_password()
-ExamService->>DB: SELECT exam
-DB-->>ExamService: exam/password
-ExamService-->>ExamAPI: true/false
-ExamAPI-->>FE: success hoặc lỗi mật khẩu
-```
-
-### SD-08: Học sinh nộp bài và chấm tự động
-```mermaid
-sequenceDiagram
-actor Student
-participant FE
-participant ResultAPI as /results/submit/{exam_id}
-participant Dep as get_current_user
-participant ResultService
-participant DB
-
-Student->>FE: Bấm nộp bài
-FE->>ResultAPI: POST answers
-ResultAPI->>Dep: xác thực student
-Dep-->>ResultAPI: current_user
-ResultAPI->>ResultService: submit_exam(exam_id, student_id, answers)
-ResultService->>DB: check exam + max_attempts
-ResultService->>DB: INSERT exam_result
-ResultService->>DB: SELECT exam_question list
-loop answers
-  ResultService->>DB: SELECT question + compare answer
-  ResultService->>DB: INSERT exam_result_detail
+alt Tạo hoặc sửa câu hỏi
+  Teacher->>QuestionPage: Nhập nội dung + đáp án
+  QuestionPage->>QuestionAPI: POST/PUT /questions
+  QuestionAPI->>QuestionService: create_question()/update_question()
+  QuestionService->>DB: INSERT/UPDATE question
+  QuestionAPI-->>QuestionPage: QuestionResponse
+else Xóa câu hỏi
+  Teacher->>QuestionPage: Xác nhận xóa
+  QuestionPage->>QuestionAPI: DELETE /questions/{id}
+  QuestionAPI->>QuestionService: delete_question()
+  QuestionService->>DB: DELETE question
+  QuestionAPI-->>QuestionPage: success
 end
-ResultService->>DB: UPDATE total_score + COMMIT
-ResultService-->>ResultAPI: result
-ResultAPI-->>FE: điểm + thời gian
 ```
 
-### SD-09: Giáo viên xem kết quả theo đề
+### SD-05: Teacher quản lý đề thi
 ```mermaid
 sequenceDiagram
 actor Teacher
-participant FE
+participant ExamPage as teacher/exams.vue
+participant ExamAPI as /exams
+participant QuestionAPI as /questions
+participant ClassAPI as /classes
+participant ExamService
+participant DB
+
+Teacher->>ExamPage: Mở trang đề thi
+ExamPage->>ExamAPI: GET /exams
+ExamPage->>QuestionAPI: GET /questions
+ExamPage->>ClassAPI: GET /classes
+QuestionAPI-->>ExamPage: availableQuestions
+ClassAPI-->>ExamPage: availableClasses
+ExamAPI-->>ExamPage: exam list
+
+alt Tạo đề
+  Teacher->>ExamPage: Nhập thông tin + chọn câu hỏi/lớp
+  ExamPage->>ExamAPI: POST /exams
+  ExamAPI->>ExamService: create_exam()
+  ExamService->>DB: INSERT exam
+  ExamService->>DB: INSERT exam_allowed_class
+  ExamService->>DB: INSERT exam_question
+  ExamAPI-->>ExamPage: ExamResponse
+else Sửa đề
+  Teacher->>ExamPage: Mở modal sửa
+  ExamPage->>ExamAPI: GET /exams/{id}
+  ExamAPI-->>ExamPage: exam detail
+  ExamPage->>ExamAPI: PUT /exams/{id}
+  ExamAPI->>ExamService: update_exam()
+  ExamService->>DB: UPDATE exam + relation
+  ExamAPI-->>ExamPage: ExamResponse
+else Xóa đề
+  Teacher->>ExamPage: Xác nhận xóa
+  ExamPage->>ExamAPI: DELETE /exams/{id}
+  ExamAPI->>ExamService: delete_exam()
+  ExamService->>DB: DELETE exam
+  ExamAPI-->>ExamPage: success
+end
+```
+
+### SD-06: Teacher xem thống kê kết quả và review bài làm
+```mermaid
+sequenceDiagram
+actor Teacher
+participant StatisticsPage as teacher/statistics.vue
+participant ExamAPI as /exams
 participant ResultAPI as /results/exam/{exam_id}
+participant ReviewAPI as /results/{result_id}/review
 participant ResultService
 participant DB
 
-Teacher->>FE: Mở bảng điểm đề thi
-FE->>ResultAPI: GET /results/exam/{exam_id}
+Teacher->>StatisticsPage: Mở trang thống kê
+StatisticsPage->>ExamAPI: GET /exams
+ExamAPI-->>StatisticsPage: danh sách đề thi
+StatisticsPage->>ResultAPI: GET /results/exam/{exam_id}
 ResultAPI->>ResultService: get_exam_results_for_teacher()
-ResultService->>DB: check exam owner
-ResultService->>DB: SELECT results + student info
-DB-->>ResultService: list results
-ResultService-->>ResultAPI: mapped response
-ResultAPI-->>FE: danh sách kết quả
+ResultService->>DB: SELECT exam results + student info
+DB-->>ResultService: result list
+ResultAPI-->>StatisticsPage: bảng điểm chi tiết
+
+loop Mỗi bài làm để tính thống kê độ khó
+  StatisticsPage->>ReviewAPI: GET /results/{result_id}/review
+  ReviewAPI->>ResultService: get_result_review()
+  ResultService->>DB: SELECT result + details + questions
+  DB-->>ResultService: review data
+  ReviewAPI-->>StatisticsPage: question details
+end
+
+alt Xem chi tiết một bài làm
+  Teacher->>StatisticsPage: Bấm "Xem đáp án"
+  StatisticsPage->>ReviewAPI: GET /results/{result_id}/review
+  ReviewAPI-->>StatisticsPage: review payload
+end
 ```
 
-### SD-10: Review bài làm
+### SD-07: Student xem danh sách bài thi và kiểm tra mật khẩu
 ```mermaid
 sequenceDiagram
-actor User as Student/Teacher
-participant FE
-participant ResultAPI as /results/{result_id}/review
+actor Student
+participant StudentHome as student/index.vue
+participant ExamListAPI as /exams/my-exams
+participant PasswordAPI as /exams/{exam_id}/check-password
+participant ExamService
+participant DB
+
+Student->>StudentHome: Mở trang bài thi
+StudentHome->>ExamListAPI: GET /exams/my-exams
+ExamListAPI->>ExamService: get_exams_for_student()
+ExamService->>DB: SELECT exams by class
+DB-->>ExamService: exam list
+ExamListAPI-->>StudentHome: danh sách đề khả dụng
+
+alt Đề không có mật khẩu
+  Student->>StudentHome: Bấm "Vào thi"
+  StudentHome-->>Student: Điều hướng /student/exam/{id}
+else Đề có mật khẩu
+  Student->>StudentHome: Nhập mật khẩu
+  StudentHome->>PasswordAPI: POST check-password
+  PasswordAPI->>ExamService: check_exam_password()
+  ExamService->>DB: SELECT exam.password
+  PasswordAPI-->>StudentHome: success/fail
+  StudentHome-->>Student: Điều hướng vào bài thi nếu hợp lệ
+end
+```
+
+### SD-08: Student làm bài thi, chống gian lận và nộp bài
+```mermaid
+sequenceDiagram
+actor Student
+participant ExamPage as student/exam/[id].vue
+participant ExamAPI as /exams/{id}
+participant QuestionAPI as /exams/{id}/questions
+participant ResultAPI as /results/submit/{exam_id}
 participant ResultService
 participant DB
 
-User->>FE: Mở review
-FE->>ResultAPI: GET review
-ResultAPI->>ResultService: get_result_review(result_id)
-ResultService->>DB: load result + exam + details + questions
-DB-->>ResultService: review data
-ResultService-->>ResultAPI: review DTO
-ResultAPI->>ResultAPI: kiểm tra quyền theo role
-ResultAPI-->>FE: câu hỏi + đáp án + đúng/sai
+Student->>ExamPage: Mở bài thi
+ExamPage->>ExamAPI: GET /exams/{id}
+ExamPage->>QuestionAPI: GET /exams/{id}/questions
+ExamAPI-->>ExamPage: exam detail
+QuestionAPI-->>ExamPage: question list
+ExamPage-->>Student: Hiển thị hướng dẫn + nút bắt đầu
+
+Student->>ExamPage: Bắt đầu làm bài
+ExamPage-->>ExamPage: Bật fullscreen + timer + anti-cheat listeners
+loop Trong quá trình làm bài
+  Student->>ExamPage: Chọn đáp án / chuyển câu / đánh dấu
+  ExamPage-->>ExamPage: Cập nhật answers, flaggedQuestions
+end
+
+alt Vi phạm >= 3 lần hoặc bấm nộp
+  ExamPage->>ResultAPI: POST answers
+  ResultAPI->>ResultService: submit_exam()
+  ResultService->>DB: INSERT exam_result
+  ResultService->>DB: INSERT exam_result_detail
+  ResultService->>DB: UPDATE total_score
+  ResultAPI-->>ExamPage: kết quả nộp bài
+  ExamPage-->>Student: Hiển thị điểm và trạng thái hoàn thành
+end
 ```
 
-### SD-11: Cập nhật điểm thủ công
+### SD-09: Student xem lịch sử thi và review bài làm
 ```mermaid
 sequenceDiagram
-actor Teacher
-participant FE
-participant ResultAPI as /results/{result_id}/score
+actor Student
+participant HistoryPage as student/history.vue
+participant HistoryAPI as /results/student/{student_id}
+participant ExamListAPI as /exams/my-exams
+participant ReviewAPI as /results/{result_id}/review
 participant ResultService
 participant DB
 
-Teacher->>FE: Nhập điểm mới
-FE->>ResultAPI: PUT score
-ResultAPI->>ResultService: update_result_score()
-ResultService->>DB: UPDATE exam_result.total_score
-DB-->>ResultService: result updated
-ResultService-->>ResultAPI: result
-ResultAPI-->>FE: xác nhận cập nhật
+Student->>HistoryPage: Mở lịch sử thi
+HistoryPage->>HistoryAPI: GET /results/student/{student_id}
+HistoryPage->>ExamListAPI: GET /exams/my-exams
+HistoryAPI-->>HistoryPage: danh sách kết quả
+ExamListAPI-->>HistoryPage: danh sách đề để map tiêu đề + allow_view_answers
+
+alt Đề cho phép xem đáp án
+  Student->>HistoryPage: Bấm "Xem bài"
+  HistoryPage->>ReviewAPI: GET /results/{result_id}/review
+  ReviewAPI->>ResultService: get_result_review()
+  ResultService->>DB: SELECT result + details + questions
+  DB-->>ResultService: review data
+  ReviewAPI-->>HistoryPage: review payload
+  HistoryPage-->>Student: Hiển thị chi tiết bài làm
+else Chưa được mở đáp án
+  HistoryPage-->>Student: Hiển thị trạng thái "Chưa mở"
+end
 ```
 
-### SD-12: Xóa kết quả thi
-```mermaid
-sequenceDiagram
-actor Teacher
-participant FE
-participant ResultAPI as /results/{result_id}
-participant ResultService
-participant DB
-
-Teacher->>FE: Yêu cầu xóa kết quả
-FE->>ResultAPI: DELETE /results/{result_id}
-ResultAPI->>ResultService: delete_result()
-ResultService->>DB: DELETE exam_result_detail
-ResultService->>DB: DELETE exam_result
-DB-->>ResultService: success
-ResultService-->>ResultAPI: true
-ResultAPI-->>FE: Result deleted
-```
-
-## 7) Ma trận chức năng theo vai trò
+## 8) Ma trận chức năng theo vai trò
 
 | Chức năng | Admin | Teacher | Student |
 |---|---|---|---|
@@ -606,7 +841,7 @@ ResultAPI-->>FE: Result deleted
 | Review bài làm |  | X | X |
 | Sửa điểm/xóa kết quả |  | X |  |
 
-## 8) Danh mục endpoint (để đối chiếu nhanh)
+## 9) Danh mục endpoint (để đối chiếu nhanh)
 
 - `POST /login`
 - `GET /`
