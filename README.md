@@ -114,15 +114,6 @@ Trong `frontend/package.json`:
 - `npm run preview`: chay ban build
 - `npm run generate`: generate static
 
-## Auth hien tai (can luu y)
-- Backend co endpoint `POST /login` tra ve `access_token`
-- Nhieu endpoint nghiep vu dang xac thuc qua header `x-user-id`
-- Frontend hien tai dang gui `x-user-id` cho mot so API (de phu hop voi backend hien co)
-
-Neu ban phat trien tiep auth JWT full flow, nen dong bo lai:
-- backend dependencies (`get_current_user`) theo Bearer token
-- frontend headers `Authorization: Bearer <token>`
-
 ## Endpoint nhom chinh
 - Auth: `/login`
 - Users: `/users`
