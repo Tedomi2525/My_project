@@ -60,7 +60,7 @@ source venv/bin/activate
 
 Cai dependency:
 ```bash
-pip install fastapi "uvicorn[standard]" sqlalchemy pymysql python-dotenv "passlib[bcrypt]" "python-jose[cryptography]" email-validator
+pip install -r requirements.txt
 ```
 
 Tao file `.env` trong `backend/` (neu chua co):
@@ -131,12 +131,6 @@ Neu ban phat trien tiep auth JWT full flow, nen dong bo lai:
 - Exams: `/exams`
 - Results: `/results`
 
-## Ghi chu
-- `backend/requirements.txt` hien dang trong. Nen cap nhat file nay de team cai dat dong nhat:
-```bash
-pip freeze > requirements.txt
-```
-- Khong commit file `.env` len git.
 
 ## Huong phat trien tiep (goi y)
 - Hoan thien luong JWT xac thuc thong nhat

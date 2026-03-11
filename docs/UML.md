@@ -479,18 +479,170 @@ class ExamResultDetail {
   +bool is_correct
 }
 
-User "1" --> "0..*" Class : creates
-User "1" --> "0..*" Question : creates
-Class "1" --> "0..*" ClassStudent
-User "1" --> "0..*" ClassStudent : joins
-Exam "1" --> "0..*" ExamQuestion
-Question "1" --> "0..*" ExamQuestion
-Exam "1" --> "0..*" ExamAllowedClass
-Class "1" --> "0..*" ExamAllowedClass
-Exam "1" --> "0..*" ExamResult
-User "1" --> "0..*" ExamResult : takes
-ExamResult "1" --> "0..*" ExamResultDetail
-Question "1" --> "0..*" ExamResultDetail
+User "1" <-- "0..*" Class : teacher
+User "1" <-- "0..*" ClassStudent : student
+Class "1" <-- "0..*" ClassStudent : class_
+Exam "1" <-- "0..*" ExamQuestion : exam
+Question "1" <-- "0..*" ExamQuestion : question
+Exam "1" <-- "0..*" ExamAllowedClass : exam
+Exam "1" <-- "0..*" ExamResult : exam
+User "1" <-- "0..*" ExamResult : student
+ExamResult "1" <-- "0..*" ExamResultDetail : result
+Question "1" <-- "0..*" ExamResultDetail : question
+
+Question ..> User : created_by (FK)
+Exam ..> User : created_by (FK)
+ExamAllowedClass ..> Class : class_id (FK)
+```
+
+### 5.1 Class Diagram theo hướng thiết kế có methods
+
+Lưu ý: sơ đồ dưới đây là bản phục vụ báo cáo phân tích thiết kế hướng đối tượng, nên có bổ sung các thao tác nghiệp vụ chính. Nó không nhằm phản ánh 1:1 các method đang nằm trong file model Python.
+
+```mermaid
+classDiagram
+class User {
+  +int id
+  +string username
+  +string email
+  +string password
+  +string full_name
+  +string role
+  +string student_code
+  +login()
+  +logout()
+  +updateProfile()
+}
+
+class Admin {
+  +createUser()
+  +updateUser()
+  +deleteUser()
+  +viewUsers()
+}
+
+class Teacher {
+  +createClass()
+  +updateClass()
+  +deleteClass()
+  +addStudentToClass()
+  +removeStudentFromClass()
+  +createQuestion()
+  +updateQuestion()
+  +deleteQuestion()
+  +createExam()
+  +updateExam()
+  +deleteExam()
+  +viewStatistics()
+  +reviewResult()
+}
+
+class Student {
+  +viewMyExams()
+  +checkExamPassword()
+  +startExam()
+  +submitExam()
+  +viewHistory()
+  +reviewOwnResult()
+}
+
+class Class {
+  +int id
+  +string name
+  +string description
+  +int teacher_id
+  +addStudent()
+  +removeStudent()
+  +getStudentList()
+}
+
+class ClassStudent {
+  +int id
+  +int class_id
+  +int student_id
+  +datetime joined_at
+}
+
+class Question {
+  +int id
+  +text content
+  +string question_type
+  +enum difficulty
+  +json options
+  +string correct_answer
+  +int created_by
+  +create()
+  +update()
+  +delete()
+}
+
+class Exam {
+  +int id
+  +string title
+  +text description
+  +int duration_minutes
+  +datetime start_time
+  +datetime end_time
+  +string password
+  +int created_by
+  +bool allow_view_answers
+  +int? max_attempts
+  +bool shuffle_questions
+  +bool shuffle_options
+  +checkPassword()
+  +getQuestions()
+  +publish()
+}
+
+class ExamQuestion {
+  +int id
+  +int exam_id
+  +int question_id
+}
+
+class ExamAllowedClass {
+  +int id
+  +int exam_id
+  +int class_id
+}
+
+class ExamResult {
+  +int id
+  +int exam_id
+  +int student_id
+  +float total_score
+  +datetime started_at
+  +datetime finished_at
+  +calculateScore()
+  +saveResult()
+  +getReview()
+}
+
+class ExamResultDetail {
+  +int id
+  +int result_id
+  +int question_id
+  +string student_answer
+  +bool is_correct
+}
+
+User <|-- Admin
+User <|-- Teacher
+User <|-- Student
+
+Teacher "1" --> "0..*" Class : manages
+Student "1" --> "0..*" ClassStudent : joins
+Class "1" --> "0..*" ClassStudent : contains
+Teacher "1" --> "0..*" Question : creates
+Teacher "1" --> "0..*" Exam : creates
+Exam "1" --> "0..*" ExamQuestion : has
+Question "1" --> "0..*" ExamQuestion : belongs_to
+Exam "1" --> "0..*" ExamAllowedClass : allows
+Class "1" --> "0..*" ExamAllowedClass : assigned
+Student "1" --> "0..*" ExamResult : receives
+Exam "1" --> "0..*" ExamResult : produces
+ExamResult "1" --> "0..*" ExamResultDetail : contains
+Question "1" --> "0..*" ExamResultDetail : references
 ```
 
 ## 6) Mô hình đối tượng (Object Snapshot)
