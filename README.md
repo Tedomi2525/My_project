@@ -123,8 +123,3 @@ Trong `frontend/package.json`:
 - Results: `/results`
 
 
-## Huong phat trien tiep (goi y)
-- Hoan thien luong JWT xac thuc thong nhat
-- Bo sung migration (Alembic)
-- Them test backend/frontend
-- Them Docker Compose cho toan bo he thong
