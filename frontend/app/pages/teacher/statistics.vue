@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { Download, Eye, Loader2, X } from 'lucide-vue-next'
 import {
@@ -108,7 +108,7 @@ const barChartData = computed(() => {
   return {
     labels: distribution.map(d => d.range),
     datasets: [{
-      label: 'So sinh vien',
+      label: 'Số sinh viên',
       data: distribution.map(d => d.count),
       backgroundColor: '#3b82f6'
     }]
@@ -150,7 +150,7 @@ const difficultyChartData = computed(() => {
     labels,
     datasets: [
       {
-        label: 'Tỉ lệ đúng (%)',
+        label: 'Tỷ lệ đúng (%)',
         data,
         backgroundColor: ['#22c55e', '#f59e0b', '#ef4444']
       }
@@ -218,7 +218,8 @@ const normalizeDifficulty = (difficulty?: string | null): DifficultyKey => {
 }
 
 const headers = computed(() => ({
-  'x-user-id': String(user.value?.id || '')
+  'x-user-id': String(user.value?.id || ''),
+    'x-user-role': String(user.value?.role || '')
 }))
 
 const loadDifficultyStats = async () => {
@@ -366,7 +367,7 @@ watch(selectedExam, async () => {
 
     <template v-else>
       <div class="mb-6 bg-white rounded-lg shadow p-6">
-        <label class="block mb-2 font-medium">Chon đề thi</label>
+        <label class="block mb-2 font-medium">Chọn đề thi</label>
         <select
           v-model="selectedExam"
           class="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -413,7 +414,7 @@ watch(selectedExam, async () => {
       </div>
 
       <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 class="mb-4 font-bold text-lg">Tỉ lệ trả lời đúng theo độ khó</h3>
+        <h3 class="mb-4 font-bold text-lg">Tỷ lệ trả lời đúng theo độ khó</h3>
         <div v-if="loadingDifficultyStats" class="flex justify-center py-8">
           <Loader2 class="w-6 h-6 animate-spin text-blue-600" />
         </div>
@@ -425,7 +426,7 @@ watch(selectedExam, async () => {
             <div v-for="row in difficultyRows" :key="row.key" class="rounded-lg border border-gray-200 p-3 text-sm">
               <p class="font-semibold mb-1">{{ row.label }}</p>
               <p>Đúng: {{ row.correct }}/{{ row.total }}</p>
-              <p>Tỉ lệ: {{ row.percent }}%</p>
+              <p>Tỷ lệ: {{ row.percent }}%</p>
             </div>
           </div>
         </div>
@@ -542,3 +543,4 @@ watch(selectedExam, async () => {
     </div>
   </div>
 </template>
+

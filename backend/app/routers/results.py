@@ -2,31 +2,29 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
+from app.core.roles import normalize_role
 from app.database import get_db
-from app.dependencies import get_current_user
-from app.models.user import User
+from app.dependencies import get_current_user, get_current_student
 from app.schemas.exam_result import ExamResultResponse
 from app.schemas.exam_result_detail import ExamResultDetailBase
 from app.schemas.exam_result_teacher import ExamResultTeacherResponse
 from app.schemas.result_review import ResultReviewResponse
+from app.schemas.student_difficulty_stats import StudentDifficultyStatsResponse
 from app.services.exam_result_service import ResultService
 
 router = APIRouter(prefix="/results", tags=["Results"])
 
 
-def get_role_name(user: User) -> str:
-    role = user.role
-    if hasattr(role, "value"):
-        role = role.value
-    return str(role).lower()
+def get_role_name(user) -> str:
+    return normalize_role(user.role)
 
-# 1. Nộp bài thi
+
 @router.post("/submit/{exam_id}", response_model=ExamResultResponse)
 def submit_exam(
     exam_id: int,
     answers: List[ExamResultDetailBase],
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     if get_role_name(current_user) != "student":
         raise HTTPException(
@@ -35,7 +33,7 @@ def submit_exam(
         )
     return ResultService.submit_exam(db, exam_id, current_user.id, answers)
 
-# 2. Xem chi tiết 1 kết quả
+
 @router.get("/{result_id}", response_model=ExamResultResponse)
 def get_result(result_id: int, db: Session = Depends(get_db)):
     result = ResultService.get_result(db, result_id)
@@ -43,17 +41,32 @@ def get_result(result_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Result not found")
     return result
 
-# 3. Xem lịch sử thi của học sinh
+
 @router.get("/student/{student_id}", response_model=List[ExamResultResponse])
 def get_student_history(student_id: int, db: Session = Depends(get_db)):
     return ResultService.get_student_history(db, student_id)
+
+
+@router.get("/student/{student_id}/difficulty-stats", response_model=StudentDifficultyStatsResponse)
+def get_student_difficulty_stats(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_student)
+):
+    if current_user.id != student_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only view your own stats"
+        )
+
+    return ResultService.get_student_difficulty_stats(db, student_id)
 
 
 @router.get("/exam/{exam_id}", response_model=List[ExamResultTeacherResponse])
 def get_exam_results_for_teacher(
     exam_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     if get_role_name(current_user) != "teacher":
         raise HTTPException(
@@ -74,7 +87,7 @@ def get_exam_results_for_teacher(
 def get_result_review(
     result_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     review = ResultService.get_result_review(db, result_id)
     if not review:
@@ -108,7 +121,7 @@ def get_result_review(
 
     return review
 
-# 4. Sửa điểm (ví dụ chấm lại)
+
 @router.put("/{result_id}/score")
 def update_score(result_id: int, score: float, db: Session = Depends(get_db)):
     result = ResultService.update_result_score(db, result_id, score)
@@ -116,7 +129,7 @@ def update_score(result_id: int, score: float, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Result not found")
     return {"message": "Score updated", "new_score": result.total_score}
 
-# 5. Xóa kết quả
+
 @router.delete("/{result_id}")
 def delete_result(result_id: int, db: Session = Depends(get_db)):
     success = ResultService.delete_result(db, result_id)

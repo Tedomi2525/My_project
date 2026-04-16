@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { Search, Plus, Edit2, Trash2, Eye, EyeOff, Loader2 } from 'lucide-vue-next'
 import type { Exam } from '~/types'
@@ -90,7 +90,8 @@ const loadPageData = async () => {
     isLoadingResources.value = true
 
     const headers = {
-      'x-user-id': String(user.value.id)
+      'x-user-id': String(user.value.id),
+        'x-user-role': String(user.value.role)
     }
 
     const [qRes, cRes] = await Promise.all([
@@ -196,7 +197,7 @@ const getAttemptLabel = (maxAttempts?: number | null) => {
 /* ================= METHODS ================= */
 
 /**
- * ⚠️ CHỈ dùng cho CREATE
+ * CHỈ dùng cho CREATE
  */
 const resetFormForCreate = () => {
   editingExamId.value = null
@@ -240,7 +241,7 @@ const handleEditExam = async (exam: Exam) => {
       shuffle_questions: detail.shuffle_questions ?? false,
       shuffle_options: detail.shuffle_options ?? false,
 
-      // 🔥 luôn sync FULL list
+      // luôn sync FULL list
       questions: [...(detail.exam_questions ?? [])],
       class_ids: [...(detail.allowed_classes ?? [])],
 
@@ -347,7 +348,7 @@ const handleSubmit = async () => {
             <div class="text-sm text-gray-600 space-y-1">
               <p>Thời gian: {{ exam.duration_minutes }} phút</p>
               <p>
-                Mở: {{ formatDateDisplay(exam.start_time) }} -
+                Má»Ÿ: {{ formatDateDisplay(exam.start_time) }} -
                 Đóng: {{ formatDateDisplay(exam.end_time) }}
               </p>
               <p>{{ getAttemptLabel(exam.max_attempts) }}</p>
@@ -358,7 +359,7 @@ const handleSubmit = async () => {
           </div>
 
           <div class="flex gap-2">
-            <button @click="handleEditExam(exam)" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Sửa">
+            <button @click="handleEditExam(exam)" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Sá»­a">
               <Edit2 class="w-4 h-4" />
             </button>
             <button @click="handleDeleteExam(exam.id)" class="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Xóa">
@@ -525,3 +526,4 @@ const handleSubmit = async () => {
     </div>
   </div>
 </template>
+

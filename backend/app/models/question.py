@@ -22,6 +22,6 @@ class Question(Base):
     options = Column(JSON, nullable=True) 
     correct_answer = Column(String(255))
     
-    created_by = Column(Integer, ForeignKey("user.id"))
+    created_by = Column(Integer, ForeignKey("teacher.id"))
 
     exam_links = relationship("ExamQuestion", back_populates="question")

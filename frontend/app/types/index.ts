@@ -11,7 +11,7 @@ export interface User {
   fullName: string;
   email?: string;
   role: 'admin' | 'teacher' | 'student';
-  studentId?: string;
+  studentId?: string;  // Mã sinh viên (chỉ cho sinh viên)
 }
 
 // ~/types/index.ts

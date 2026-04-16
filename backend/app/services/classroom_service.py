@@ -3,7 +3,7 @@ from fastapi import HTTPException
 
 from app.models.classroom import Class
 from app.models.class_student import ClassStudent
-from app.models.user import User
+from app.models.student import Student
 from app.schemas.classroom import ClassCreate
 
 
@@ -95,9 +95,8 @@ class ClassService:
     # ---------- STUDENT ----------
     @staticmethod
     def add_student(db: Session, class_id: int, student_id: int):
-        student = db.query(User).filter(
-            User.id == student_id,
-            User.role == "student"
+        student = db.query(Student).filter(
+            Student.id == student_id
         ).first()
 
         if not student:
@@ -139,10 +138,9 @@ class ClassService:
         )
 
         students = (
-            db.query(User)
+            db.query(Student)
             .filter(
-                User.role == "student",
-                ~User.id.in_(subquery)
+                ~Student.id.in_(subquery)
             )
             .all()
         )

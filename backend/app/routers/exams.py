@@ -3,13 +3,12 @@ from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel
 
+from app.core.roles import normalize_role
 from app.database import get_db
 from app.dependencies import get_current_student, get_current_user
 from app.models.class_student import ClassStudent
-from app.models.user import User
 
 from app.schemas.exam import ExamCreate, ExamResponse, ExamUpdate
-from app.schemas.exam_question import ExamQuestionCreate, ExamQuestionResponse
 from app.schemas.question import QuestionResponse
 
 from app.services.exam_service import ExamService
@@ -22,15 +21,11 @@ class PasswordCheckRequest(BaseModel):
     password: str
 
 
-def get_role_name(user: User) -> str:
-    role = user.role
-    if hasattr(role, "value"):
-        role = role.value
-    return str(role).lower()
+def get_role_name(user) -> str:
+    return normalize_role(user.role)
 
 
-# ---------- ROLE CHECK (GIONG CLASS) ----------
-def require_teacher(user: User):
+def require_teacher(user):
     if get_role_name(user) != "teacher":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -39,7 +34,7 @@ def require_teacher(user: User):
     return user
 
 
-def require_exam_access(db: Session, exam_id: int, current_user: User):
+def require_exam_access(db: Session, exam_id: int, current_user):
     role = get_role_name(current_user)
     if role == "teacher":
         exam = ExamService.get_exam(db, exam_id)
@@ -65,14 +60,10 @@ def require_exam_access(db: Session, exam_id: int, current_user: User):
         raise HTTPException(status_code=403, detail="You do not have access to this exam")
 
 
-# ==========================================
-#               EXAM CRUD
-# ==========================================
-
 @router.get("/", response_model=List[ExamResponse])
 def get_exams(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     require_teacher(current_user)
     exams = ExamService.get_exams(db)
@@ -83,7 +74,7 @@ def get_exams(
 def create_exam(
     exam: ExamCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     require_teacher(current_user)
     return ExamService.create_exam(db, exam, current_user.id)
@@ -92,7 +83,7 @@ def create_exam(
 @router.get("/my-exams", response_model=List[ExamResponse])
 def get_my_exams(
     db: Session = Depends(get_db),
-    current_student: User = Depends(get_current_student)
+    current_student=Depends(get_current_student)
 ):
     class_id = current_student.class_id
     return ExamService.get_exams_for_student(db, class_id)
@@ -102,7 +93,7 @@ def get_my_exams(
 def get_exam(
     exam_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     require_exam_access(db, exam_id, current_user)
 
@@ -118,7 +109,7 @@ def update_exam(
     exam_id: int,
     exam_in: ExamUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     require_teacher(current_user)
     require_exam_access(db, exam_id, current_user)
@@ -136,7 +127,7 @@ def update_exam(
 def delete_exam(
     exam_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     require_teacher(current_user)
     require_exam_access(db, exam_id, current_user)
@@ -152,7 +143,7 @@ def delete_exam(
 def get_exam_questions(
     exam_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     require_exam_access(db, exam_id, current_user)
 
@@ -168,7 +159,7 @@ def check_exam_password(
     exam_id: int,
     payload: PasswordCheckRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user=Depends(get_current_user)
 ):
     require_exam_access(db, exam_id, current_user)
     is_ok = ExamService.check_exam_password(db, exam_id, payload.password)

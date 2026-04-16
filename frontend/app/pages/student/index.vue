@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { Clock, Lock, CheckCircle, X } from 'lucide-vue-next'
+﻿<script setup lang="ts">
+import { Clock, Lock, CheckCircle, X, Loader2 } from 'lucide-vue-next'
 import type { Exam } from '~/types'
 import { useExams } from '~/composables/useExams'
 import { useAuth } from '~/composables/useAuth'
@@ -29,7 +29,8 @@ const loadExams = async () => {
       baseURL: config.public.apiBase,
       headers: {
         // Gửi ID để backend thực hiện get_current_student
-        'x-user-id': String(user.value.id) 
+        'x-user-id': String(user.value.id),
+        'x-user-role': String(user.value.role) 
       }
     })
   } catch (err) {
@@ -100,7 +101,8 @@ const handlePasswordSubmit = async () => {
       method: 'POST',
       baseURL: config.public.apiBase,
       headers: {
-        'x-user-id': String(user.value?.id || '')
+        'x-user-id': String(user.value?.id || ''),
+        'x-user-role': String(user.value?.role || '')
       },
       body: { password: password.value }
     })
@@ -196,3 +198,4 @@ const handlePasswordSubmit = async () => {
     </div>
   </div>
 </template>
+

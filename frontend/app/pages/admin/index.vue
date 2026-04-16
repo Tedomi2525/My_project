@@ -5,10 +5,8 @@ import { useUsers } from '~/composables/useUsers'
 
 definePageMeta({ layout: 'admin' })
 
-// ================== API ==================
 const { getUsers, createUser, updateUser, deleteUser } = useUsers()
 
-// ================== STATE ==================
 const users = ref<User[]>([])
 const searchTerm = ref('')
 const showModal = ref(false)
@@ -23,7 +21,6 @@ const formData = reactive({
   studentId: ''
 })
 
-// ================== LOAD ==================
 const loadUsers = async () => {
   try {
     const data: any[] = await getUsers()
@@ -32,8 +29,8 @@ const loadUsers = async () => {
       username: u.username,
       email: u.email,
       role: u.role,
-      fullName: u.full_name,
-      studentId: u.student_id
+      fullName: u.full_name ?? u.fullName ?? '',
+      studentId: u.student_id ?? u.studentId ?? ''
     }))
   } catch (err) {
     console.error('Lỗi load users:', err)
@@ -42,7 +39,6 @@ const loadUsers = async () => {
 
 onMounted(() => loadUsers())
 
-// ================== COMPUTED ==================
 const filteredUsers = computed(() => {
   const kw = (searchTerm.value ?? '').toLowerCase()
   return users.value.filter(u =>
@@ -52,7 +48,6 @@ const filteredUsers = computed(() => {
   )
 })
 
-// ================== UI HELPERS ==================
 const getRoleBadge = (role: 'admin' | 'teacher' | 'student') => {
   const map = {
     admin: { cls: 'bg-purple-100 text-purple-700', lbl: 'Quản trị viên' },
@@ -62,7 +57,6 @@ const getRoleBadge = (role: 'admin' | 'teacher' | 'student') => {
   return map[role]
 }
 
-// ================== ACTIONS ==================
 const resetForm = () => Object.assign(formData, {
   username: '',
   password: '',
@@ -91,10 +85,10 @@ const handleEditUser = (user: User) => {
   showModal.value = true
 }
 
-const handleDeleteUser = async (id: number) => {
+const handleDeleteUser = async (user: User) => {
   if (!confirm('Bạn có chắc chắn muốn xóa user này?')) return
   try {
-    await deleteUser(id)
+    await deleteUser(user.id, user.role)
     await loadUsers()
   } catch (err: any) {
     alert(err.message || 'Xóa thất bại')
@@ -103,18 +97,31 @@ const handleDeleteUser = async (id: number) => {
 
 const handleResetPassword = async (user: User) => {
   if (!confirm(`Reset mật khẩu cho ${user.fullName}?`)) return
-  alert(`Mật khẩu mới của ${user.username}: password123`) // demo, gọi API backend nếu có
+  alert(`Mật khẩu mới của ${user.username}: password123`)
+}
+
+const buildUpdateBody = () => {
+  const body: any = {
+    username: formData.username,
+    full_name: formData.fullName,
+    email: formData.email
+  }
+
+  if (formData.password) {
+    body.password = formData.password
+  }
+
+  if (formData.role === 'student') {
+    body.student_id = formData.studentId
+  }
+
+  return body
 }
 
 const handleSubmit = async () => {
   try {
     if (editingUser.value) {
-      await updateUser(editingUser.value.id, {
-        fullName: formData.fullName,
-        email: formData.email,
-        role: formData.role,
-        studentId: formData.studentId
-      })
+      await updateUser(editingUser.value.id, editingUser.value.role, buildUpdateBody())
     } else {
       await createUser({
         username: formData.username,
@@ -134,10 +141,8 @@ const handleSubmit = async () => {
 }
 </script>
 
-
 <template>
   <div>
-    <!-- SEARCH + ADD -->
     <div class="mb-6 flex justify-between gap-4">
       <div class="relative flex-1 max-w-md">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -155,7 +160,6 @@ const handleSubmit = async () => {
       </button>
     </div>
 
-    <!-- TABLE -->
     <div class="bg-white rounded-lg shadow overflow-hidden">
       <table class="w-full">
         <thead class="bg-gray-50 border-b">
@@ -202,7 +206,7 @@ const handleSubmit = async () => {
                 <Edit2 class="w-4 h-4" />
               </button>
               <button
-                @click="handleDeleteUser(u.id)"
+                @click="handleDeleteUser(u)"
                 class="p-2 text-red-600 hover:bg-red-50 rounded"
               >
                 <Trash2 class="w-4 h-4" />
@@ -219,7 +223,6 @@ const handleSubmit = async () => {
       </table>
     </div>
 
-    <!-- MODAL -->
     <div
       v-if="showModal"
       class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
@@ -241,7 +244,7 @@ const handleSubmit = async () => {
           />
           <input type="email" v-model="formData.email" class="w-full border p-2 rounded" placeholder="Email" />
 
-          <select v-model="formData.role" class="w-full border p-2 rounded">
+          <select v-model="formData.role" class="w-full border p-2 rounded" :disabled="!!editingUser">
             <option value="student">Sinh viên</option>
             <option value="teacher">Giảng viên</option>
             <option value="admin">Quản trị viên</option>

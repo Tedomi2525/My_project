@@ -16,7 +16,7 @@ class Exam(Base):
 
     password = Column(String(255), nullable=True)
 
-    created_by = Column(Integer, ForeignKey("user.id"), nullable=False)
+    created_by = Column(Integer, ForeignKey("teacher.id"), nullable=False)
 
     allow_view_answers = Column(Boolean, nullable=False, default=False)
     # None = unlimited attempts, 1 = once, N > 1 = limited attempts

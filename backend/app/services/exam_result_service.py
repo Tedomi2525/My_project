@@ -1,11 +1,12 @@
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, case
 from typing import List
 from datetime import datetime
 from fastapi import HTTPException, status
 
 from app.models.exam_result import ExamResult
 from app.models.exam_result_detail import ExamResultDetail
-from app.models.question import Question
+from app.models.question import Question, DifficultyLevel
 from app.models.exam_question import ExamQuestion
 from app.models.exam import Exam
 from app.schemas.exam_result_detail import ExamResultDetailBase
@@ -166,6 +167,68 @@ class ResultService:
             "finished_at": result.finished_at,
             "allow_view_answers": result.exam.allow_view_answers if result.exam else False,
             "questions": questions,
+        }
+
+    @staticmethod
+    def get_student_difficulty_stats(db: Session, student_id: int):
+        rows = (
+            db.query(
+                Question.difficulty,
+                func.count(ExamResultDetail.id).label("attempted"),
+                func.sum(
+                    case(
+                        (ExamResultDetail.is_correct.is_(False), 1),
+                        else_=0
+                    )
+                ).label("wrong")
+            )
+            .join(ExamResultDetail, ExamResultDetail.question_id == Question.id)
+            .join(ExamResult, ExamResultDetail.result_id == ExamResult.id)
+            .filter(ExamResult.student_id == student_id)
+            .group_by(Question.difficulty)
+            .all()
+        )
+
+        stats_by_diff = {
+            level.value: {
+                "difficulty": level.value,
+                "attempted": 0,
+                "wrong": 0,
+                "wrong_rate": 0.0,
+            }
+            for level in DifficultyLevel
+        }
+
+        total_attempted = 0
+        total_wrong = 0
+
+        for diff, attempted, wrong in rows:
+            key = diff.value if diff else "UNKNOWN"
+            if key not in stats_by_diff:
+                stats_by_diff[key] = {
+                    "difficulty": key,
+                    "attempted": 0,
+                    "wrong": 0,
+                    "wrong_rate": 0.0,
+                }
+
+            attempted_count = int(attempted or 0)
+            wrong_count = int(wrong or 0)
+
+            stats_by_diff[key]["attempted"] = attempted_count
+            stats_by_diff[key]["wrong"] = wrong_count
+            stats_by_diff[key]["wrong_rate"] = (
+                wrong_count / attempted_count if attempted_count > 0 else 0.0
+            )
+
+            total_attempted += attempted_count
+            total_wrong += wrong_count
+
+        return {
+            "student_id": student_id,
+            "total_attempted": total_attempted,
+            "total_wrong": total_wrong,
+            "by_difficulty": list(stats_by_diff.values()),
         }
 
     # --- UPDATE (Vi du: Giao vien sua diem bang tay) ---

@@ -1,6 +1,9 @@
 import type { Class, AvailableStudent } from '~/types'
 
-export const useClasses = (userId: Ref<number | undefined>) => {
+export const useClasses = (
+  userId: Ref<number | undefined>,
+  userRole: Ref<string | null | undefined>
+) => {
   const config = useRuntimeConfig()
 
   const classes = ref<Class[]>([])
@@ -10,12 +13,15 @@ export const useClasses = (userId: Ref<number | undefined>) => {
     if (!userId.value) {
       throw new Error('User ID chưa sẵn sàng')
     }
+    if (!userRole.value) {
+      throw new Error('User role chưa sẵn sàng')
+    }
     return {
-      'x-user-id': String(userId.value)
+      'x-user-id': String(userId.value),
+      'x-user-role': String(userRole.value)
     }
   }
 
-  /* ================= GET ================= */
   const getClasses = async (): Promise<Class[]> => {
     if (!userId.value) return []
 
@@ -42,7 +48,7 @@ export const useClasses = (userId: Ref<number | undefined>) => {
       id: res.id,
       name: res.name,
       description: res.description,
-      teacher_id: res.teacher_id, 
+      teacher_id: res.teacher_id,
       student_count: res.student_count,
       students: res.students.map((s: any) => ({
         id: s.id,
@@ -91,22 +97,21 @@ export const useClasses = (userId: Ref<number | undefined>) => {
     })
     return getClassDetail(classId)
   }
+
   const getAvailableStudents = (classId: number) =>
     $fetch<AvailableStudent[]>(`/classes/${classId}/available-students`, {
       baseURL: config.public.apiBase,
       headers: authHeader()
     })
 
-const addStudent = async (classId: number, studentId: number) => {
-  await $fetch(`/classes/${classId}/students/${studentId}`, {
-    method: 'POST',
-    baseURL: config.public.apiBase,
-    headers: authHeader()
-  })
-  return getClassDetail(classId)
-}
-
-
+  const addStudent = async (classId: number, studentId: number) => {
+    await $fetch(`/classes/${classId}/students/${studentId}`, {
+      method: 'POST',
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
+    return getClassDetail(classId)
+  }
 
   return {
     classes,
@@ -120,5 +125,4 @@ const addStudent = async (classId: number, studentId: number) => {
     getAvailableStudents,
     addStudent
   }
-
 }

@@ -1,5 +1,7 @@
-from app.database import Base  # <--- Sửa dòng này
-from .user import User
+from app.database import Base
+from .admin import Admin
+from .teacher import Teacher
+from .student import Student
 from .classroom import Class
 from .class_student import ClassStudent
 from .question import Question

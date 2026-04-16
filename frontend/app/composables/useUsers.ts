@@ -5,7 +5,6 @@ export const useUsers = () => {
   const config = useRuntimeConfig()
   const API_BASE = config.public.apiBase
 
-  // ✅ ĐÚNG TÊN COOKIE
   const token = useCookie<string | null>('token')
 
   const api = <T>(url: string, options: any = {}) => {
@@ -18,11 +17,14 @@ export const useUsers = () => {
     })
   }
 
-  /* ================= USERS ================= */
-
   const getUsers = async (): Promise<User[]> => {
     try {
-      return await api<User[]>('/users')
+      const [admins, teachers, students] = await Promise.all([
+        api<User[]>('/admins'),
+        api<User[]>('/teachers'),
+        api<User[]>('/students')
+      ])
+      return [...admins, ...teachers, ...students]
     } catch (error: any) {
       console.error('Lỗi lấy danh sách:', error)
       return []
@@ -38,14 +40,31 @@ export const useUsers = () => {
     studentId?: string
   }): Promise<User> => {
     try {
-      return await api<User>('/users', {
+      const baseBody = {
+        username: payload.username,
+        password: payload.password,
+        full_name: payload.fullName,
+        email: payload.email
+      }
+
+      if (payload.role === 'admin') {
+        return await api<User>('/admins', {
+          method: 'POST',
+          body: baseBody
+        })
+      }
+
+      if (payload.role === 'teacher') {
+        return await api<User>('/teachers', {
+          method: 'POST',
+          body: baseBody
+        })
+      }
+
+      return await api<User>('/students', {
         method: 'POST',
         body: {
-          username: payload.username,
-          password: payload.password,
-          full_name: payload.fullName,
-          email: payload.email,
-          role: payload.role,
+          ...baseBody,
           student_id: payload.studentId
         }
       })
@@ -58,10 +77,18 @@ export const useUsers = () => {
 
   const updateUser = async (
     id: number,
-    payload: Partial<Omit<User, 'id' | 'username'>>
+    role: 'admin' | 'teacher' | 'student',
+    payload: Partial<Omit<User, 'id'>>
   ): Promise<User> => {
     try {
-      return await api<User>(`/users/${id}`, {
+      const endpoint =
+        role === 'admin'
+          ? `/admins/${id}`
+          : role === 'teacher'
+            ? `/teachers/${id}`
+            : `/students/${id}`
+
+      return await api<User>(endpoint, {
         method: 'PUT',
         body: payload
       })
@@ -72,9 +99,16 @@ export const useUsers = () => {
     }
   }
 
-  const deleteUser = async (id: number): Promise<void> => {
+  const deleteUser = async (id: number, role: 'admin' | 'teacher' | 'student'): Promise<void> => {
     try {
-      await api(`/users/${id}`, { method: 'DELETE' })
+      const endpoint =
+        role === 'admin'
+          ? `/admins/${id}`
+          : role === 'teacher'
+            ? `/teachers/${id}`
+            : `/students/${id}`
+
+      await api(endpoint, { method: 'DELETE' })
     } catch (error: any) {
       throw new Error(
         error?.data?.detail || 'Xóa thất bại'

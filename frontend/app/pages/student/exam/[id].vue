@@ -370,7 +370,7 @@ const startExam = async () => {
       <div class="space-y-6">
         <div v-for="(q, idx) in mockQuestions" :key="q.id" class="border-b pb-6">
           <div class="flex items-start gap-3 mb-4">
-            <span :class="['px-3 py-1 rounded-full text-sm font-bold', answers[idx] === q.correct_answer ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700']">Cau {{ idx + 1 }}</span>
+            <span :class="['px-3 py-1 rounded-full text-sm font-bold', answers[idx] === q.correct_answer ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700']">Câu {{ idx + 1 }}</span>
             <p class="flex-1 font-medium">{{ q.content }}</p>
           </div>
           <div class="ml-16 space-y-2">
@@ -431,7 +431,7 @@ const startExam = async () => {
 
       <div v-if="questionData" class="panel-card mb-6 p-8">
         <div class="flex items-start gap-4 mb-6">
-          <span class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-bold whitespace-nowrap">Cau {{ currentQuestion + 1 }}/{{ mockQuestions.length }}</span>
+          <span class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-bold whitespace-nowrap">Câu {{ currentQuestion + 1 }}/{{ mockQuestions.length }}</span>
           <h2 class="flex-1 text-lg font-medium">{{ questionData.content }}</h2>
           <button
             type="button"

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { Search, Plus, Trash2, Users, Edit2, UserMinus, UserPlus } from 'lucide-vue-next'
 import type { Class, AvailableStudent } from '~/types'
 import { useClasses } from '~/composables/useClasses'
@@ -21,7 +21,8 @@ const {
   getAvailableStudents,
   addStudent
 } = useClasses(
-  computed(() => user.value?.id)
+  computed(() => user.value?.id),
+  computed(() => user.value?.role)
 )
 
 /* ================= STATE ================= */
@@ -109,7 +110,7 @@ const handleAddStudent = async (studentId: number) => {
   // update modal
   selectedClass.value = updated
 
-  // 🔥 UPDATE LIST
+  // ðŸ”¥ UPDATE LIST
   const cls = classes.value.find(c => c.id === updated.id)
   if (cls) {
     cls.student_count = updated.student_count
@@ -130,7 +131,7 @@ const handleRemoveStudent = async (studentId: number) => {
   // update modal
   selectedClass.value = updated
 
-  // 🔥 UPDATE LIST
+  // ðŸ”¥ UPDATE LIST
   const cls = classes.value.find(c => c.id === updated.id)
   if (cls) {
     cls.student_count = updated.student_count
@@ -297,4 +298,5 @@ const handleRemoveStudent = async (studentId: number) => {
 
   </div>
 </template>
+
 

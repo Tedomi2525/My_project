@@ -22,7 +22,8 @@ export const useExams = () => {
       throw new Error('Chua dang nhap')
     }
     return {
-      'x-user-id': String(user.value.id)
+      'x-user-id': String(user.value.id),
+      'x-user-role': String(user.value.role)
     }
   }
 

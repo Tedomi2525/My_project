@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { CheckCircle, CircleCheck, CircleX, Eye, EyeOff, Loader2, X } from 'lucide-vue-next'
 import type { Exam, ExamResult } from '~/types'
 import { useAuth } from '~/composables/useAuth'
@@ -66,7 +66,7 @@ const formatDate = (dateStr: string | null) => {
 }
 
 const examTitle = (examId: number) => {
-  return examMap.value.get(examId)?.title || `De #${examId}`
+  return examMap.value.get(examId)?.title || `Đề #${examId}`
 }
 
 const canViewAnswers = (examId: number) => {
@@ -88,7 +88,8 @@ const loadReview = async (resultId: number) => {
     const review = await $fetch<ReviewPayload>(`/results/${resultId}/review`, {
       baseURL: config.public.apiBase,
       headers: {
-        'x-user-id': String(user.value.id)
+        'x-user-id': String(user.value.id),
+        'x-user-role': String(user.value.role)
       }
     })
 
@@ -117,7 +118,8 @@ const loadHistory = async () => {
     }
 
     const headers = {
-      'x-user-id': String(user.value.id)
+      'x-user-id': String(user.value.id),
+        'x-user-role': String(user.value.role)
     }
 
     const [historyRes, examsRes] = await Promise.all([
@@ -146,7 +148,7 @@ onMounted(loadHistory)
 
 <template>
   <div>
-    <h2 class="mb-6 font-bold text-xl">Lich su thi</h2>
+    <h2 class="mb-6 font-bold text-xl">Lịch sử thi</h2>
 
     <div v-if="loading" class="flex justify-center p-12">
       <Loader2 class="w-8 h-8 animate-spin text-blue-600" />
@@ -210,7 +212,7 @@ onMounted(loadHistory)
                 </button>
                 <span v-else class="text-gray-400 text-sm inline-flex items-center gap-1 justify-end w-full">
                   <EyeOff class="w-4 h-4" />
-                  Chưa mở
+                  ChÆ°a má»Ÿ
                 </span>
               </td>
             </tr>
@@ -281,3 +283,4 @@ onMounted(loadHistory)
     </div>
   </div>
 </template>
+
