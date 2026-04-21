@@ -1,7 +1,7 @@
 ﻿<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Search, Plus, Edit2, Trash2, Eye, EyeOff, Loader2 } from 'lucide-vue-next'
-import type { Exam } from '~/types'
+import { Search, Plus, Edit2, Trash2, Eye, EyeOff, Loader2, Shuffle } from 'lucide-vue-next'
+import type { Exam, Question } from '~/types'
 import { useExams } from '~/composables/useExams'
 import { useAuth } from '~/composables/useAuth'
 
@@ -10,11 +10,6 @@ definePageMeta({
 })
 
 /* ================= TYPES ================= */
-
-interface Question {
-  id: number
-  content: string
-}
 
 interface ClassItem {
   id: number
@@ -50,7 +45,9 @@ const editingExamId = ref<number | null>(null)
 const availableQuestions = ref<Question[]>([])
 const availableClasses = ref<ClassItem[]>([])
 const isLoadingResources = ref(false)
+const isGeneratingQuestions = ref(false)
 const error = ref<string | null>(null)
+const randomSelectionError = ref<string | null>(null)
 
 /**
  * Form state
@@ -71,6 +68,12 @@ const formData = ref({
   class_ids: [] as number[],
   allow_view_answers: true,
   password: ''
+})
+
+const randomCriteria = ref({
+  easy_count: 0,
+  medium_count: 0,
+  hard_count: 0
 })
 
 /* ================= LOAD DATA ================= */
@@ -131,6 +134,28 @@ const filteredExams = computed(() =>
   exams.value.filter(e =>
     e.title.toLowerCase().includes(searchTerm.value.toLowerCase())
   )
+)
+
+const teacherQuestions = computed(() => availableQuestions.value)
+
+const questionPoolStats = computed(() => {
+  const stats = { EASY: 0, MEDIUM: 0, HARD: 0 }
+
+  for (const question of teacherQuestions.value) {
+    if (question.difficulty === 'MEDIUM' || question.difficulty === 'HARD') {
+      stats[question.difficulty] += 1
+    } else {
+      stats.EASY += 1
+    }
+  }
+
+  return stats
+})
+
+const requestedRandomTotal = computed(() =>
+  Number(randomCriteria.value.easy_count || 0) +
+  Number(randomCriteria.value.medium_count || 0) +
+  Number(randomCriteria.value.hard_count || 0)
 )
 
 /* ================= DATE HELPERS ================= */
@@ -216,6 +241,12 @@ const resetFormForCreate = () => {
     allow_view_answers: true,
     password: ''
   }
+  randomCriteria.value = {
+    easy_count: 0,
+    medium_count: 0,
+    hard_count: 0
+  }
+  randomSelectionError.value = null
 }
 
 const handleAddExam = () => {
@@ -226,6 +257,12 @@ const handleAddExam = () => {
 const handleEditExam = async (exam: Exam) => {
   editingExamId.value = exam.id
   showModal.value = true
+  randomCriteria.value = {
+    easy_count: 0,
+    medium_count: 0,
+    hard_count: 0
+  }
+  randomSelectionError.value = null
 
   try {
     const detail = await getExamById(exam.id)
@@ -258,6 +295,52 @@ const handleEditExam = async (exam: Exam) => {
 const handleDeleteExam = async (id: number) => {
   if (confirm('Bạn có chắc chắn muốn xóa đề thi này?')) {
     await deleteExam(id)
+  }
+}
+
+const handleRandomQuestionSelection = async () => {
+  if (isGeneratingQuestions.value) return
+
+  randomSelectionError.value = null
+
+  if (!user.value) {
+    await fetchUser()
+  }
+
+  if (!user.value) {
+    randomSelectionError.value = 'Không xác định được tài khoản giáo viên'
+    return
+  }
+
+  if (requestedRandomTotal.value <= 0) {
+    randomSelectionError.value = 'Hãy nhập số câu cần lấy cho ít nhất một mức độ khó'
+    return
+  }
+
+  try {
+    isGeneratingQuestions.value = true
+
+    const headers = {
+      'x-user-id': String(user.value.id),
+      'x-user-role': String(user.value.role)
+    }
+
+    const response = await $fetch<{ question_ids: number[] }>('/questions/random-selection', {
+      method: 'POST',
+      baseURL: config.public.apiBase,
+      headers,
+      body: {
+        easy_count: Number(randomCriteria.value.easy_count || 0),
+        medium_count: Number(randomCriteria.value.medium_count || 0),
+        hard_count: Number(randomCriteria.value.hard_count || 0)
+      }
+    })
+
+    formData.value.questions = [...response.question_ids]
+  } catch (err: any) {
+    randomSelectionError.value = err?.data?.detail || err?.message || 'Không thể lấy câu hỏi ngẫu nhiên'
+  } finally {
+    isGeneratingQuestions.value = false
   }
 }
 
@@ -460,17 +543,75 @@ const handleSubmit = async () => {
 
               <div v-if="isLoadingResources" class="text-sm text-gray-500">Đang tải danh sách câu hỏi...</div>
 
-              <div v-else class="max-h-60 overflow-y-auto rounded-xl border border-slate-200 p-4 space-y-2">
-                <label v-for="(q, idx) in availableQuestions" :key="q.id"
-                  class="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                  <input type="checkbox" v-model="formData.questions" :value="q.id" class="mt-1" />
-                  <div class="text-sm">
-                    <span class="font-bold text-gray-600">#{{ q.id }}</span> {{ q.content }}
+              <div v-else class="space-y-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div class="mb-3 flex items-center gap-2">
+                    <Shuffle class="h-4 w-4 text-blue-600" />
+                    <p class="font-medium text-slate-800">Lấy ngẫu nhiên theo độ khó</p>
                   </div>
-                </label>
 
-                <div v-if="availableQuestions.length === 0" class="text-center text-gray-500 text-sm">
-                  Chưa có câu hỏi nào trong ngân hàng đề.
+                  <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
+                    <div>
+                      <label class="mb-1 block text-sm font-medium text-slate-700">Dễ</label>
+                      <input v-model.number="randomCriteria.easy_count" type="number" min="0" class="input-field" />
+                      <p class="mt-1 text-xs text-slate-500">Kho câu hỏi: {{ questionPoolStats.EASY }}</p>
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-sm font-medium text-slate-700">Trung bình</label>
+                      <input v-model.number="randomCriteria.medium_count" type="number" min="0" class="input-field" />
+                      <p class="mt-1 text-xs text-slate-500">Kho câu hỏi: {{ questionPoolStats.MEDIUM }}</p>
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-sm font-medium text-slate-700">Khó</label>
+                      <input v-model.number="randomCriteria.hard_count" type="number" min="0" class="input-field" />
+                      <p class="mt-1 text-xs text-slate-500">Kho câu hỏi: {{ questionPoolStats.HARD }}</p>
+                    </div>
+                    <div class="flex flex-col justify-end">
+                      <button
+                        type="button"
+                        @click="handleRandomQuestionSelection"
+                        :disabled="isGeneratingQuestions"
+                        class="btn-primary disabled:opacity-50"
+                      >
+                        <Loader2 v-if="isGeneratingQuestions" class="mr-2 h-4 w-4 animate-spin" />
+                        <Shuffle v-else class="mr-2 h-4 w-4" />
+                        Lấy {{ requestedRandomTotal }} câu
+                      </button>
+                    </div>
+                  </div>
+
+                  <p v-if="randomSelectionError" class="mt-3 text-sm text-red-600">
+                    {{ randomSelectionError }}
+                  </p>
+                  <p v-else class="mt-3 text-xs text-slate-500">
+                    Danh sách đang chọn sẽ được thay bằng bộ câu ngẫu nhiên mới.
+                  </p>
+                </div>
+
+                <div class="max-h-60 overflow-y-auto rounded-xl border border-slate-200 p-4 space-y-2">
+                  <label v-for="q in teacherQuestions" :key="q.id"
+                    class="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                    <input type="checkbox" v-model="formData.questions" :value="q.id" class="mt-1" />
+                    <div class="text-sm">
+                      <span class="font-bold text-gray-600">#{{ q.id }}</span> {{ q.content }}
+                      <span
+                        :class="[
+                          'ml-2 inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                          q.difficulty === 'HARD'
+                            ? 'bg-red-100 text-red-700'
+                            : q.difficulty === 'MEDIUM'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-green-100 text-green-700'
+                        ]"
+                      >
+                        {{ q.difficulty }}
+                      </span>
+                    </div>
+                  </label>
+
+                  <div v-if="teacherQuestions.length === 0" class="text-center text-gray-500 text-sm">
+                    Chưa có câu hỏi nào trong ngân hàng đề.
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,25 +1,23 @@
 <script setup lang="ts">
-import { Search, Plus, Edit2, Trash2, Filter } from 'lucide-vue-next'
+import { Search, Plus, Edit2, Trash2, Filter, Upload } from 'lucide-vue-next'
 import type { Question } from '~/types'
 
 definePageMeta({ layout: 'teacher' })
 
-/* ================= AUTH ================= */
-const { user } = useAuth()
+const { user, fetchUser } = useAuth()
 const config = useRuntimeConfig()
 
-/* ================= STATE ================= */
 const questions = ref<Question[]>([])
 const loading = ref(false)
+const importLoading = ref(false)
 const searchTerm = ref('')
-
-// 1. THÊM STATE CHO BỘ LỌC
-const selectedDifficulty = ref('ALL') // Mặc định chọn tất cả
-
+const selectedDifficulty = ref('ALL')
 const showModal = ref(false)
 const editingQuestion = ref<Question | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
+const importSummary = ref<null | { importedCount: number; totalRows: number }>(null)
+const importErrors = ref<Array<{ row: number; message: string }>>([])
 
-/* ================= FORM ================= */
 const formData = reactive({
   content: '',
   question_type: 'MCQ',
@@ -28,10 +26,28 @@ const formData = reactive({
   correct_answer: 'A'
 })
 
-/* ================= API ================= */
-const api = <T>(url: string, options: any = {}) =>
+const authHeaders = async () => {
+  if (!user.value) {
+    await fetchUser()
+  }
+
+  if (!user.value) {
+    throw new Error('Chua dang nhap')
+  }
+
+  return {
+    'x-user-id': String(user.value.id),
+    'x-user-role': String(user.value.role)
+  }
+}
+
+const api = async <T>(url: string, options: any = {}) =>
   $fetch<T>(url, {
     baseURL: config.public.apiBase,
+    headers: {
+      ...(await authHeaders()),
+      ...(options.headers || {})
+    },
     ...options
   })
 
@@ -53,35 +69,42 @@ const updateQuestion = (id: number, payload: any) =>
 const deleteQuestion = (id: number) =>
   api(`/questions/${id}`, { method: 'DELETE' })
 
-/* ================= COMPUTED ================= */
-// 2. CẬP NHẬT LOGIC LỌC
+const importQuestionsFromCsv = (payload: { filename: string; csv_content: string }) =>
+  api<{ imported_count: number; total_rows: number; errors: Array<{ row: number; message: string }> }>(
+    '/questions/import/csv',
+    { method: 'POST', body: payload }
+  )
+
 const filteredQuestions = computed(() =>
-  questions.value.filter(q => {
-    // Lọc theo từ khóa tìm kiếm
+  questions.value.filter((q) => {
     const matchesSearch = q.content.toLowerCase().includes(searchTerm.value.toLowerCase())
-    
-    // Lọc theo độ khó
-    const matchesDifficulty = selectedDifficulty.value === 'ALL' || q.difficulty === selectedDifficulty.value
+    const matchesDifficulty =
+      selectedDifficulty.value === 'ALL' || q.difficulty === selectedDifficulty.value
 
     return matchesSearch && matchesDifficulty
   })
 )
 
-/* ================= HELPERS ================= */
 const getDiffColor = (level: string) => {
   switch (level) {
-    case 'HARD': return 'bg-red-100 text-red-700 border-red-200'
-    case 'MEDIUM': return 'bg-yellow-100 text-yellow-700 border-yellow-200'
-    default: return 'bg-green-100 text-green-700 border-green-200'
+    case 'HARD':
+      return 'bg-red-100 text-red-700 border-red-200'
+    case 'MEDIUM':
+      return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+    default:
+      return 'bg-green-100 text-green-700 border-green-200'
   }
 }
 
 const getDiffLabel = (level: string) => {
-  const map: Record<string, string> = { EASY: 'Dễ', MEDIUM: 'Trung bình', HARD: 'Khó' }
+  const map: Record<string, string> = {
+    EASY: 'Dễ',
+    MEDIUM: 'Trung bình',
+    HARD: 'Khó'
+  }
   return map[level] || 'Dễ'
 }
 
-/* ================= ACTIONS ================= */
 const resetForm = () => {
   formData.content = ''
   formData.difficulty = 'EASY'
@@ -99,9 +122,34 @@ const openEdit = (q: Question) => {
   editingQuestion.value = q
   formData.content = q.content
   formData.difficulty = q.difficulty || 'EASY'
-  formData.options = { ...q.options }
+  formData.options = { A: '', B: '', C: '', D: '', ...(q.options || {}) }
   formData.correct_answer = q.correct_answer
   showModal.value = true
+}
+
+const triggerImportPicker = () => {
+  fileInput.value?.click()
+}
+
+const downloadCsvTemplate = () => {
+  const templateRows = [
+    'content,difficulty,option_a,option_b,option_c,option_d,correct_answer',
+    '"2 + 2 bằng mấy?",EASY,1,2,3,4,D',
+    '"Thủ đô Việt Nam là gì?",EASY,Hà Nội,Hải Phòng,Đà Nẵng, Cần Thơ,A'
+  ]
+
+  const blob = new Blob([templateRows.join('\n')], {
+    type: 'text/csv;charset=utf-8;'
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = 'mau-import-cau-hoi.csv'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 const handleSubmit = async () => {
@@ -125,9 +173,47 @@ const handleSubmit = async () => {
 }
 
 const handleDelete = async (id: number) => {
-  if (!confirm('Bạn có chắc muốn xóa câu hỏi này?')) return
+  if (!confirm('Ban co chac muon xoa cau hoi nay?')) return
   await deleteQuestion(id)
   await fetchQuestions()
+}
+
+const handleImportCsv = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+
+  if (!file) return
+
+  importSummary.value = null
+  importErrors.value = []
+
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    alert('Vui long chon file CSV hop le.')
+    input.value = ''
+    return
+  }
+
+  importLoading.value = true
+  try {
+    const csvContent = await file.text()
+    const result = await importQuestionsFromCsv({
+      filename: file.name,
+      csv_content: csvContent
+    })
+
+    importSummary.value = {
+      importedCount: result.imported_count,
+      totalRows: result.total_rows
+    }
+    importErrors.value = result.errors || []
+
+    await fetchQuestions()
+  } catch (error: any) {
+    alert(error?.data?.detail || error?.message || 'Import CSV that bai.')
+  } finally {
+    importLoading.value = false
+    input.value = ''
+  }
 }
 
 onMounted(fetchQuestions)
@@ -147,8 +233,8 @@ onMounted(fetchQuestions)
 
       <div class="relative w-48">
         <Filter class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-        <select 
-          v-model="selectedDifficulty" 
+        <select
+          v-model="selectedDifficulty"
           class="w-full pl-9 pr-4 py-2 border rounded-lg bg-white outline-none cursor-pointer focus:ring-2 focus:ring-blue-500 appearance-none"
         >
           <option value="ALL">Tất cả độ khó</option>
@@ -157,9 +243,35 @@ onMounted(fetchQuestions)
           <option value="HARD">Khó</option>
         </select>
         <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
         </div>
       </div>
+
+      <input
+        ref="fileInput"
+        type="file"
+        accept=".csv,text/csv"
+        class="hidden"
+        @change="handleImportCsv"
+      />
+
+      <button
+        @click="triggerImportPicker"
+        :disabled="importLoading"
+        class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <Upload class="w-5 h-5" />
+        <span class="hidden sm:inline">{{ importLoading ? 'Dang import...' : 'Import CSV' }}</span>
+      </button>
+
+      <button
+        @click="downloadCsvTemplate"
+        class="px-4 py-2 border border-emerald-200 text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition"
+      >
+        Tải file mẫu
+      </button>
 
       <button
         @click="openCreate"
@@ -170,18 +282,52 @@ onMounted(fetchQuestions)
       </button>
     </div>
 
+    <div class="mb-6 rounded-xl border border-emerald-100 bg-emerald-50/70 p-4 text-sm text-emerald-900">
+      <p class="font-semibold mb-2">Định dạng CSV hỗ trợ</p>
+      <p class="mb-2">
+        Tiêu đề cột bắt buộc:
+        <code>content,difficulty,option_a,option_b,option_c,option_d,correct_answer</code>
+      </p>
+      <p>
+        Vi du:
+        <code>"2 + 2 bằng mấy?",EASY,1,2,3,4,D</code>
+      </p>
+    </div>
+
+    <div
+      v-if="importSummary"
+      class="mb-6 rounded-xl border p-4"
+      :class="importErrors.length ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'"
+    >
+      <p class="font-semibold">
+        Đã import {{ importSummary.importedCount }}/{{ importSummary.totalRows }} dòng hợp lệ.
+      </p>
+      <p v-if="importErrors.length" class="mt-1 text-sm text-amber-800">
+        Có {{ importErrors.length }} dòng lỗi, vui lòng kiểm tra lại file CSV.
+      </p>
+      <div v-if="importErrors.length" class="mt-3 max-h-48 overflow-y-auto rounded-lg border border-amber-200 bg-white p-3">
+        <div
+          v-for="item in importErrors"
+          :key="`${item.row}-${item.message}`"
+          class="text-sm text-gray-700 py-1"
+        >
+          Dong {{ item.row }}: {{ item.message }}
+        </div>
+      </div>
+    </div>
+
     <div v-if="loading" class="text-center py-8 text-gray-500">
-        <div class="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent rounded-full mb-2"></div>
-        <p>Đang tải dữ liệu...</p>
+      <div class="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent rounded-full mb-2"></div>
+      <p>Dang tai du lieu...</p>
     </div>
 
     <div v-else-if="filteredQuestions.length === 0" class="text-center py-10 bg-gray-50 rounded-lg border border-dashed">
-        <p class="text-gray-500">Không tìm thấy câu hỏi nào phù hợp.</p>
+      <p class="text-gray-500">Không tìm thấy câu hỏi nào phù hợp.</p>
     </div>
 
     <div v-else class="space-y-4">
       <div
-        v-for="(q, idx) in filteredQuestions"
+        v-for="q in filteredQuestions"
         :key="q.id"
         class="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition"
       >
@@ -189,7 +335,7 @@ onMounted(fetchQuestions)
           <div>
             <div class="flex items-center gap-2 mb-2">
               <span class="text-sm font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{{ q.id }}</span>
-              <span 
+              <span
                 class="text-xs px-2 py-0.5 rounded border font-medium"
                 :class="getDiffColor(q.difficulty)"
               >
@@ -221,7 +367,12 @@ onMounted(fetchQuestions)
             ]"
           >
             <span class="font-bold mr-1">{{ key }}.</span> {{ text }}
-            <span v-if="key === q.correct_answer" class="ml-2 text-xs font-bold text-green-600 uppercase tracking-wider border border-green-200 px-1 rounded">Đúng</span>
+            <span
+              v-if="key === q.correct_answer"
+              class="ml-2 text-xs font-bold text-green-600 uppercase tracking-wider border border-green-200 px-1 rounded"
+            >
+              Đúng
+            </span>
           </div>
         </div>
       </div>
@@ -233,21 +384,24 @@ onMounted(fetchQuestions)
     >
       <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
         <h2 class="font-bold text-xl mb-6 flex items-center gap-2">
-             <span class="bg-blue-100 text-blue-600 p-1 rounded"><Plus v-if="!editingQuestion" class="w-5 h-5"/><Edit2 v-else class="w-5 h-5"/></span>
-             {{ editingQuestion ? 'Sửa câu hỏi' : 'Thêm câu hỏi mới' }}
+          <span class="bg-blue-100 text-blue-600 p-1 rounded">
+            <Plus v-if="!editingQuestion" class="w-5 h-5" />
+            <Edit2 v-else class="w-5 h-5" />
+          </span>
+          {{ editingQuestion ? 'Sửa câu hỏi' : 'Thêm câu hỏi mới' }}
         </h2>
 
         <div class="space-y-5">
           <div>
             <label class="block text-sm font-medium mb-1 text-gray-700">Nội dung câu hỏi</label>
             <textarea
-                v-model="formData.content"
-                rows="3"
-                class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="Nhập nội dung câu hỏi..."
+              v-model="formData.content"
+              rows="3"
+              class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="Nhập nội dung câu hỏi..."
             />
           </div>
-          
+
           <div class="flex gap-4">
             <div class="w-1/3">
               <label class="block text-sm font-medium mb-1 text-gray-700">Độ khó</label>
@@ -257,13 +411,13 @@ onMounted(fetchQuestions)
                 <option value="HARD">Khó</option>
               </select>
             </div>
-             <div class="flex-1">
+            <div class="flex-1">
               <label class="block text-sm font-medium mb-1 text-gray-700">Đáp án đúng</label>
               <select
                 v-model="formData.correct_answer"
                 class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
               >
-                <option v-for="key in ['A','B','C','D']" :key="key" :value="key">
+                <option v-for="key in ['A', 'B', 'C', 'D']" :key="key" :value="key">
                   Đáp án {{ key }}
                 </option>
               </select>
@@ -272,19 +426,21 @@ onMounted(fetchQuestions)
 
           <div class="space-y-3 bg-gray-50 p-4 rounded-lg border">
             <label class="block text-sm font-semibold text-gray-700">Các lựa chọn</label>
-            <div v-for="key in ['A','B','C','D']" :key="key" class="flex gap-3 items-center">
-                <div class="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-200 font-bold text-gray-600 text-sm shadow-sm">{{ key }}</div>
-                <input
+            <div v-for="key in ['A', 'B', 'C', 'D']" :key="key" class="flex gap-3 items-center">
+              <div class="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-200 font-bold text-gray-600 text-sm shadow-sm">
+                {{ key }}
+              </div>
+              <input
                 v-model="formData.options[key]"
                 class="flex-1 border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 :placeholder="`Nhập nội dung đáp án ${key}`"
-                />
+              />
             </div>
           </div>
 
           <div class="flex gap-3 pt-2 border-t mt-4">
             <button @click="showModal = false" class="flex-1 py-2.5 rounded-lg border border-gray-300 font-medium hover:bg-gray-50 transition">
-              Hủy bỏ
+              Huy bo
             </button>
             <button @click="handleSubmit" class="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition shadow-sm shadow-blue-200">
               {{ editingQuestion ? 'Cập nhật' : 'Tạo mới' }}
