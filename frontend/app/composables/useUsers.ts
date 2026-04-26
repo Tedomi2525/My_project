@@ -32,17 +32,15 @@ export const useUsers = () => {
   }
 
   const createUser = async (payload: {
-    username: string
-    password: string
+    username?: string
+    password?: string
     fullName: string
     email?: string
     role: 'admin' | 'teacher' | 'student'
     studentId?: string
   }): Promise<User> => {
     try {
-      const baseBody = {
-        username: payload.username,
-        password: payload.password,
+      const baseBody: Record<string, any> = {
         full_name: payload.fullName,
         email: payload.email
       }
@@ -50,7 +48,11 @@ export const useUsers = () => {
       if (payload.role === 'admin') {
         return await api<User>('/admins', {
           method: 'POST',
-          body: baseBody
+          body: {
+            ...baseBody,
+            username: payload.username,
+            password: payload.password
+          }
         })
       }
 
@@ -63,10 +65,7 @@ export const useUsers = () => {
 
       return await api<User>('/students', {
         method: 'POST',
-        body: {
-          ...baseBody,
-          student_id: payload.studentId
-        }
+        body: baseBody
       })
     } catch (error: any) {
       throw new Error(

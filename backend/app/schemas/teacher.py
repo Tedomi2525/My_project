@@ -3,13 +3,13 @@ from pydantic import BaseModel, EmailStr
 
 
 class TeacherBase(BaseModel):
-    username: str
-    email: EmailStr
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
     full_name: Optional[str] = None
 
 
 class TeacherCreate(TeacherBase):
-    password: str
+    password: Optional[str] = None
 
 
 class TeacherUpdate(BaseModel):

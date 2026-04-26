@@ -3,14 +3,14 @@ from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class StudentBase(BaseModel):
-    username: str
-    email: EmailStr
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     student_id: Optional[str] = Field(None, alias="studentId")
 
 
 class StudentCreate(StudentBase):
-    password: str
+    password: Optional[str] = None
 
 
 class StudentUpdate(BaseModel):

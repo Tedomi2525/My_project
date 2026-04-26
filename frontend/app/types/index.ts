@@ -7,11 +7,11 @@ export interface LoginCredentials {
 export interface User {
   id: number;
   username: string;
-  // password: string;
+  password?: string;
   fullName: string;
   email?: string;
   role: 'admin' | 'teacher' | 'student';
-  studentId?: string;  // Mã sinh viên (chỉ cho sinh viên)
+  studentId?: string;
 }
 
 // ~/types/index.ts

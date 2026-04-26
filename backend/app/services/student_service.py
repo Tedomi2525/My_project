@@ -11,20 +11,25 @@ class StudentService:
     @staticmethod
     def create_student(db: Session, student_in: StudentCreate) -> Student:
         try:
+            student_code = AccountService.generate_account_code(db, "SV")
+            username = student_code
+            email = f"{student_code}@edu.com"
+            password = f"{student_code}@"
+
             AccountService.ensure_unique_identity(
                 db,
-                username=student_in.username,
-                email=student_in.email,
-                student_code=student_in.student_id
+                username=username,
+                email=email,
+                student_code=student_code
             )
-            hashed_password = AccountService.get_password_hash(student_in.password)
+            hashed_password = AccountService.get_password_hash(password)
 
             student = Student(
-                username=student_in.username,
-                email=student_in.email,
+                username=username,
+                email=email,
                 password=hashed_password,
                 full_name=student_in.full_name,
-                student_code=student_in.student_id
+                student_code=student_code
             )
             db.add(student)
             db.commit()

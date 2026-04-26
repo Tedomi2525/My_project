@@ -97,22 +97,27 @@ const handleDeleteUser = async (user: User) => {
 
 const handleResetPassword = async (user: User) => {
   if (!confirm(`Reset mật khẩu cho ${user.fullName}?`)) return
-  alert(`Mật khẩu mới của ${user.username}: password123`)
+  try {
+    const newPassword = user.role === 'admin' ? 'password123' : `${user.username}@`
+    await updateUser(user.id, user.role, { password: newPassword })
+    alert(`Mật khẩu mới của ${user.username}: ${newPassword}`)
+  } catch (err: any) {
+    alert(err.message || 'Reset mật khẩu thất bại')
+  }
 }
 
 const buildUpdateBody = () => {
   const body: any = {
-    username: formData.username,
     full_name: formData.fullName,
     email: formData.email
   }
 
-  if (formData.password) {
-    body.password = formData.password
+  if (formData.role === 'admin') {
+    body.username = formData.username
   }
 
-  if (formData.role === 'student') {
-    body.student_id = formData.studentId
+  if (formData.password) {
+    body.password = formData.password
   }
 
   return body
@@ -124,12 +129,11 @@ const handleSubmit = async () => {
       await updateUser(editingUser.value.id, editingUser.value.role, buildUpdateBody())
     } else {
       await createUser({
-        username: formData.username,
-        password: formData.password,
+        username: formData.role === 'admin' ? formData.username : undefined,
+        password: formData.role === 'admin' ? formData.password : undefined,
         fullName: formData.fullName,
-        email: formData.email,
-        role: formData.role,
-        studentId: formData.studentId
+        email: formData.role === 'admin' ? formData.email : undefined,
+        role: formData.role
       })
     }
     showModal.value = false
@@ -165,10 +169,10 @@ const handleSubmit = async () => {
         <thead class="bg-gray-50 border-b">
           <tr>
             <th class="p-4 text-left">Họ tên</th>
-            <th class="p-4 text-left">Username</th>
+            <th class="p-4 text-left">Mã đăng nhập</th>
             <th class="p-4 text-left">Email</th>
             <th class="p-4 text-left">Vai trò</th>
-            <th class="p-4 text-left">Mã SV</th>
+            <th class="p-4 text-left">Mật khẩu mặc định</th>
             <th class="p-4 text-right">Thao tác</th>
           </tr>
         </thead>
@@ -191,7 +195,7 @@ const handleSubmit = async () => {
                 {{ getRoleBadge(u.role).lbl }}
               </span>
             </td>
-            <td class="p-4 font-mono text-sm">{{ u.studentId || '-' }}</td>
+            <td class="p-4 font-mono text-sm">{{ u.role === 'admin' ? '-' : `${u.username}@` }}</td>
             <td class="p-4 flex justify-end gap-2">
               <button
                 @click="handleResetPassword(u)"
@@ -234,28 +238,37 @@ const handleSubmit = async () => {
 
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <input v-model="formData.fullName" class="w-full border p-2 rounded" placeholder="Họ tên" />
-          <input v-model="formData.username" class="w-full border p-2 rounded" placeholder="Username" />
           <input
+            v-if="formData.role === 'admin'"
+            v-model="formData.username"
+            class="w-full border p-2 rounded"
+            placeholder="Username"
+            :required="formData.role === 'admin'"
+          />
+          <input
+            v-if="formData.role === 'admin'"
             type="password"
             v-model="formData.password"
             class="w-full border p-2 rounded"
             placeholder="Mật khẩu"
-            :required="!editingUser"
+            :required="!editingUser && formData.role === 'admin'"
           />
-          <input type="email" v-model="formData.email" class="w-full border p-2 rounded" placeholder="Email" />
+          <div v-else class="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
+            Mã đăng nhập và email sẽ được tự động tạo. Mật khẩu mặc định là mã đăng nhập thêm ký tự @.
+          </div>
+          <input
+            v-if="formData.role === 'admin'"
+            type="email"
+            v-model="formData.email"
+            class="w-full border p-2 rounded"
+            placeholder="Email"
+          />
 
           <select v-model="formData.role" class="w-full border p-2 rounded" :disabled="!!editingUser">
             <option value="student">Sinh viên</option>
             <option value="teacher">Giảng viên</option>
             <option value="admin">Quản trị viên</option>
           </select>
-
-          <input
-            v-if="formData.role === 'student'"
-            v-model="formData.studentId"
-            class="w-full border p-2 rounded"
-            placeholder="Mã sinh viên"
-          />
 
           <div class="flex gap-3 pt-4">
             <button type="button" @click="showModal = false" class="flex-1 border py-2 rounded">
@@ -270,3 +283,4 @@ const handleSubmit = async () => {
     </div>
   </div>
 </template>
+

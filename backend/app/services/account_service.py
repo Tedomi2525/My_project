@@ -1,3 +1,4 @@
+import re
 from typing import Optional, Tuple, Type
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -12,6 +13,8 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AccountService:
+    CODE_WIDTH = 6
+
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
         return pwd_context.verify(plain_password, hashed_password)
@@ -32,6 +35,31 @@ class AccountService:
         if student:
             return student
         return None
+
+    @staticmethod
+    def generate_account_code(db: Session, prefix: str) -> str:
+        pattern = re.compile(rf"^{re.escape(prefix)}(\d+)$")
+        max_number = 0
+
+        for model in (Admin, Teacher, Student):
+            usernames = (
+                db.query(model.username)
+                .filter(model.username.like(f"{prefix}%"))
+                .all()
+            )
+            for (username,) in usernames:
+                if not username:
+                    continue
+                match = pattern.match(username)
+                if match:
+                    max_number = max(max_number, int(match.group(1)))
+
+        next_number = max_number + 1
+        while True:
+            code = f"{prefix}{next_number:0{AccountService.CODE_WIDTH}d}"
+            if not AccountService.find_by_username(db, code):
+                return code
+            next_number += 1
 
     @staticmethod
     def _exists_in_model(

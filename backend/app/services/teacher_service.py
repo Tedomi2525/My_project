@@ -11,16 +11,20 @@ class TeacherService:
     @staticmethod
     def create_teacher(db: Session, teacher_in: TeacherCreate) -> Teacher:
         try:
+            teacher_code = AccountService.generate_account_code(db, "GV")
+            email = f"{teacher_code}@edu.com"
+            password = f"{teacher_code}@"
+
             AccountService.ensure_unique_identity(
                 db,
-                username=teacher_in.username,
-                email=teacher_in.email
+                username=teacher_code,
+                email=email
             )
-            hashed_password = AccountService.get_password_hash(teacher_in.password)
+            hashed_password = AccountService.get_password_hash(password)
 
             teacher = Teacher(
-                username=teacher_in.username,
-                email=teacher_in.email,
+                username=teacher_code,
+                email=email,
                 password=hashed_password,
                 full_name=teacher_in.full_name
             )

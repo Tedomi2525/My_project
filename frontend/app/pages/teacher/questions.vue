@@ -173,7 +173,7 @@ const handleSubmit = async () => {
 }
 
 const handleDelete = async (id: number) => {
-  if (!confirm('Ban co chac muon xoa cau hoi nay?')) return
+  if (!confirm('Bạn có chắc muốn xóa câu hỏi này?')) return
   await deleteQuestion(id)
   await fetchQuestions()
 }
@@ -188,7 +188,7 @@ const handleImportCsv = async (event: Event) => {
   importErrors.value = []
 
   if (!file.name.toLowerCase().endsWith('.csv')) {
-    alert('Vui long chon file CSV hop le.')
+    alert('Vui lòng chọn file CSV hợp lệ.')
     input.value = ''
     return
   }
