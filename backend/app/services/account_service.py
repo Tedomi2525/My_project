@@ -3,13 +3,11 @@ from typing import Optional, Tuple, Type
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException, status
-from passlib.context import CryptContext
+import bcrypt
 
 from app.models.admin import Admin
 from app.models.teacher import Teacher
 from app.models.student import Student
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AccountService:
@@ -17,11 +15,17 @@ class AccountService:
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        return pwd_context.verify(plain_password, hashed_password)
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8")
+        )
 
     @staticmethod
     def get_password_hash(password: str) -> str:
-        return pwd_context.hash(password)
+        return bcrypt.hashpw(
+            password.encode("utf-8"),
+            bcrypt.gensalt()
+        ).decode("utf-8")
 
     @staticmethod
     def find_by_username(db: Session, username: str):

@@ -1,0 +1,1 @@
+from app.models.exam_result_detail import ExamResultDetail

@@ -10,3 +10,5 @@ from .exam_question import ExamQuestion
 from .exam_allowed_class import ExamAllowedClass
 from .exam_result import ExamResult
 from .exam_result_detail import ExamResultDetail
+from .exam_session import ExamSession
+from .exam_violation import ExamViolation

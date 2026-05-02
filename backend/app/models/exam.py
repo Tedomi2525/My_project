@@ -15,6 +15,7 @@ class Exam(Base):
     end_time = Column(DateTime(timezone=True), nullable=True)
 
     password = Column(String(255), nullable=True)
+    status = Column(String(50), nullable=False, default="draft")
 
     created_by = Column(Integer, ForeignKey("teacher.id"), nullable=False)
 

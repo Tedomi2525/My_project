@@ -16,6 +16,7 @@ class StudentInClassResponse(BaseModel):
     id: int
     full_name: str
     email: str
+    student_code: Optional[str] = None
     joined_at: datetime
 
 

@@ -9,6 +9,9 @@ from typing import Optional, List
 from datetime import datetime, timedelta, timezone
 
 
+EXAM_STATUSES = {"draft", "published", "closed"}
+
+
 # =====================================================
 # Base Schema
 # =====================================================
@@ -28,6 +31,7 @@ class ExamBase(BaseModel):
     max_attempts: Optional[int] = 1
     shuffle_questions: bool = False
     shuffle_options: bool = False
+    status: str = "draft"
 
     @field_validator("start_time", "end_time")
     @classmethod
@@ -44,6 +48,13 @@ class ExamBase(BaseModel):
     def validate_max_attempts(cls, v):
         if v is not None and v < 1:
             raise ValueError("max_attempts must be >= 1 or null")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        if v not in EXAM_STATUSES:
+            raise ValueError("status must be draft, published, or closed")
         return v
 
 
@@ -74,6 +85,7 @@ class ExamUpdate(BaseModel):
     max_attempts: Optional[int] = None
     shuffle_questions: Optional[bool] = None
     shuffle_options: Optional[bool] = None
+    status: Optional[str] = None
 
     class_ids: Optional[List[int]] = None
     questions: Optional[List[int]] = None
@@ -93,6 +105,13 @@ class ExamUpdate(BaseModel):
     def validate_max_attempts(cls, v):
         if v is not None and v < 1:
             raise ValueError("max_attempts must be >= 1 or null")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        if v is not None and v not in EXAM_STATUSES:
+            raise ValueError("status must be draft, published, or closed")
         return v
 
 
@@ -116,6 +135,7 @@ class ExamResponse(BaseModel):
     max_attempts: Optional[int] = None
     shuffle_questions: bool
     shuffle_options: bool
+    status: str = "draft"
 
     allowed_classes: List[int] = Field(default_factory=list)
     exam_questions: List[int] = Field(default_factory=list)

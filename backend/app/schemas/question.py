@@ -27,6 +27,18 @@ class QuestionResponse(QuestionBase):
         from_attributes = True
 
 
+class ExamQuestionResponse(BaseModel):
+    id: int
+    content: str
+    question_type: Optional[str] = "MCQ"
+    difficulty: DifficultyLevel = DifficultyLevel.EASY
+    options: Optional[Dict[str, Any]] = None
+    created_by: int
+
+    class Config:
+        from_attributes = True
+
+
 class QuestionImportRequest(BaseModel):
     filename: str = Field(min_length=1)
     csv_content: str = Field(min_length=1)

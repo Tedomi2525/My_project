@@ -20,6 +20,7 @@ def class_to_dict(class_: Class):
                 "id": cs.student.id,
                 "full_name": cs.student.full_name,
                 "email": cs.student.email,
+                "student_code": cs.student.student_code,
                 "joined_at": cs.joined_at
             }
             for cs in class_.students

@@ -9,18 +9,63 @@ from app.models.exam_result_detail import ExamResultDetail
 from app.models.question import Question, DifficultyLevel
 from app.models.exam_question import ExamQuestion
 from app.models.exam import Exam
+from app.models.exam_allowed_class import ExamAllowedClass
+from app.models.class_student import ClassStudent
+from app.models.exam_session import ExamSession
 from app.schemas.exam_result_detail import ExamResultDetailBase
 
 
 class ResultService:
     # --- CREATE (Nop bai & Cham diem) ---
     @staticmethod
-    def submit_exam(db: Session, exam_id: int, student_id: int, answers: List[ExamResultDetailBase]):
+    def submit_exam(
+        db: Session,
+        exam_id: int,
+        student_id: int,
+        answers: List[ExamResultDetailBase],
+        password: str | None = None,
+    ):
         exam = db.query(Exam).filter(Exam.id == exam_id).first()
         if not exam:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Exam not found"
+            )
+
+        has_class_access = (
+            db.query(ExamAllowedClass)
+            .join(ClassStudent, ClassStudent.class_id == ExamAllowedClass.class_id)
+            .filter(
+                ExamAllowedClass.exam_id == exam_id,
+                ClassStudent.student_id == student_id,
+            )
+            .first()
+            is not None
+        )
+        if not has_class_access:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this exam"
+            )
+
+        now = datetime.now()
+        start_time = exam.start_time.replace(tzinfo=None) if exam.start_time else None
+        end_time = exam.end_time.replace(tzinfo=None) if exam.end_time else None
+        if start_time and now < start_time:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Exam has not started yet"
+            )
+        if end_time and now > end_time:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Exam has ended"
+            )
+
+        if exam.password and exam.password != (password or ""):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Wrong exam password"
             )
 
         if exam.max_attempts is not None:
@@ -38,10 +83,22 @@ class ResultService:
                     detail=f"Attempt limit reached ({exam.max_attempts})"
                 )
 
+        session = (
+            db.query(ExamSession)
+            .filter(
+                ExamSession.exam_id == exam_id,
+                ExamSession.student_id == student_id,
+                ExamSession.submitted_at.is_(None),
+            )
+            .order_by(ExamSession.id.desc())
+            .first()
+        )
+        started_at = session.started_at if session else datetime.now()
+
         db_result = ExamResult(
             exam_id=exam_id,
             student_id=student_id,
-            started_at=datetime.now(),
+            started_at=started_at,
             total_score=0.0
         )
         db.add(db_result)
@@ -74,6 +131,14 @@ class ResultService:
             db.add(detail)
 
         db_result.total_score = (correct_count / total_questions) * 10 if total_questions > 0 else 0.0
+        if session:
+            session.submitted_at = datetime.now()
+            session.answers = {
+                str(ans.question_id): ans.student_answer
+                for ans in answers
+                if ans.question_id in exam_question_ids
+            }
+            session.last_saved_at = datetime.now()
         db.commit()
         db.refresh(db_result)
         return db_result
@@ -251,3 +316,63 @@ class ResultService:
             db.commit()
             return True
         return False
+
+    @staticmethod
+    def get_question_analytics_for_teacher(db: Session, exam_id: int, teacher_id: int):
+        exam = db.query(Exam).filter(Exam.id == exam_id).first()
+        if not exam or exam.created_by != teacher_id:
+            return None
+
+        questions = (
+            db.query(Question)
+            .join(ExamQuestion, Question.id == ExamQuestion.question_id)
+            .filter(ExamQuestion.exam_id == exam_id)
+            .order_by(ExamQuestion.id.asc())
+            .all()
+        )
+
+        rows = (
+            db.query(
+                ExamResultDetail.question_id,
+                func.count(ExamResultDetail.id).label("total"),
+                func.sum(
+                    case(
+                        (ExamResultDetail.is_correct.is_(True), 1),
+                        else_=0,
+                    )
+                ).label("correct"),
+            )
+            .join(ExamResult, ExamResult.id == ExamResultDetail.result_id)
+            .filter(ExamResult.exam_id == exam_id)
+            .group_by(ExamResultDetail.question_id)
+            .all()
+        )
+        stats = {
+            question_id: {
+                "total": int(total or 0),
+                "correct": int(correct or 0),
+            }
+            for question_id, total, correct in rows
+        }
+
+        result = []
+        for question in questions:
+            stat = stats.get(question.id, {"total": 0, "correct": 0})
+            total = stat["total"]
+            correct = stat["correct"]
+            wrong = max(total - correct, 0)
+            correct_rate = correct / total if total else 0.0
+            result.append(
+                {
+                    "question_id": question.id,
+                    "content": question.content,
+                    "difficulty": question.difficulty.value if question.difficulty else None,
+                    "total_answers": total,
+                    "correct_answers": correct,
+                    "wrong_answers": wrong,
+                    "correct_rate": correct_rate,
+                    "wrong_rate": wrong / total if total else 0.0,
+                }
+            )
+
+        return result
