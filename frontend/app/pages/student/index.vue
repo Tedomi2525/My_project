@@ -18,6 +18,7 @@ const selectedExam = ref<Exam | null>(null)
 const password = ref('')
 const error = ref('')
 const { user, fetchUser } = useAuth()
+const tokenCookie = useCookie<string | null>('token')
 
 /* ================= FETCH EXAMS ================= */
 const loadExams = async () => {
@@ -28,9 +29,9 @@ const loadExams = async () => {
     exams.value = await $fetch<Exam[]>('/exams/my-exams', {
       baseURL: config.public.apiBase,
       headers: {
-        // Gửi ID để backend thực hiện get_current_student
+        Authorization: `Bearer ${tokenCookie.value || ''}`,
         'x-user-id': String(user.value.id),
-        'x-user-role': String(user.value.role) 
+        'x-user-role': String(user.value.role)
       }
     })
   } catch (err) {
@@ -89,6 +90,7 @@ const handleStartExam = (exam: Exam) => {
     error.value = ''
     showPasswordModal.value = true
   } else {
+    sessionStorage.removeItem(`exam-password:${exam.id}`)
     router.push(`/student/exam/${exam.id}`)
   }
 }
@@ -101,11 +103,13 @@ const handlePasswordSubmit = async () => {
       method: 'POST',
       baseURL: config.public.apiBase,
       headers: {
-        'x-user-id': String(user.value?.id || ''),
-        'x-user-role': String(user.value?.role || '')
+        Authorization: `Bearer ${tokenCookie.value || ''}`,
+        'x-user-id': String(user.value.id),
+        'x-user-role': String(user.value.role)
       },
       body: { password: password.value }
     })
+    sessionStorage.setItem(`exam-password:${selectedExam.value.id}`, password.value)
     router.push(`/student/exam/${selectedExam.value.id}`)
   } catch {
     error.value = 'Mật khẩu không đúng!'

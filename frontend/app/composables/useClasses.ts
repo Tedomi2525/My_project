@@ -5,6 +5,7 @@ export const useClasses = (
   userRole: Ref<string | null | undefined>
 ) => {
   const config = useRuntimeConfig()
+  const tokenCookie = useCookie<string | null>('token')
 
   const classes = ref<Class[]>([])
   const loading = ref(false)
@@ -16,7 +17,11 @@ export const useClasses = (
     if (!userRole.value) {
       throw new Error('User role chưa sẵn sàng')
     }
+    if (!tokenCookie.value) {
+      throw new Error('Chua dang nhap')
+    }
     return {
+      Authorization: `Bearer ${tokenCookie.value}`,
       'x-user-id': String(userId.value),
       'x-user-role': String(userRole.value)
     }

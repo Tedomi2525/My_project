@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite"; // <-- 1. Nhớ import cái này
 export default defineNuxtConfig({
   runtimeConfig: {
     public: {
-      apiBase: 'http://localhost:8000'
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://127.0.0.1:8100'
     }
   },
   compatibilityDate: '2025-07-15',

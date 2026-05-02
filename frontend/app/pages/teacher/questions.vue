@@ -6,6 +6,7 @@ definePageMeta({ layout: 'teacher' })
 
 const { user, fetchUser } = useAuth()
 const config = useRuntimeConfig()
+const tokenCookie = useCookie<string | null>('token')
 
 const questions = ref<Question[]>([])
 const loading = ref(false)
@@ -31,11 +32,12 @@ const authHeaders = async () => {
     await fetchUser()
   }
 
-  if (!user.value) {
+  if (!user.value || !tokenCookie.value) {
     throw new Error('Chua dang nhap')
   }
 
   return {
+    Authorization: `Bearer ${tokenCookie.value}`,
     'x-user-id': String(user.value.id),
     'x-user-role': String(user.value.role)
   }

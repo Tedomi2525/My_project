@@ -4,6 +4,7 @@ import type { Exam } from '~/types'
 export const useExamApi = () => {
   const config = useRuntimeConfig()
   const apiBase = config.public.apiBase
+  const tokenCookie = useCookie<string | null>('token')
 
   return {
     getAvailableExams: () =>
@@ -14,8 +15,7 @@ export const useExamApi = () => {
         method: 'POST',
         baseURL: apiBase,
         headers: {
-          'x-user-id': String(userId),
-          'x-user-role': String(userRole)
+          Authorization: `Bearer ${tokenCookie.value || ''}`
         },
         body: { password }
       })

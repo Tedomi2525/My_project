@@ -22,6 +22,7 @@ interface ClassItem {
 
 const { user, fetchUser } = useAuth()
 const config = useRuntimeConfig()
+const tokenCookie = useCookie<string | null>('token')
 
 /* ================= COMPOSABLE ================= */
 
@@ -32,7 +33,8 @@ const {
   getExamById,
   createExam,
   updateExam,
-  deleteExam
+  deleteExam,
+  updateExamStatus
 } = useExams()
 
 /* ================= STATE ================= */
@@ -93,8 +95,7 @@ const loadPageData = async () => {
     isLoadingResources.value = true
 
     const headers = {
-      'x-user-id': String(user.value.id),
-        'x-user-role': String(user.value.role)
+      Authorization: `Bearer ${tokenCookie.value || ''}`
     }
 
     const [qRes, cRes] = await Promise.all([
@@ -175,6 +176,9 @@ const formatDateDisplay = (dateStr: string | null) => {
 /* ================= STATUS HELPERS ================= */
 
 const getExamStatus = (exam: Exam) => {
+  if (exam.status === 'draft' || exam.status === 'published' || exam.status === 'closed') {
+    return exam.status
+  }
   const now = new Date()
   const start = exam.start_time ? new Date(exam.start_time) : null
   const end = exam.end_time ? new Date(exam.end_time) : null
@@ -188,6 +192,7 @@ const getExamStatus = (exam: Exam) => {
 const getStatusLabel = (status: string) => {
   const labels: Record<string, string> = {
     draft: 'Nháp',
+    published: 'Đã công bố',
     upcoming: 'Sắp diễn ra',
     active: 'Đang diễn ra',
     closed: 'Đã kết thúc'
@@ -198,6 +203,7 @@ const getStatusLabel = (status: string) => {
 const getStatusClasses = (status: string) => {
   const classes: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-800',
+    published: 'bg-green-100 text-green-800',
     upcoming: 'bg-blue-100 text-blue-800',
     active: 'bg-green-100 text-green-800',
     closed: 'bg-red-100 text-red-800'
@@ -298,6 +304,14 @@ const handleDeleteExam = async (id: number) => {
   }
 }
 
+const handleStatusChange = async (exam: Exam, status: 'draft' | 'published' | 'closed') => {
+  try {
+    await updateExamStatus(exam.id, status)
+  } catch (err: any) {
+    alert(err?.data?.detail || err?.message || 'Không đổi được trạng thái đề')
+  }
+}
+
 const handleRandomQuestionSelection = async () => {
   if (isGeneratingQuestions.value) return
 
@@ -321,8 +335,7 @@ const handleRandomQuestionSelection = async () => {
     isGeneratingQuestions.value = true
 
     const headers = {
-      'x-user-id': String(user.value.id),
-      'x-user-role': String(user.value.role)
+      Authorization: `Bearer ${tokenCookie.value || ''}`
     }
 
     const response = await $fetch<{ question_ids: number[] }>('/questions/random-selection', {
@@ -431,7 +444,7 @@ const handleSubmit = async () => {
             <div class="text-sm text-gray-600 space-y-1">
               <p>Thời gian: {{ exam.duration_minutes }} phút</p>
               <p>
-                Má»Ÿ: {{ formatDateDisplay(exam.start_time) }} -
+                Mở: {{ formatDateDisplay(exam.start_time) }} -
                 Đóng: {{ formatDateDisplay(exam.end_time) }}
               </p>
               <p>{{ getAttemptLabel(exam.max_attempts) }}</p>
@@ -442,7 +455,28 @@ const handleSubmit = async () => {
           </div>
 
           <div class="flex gap-2">
-            <button @click="handleEditExam(exam)" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Sá»­a">
+            <button
+              v-if="exam.status !== 'published'"
+              @click="handleStatusChange(exam, 'published')"
+              class="px-3 py-2 text-green-700 bg-green-50 hover:bg-green-100 rounded-lg text-sm"
+            >
+              Công bố
+            </button>
+            <button
+              v-if="exam.status === 'published'"
+              @click="handleStatusChange(exam, 'draft')"
+              class="px-3 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
+            >
+              Hủy công bố
+            </button>
+            <button
+              v-if="exam.status !== 'closed'"
+              @click="handleStatusChange(exam, 'closed')"
+              class="px-3 py-2 text-red-700 bg-red-50 hover:bg-red-100 rounded-lg text-sm"
+            >
+              Đóng
+            </button>
+            <button @click="handleEditExam(exam)" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Sửa">
               <Edit2 class="w-4 h-4" />
             </button>
             <button @click="handleDeleteExam(exam.id)" class="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Xóa">
@@ -667,4 +701,3 @@ const handleSubmit = async () => {
     </div>
   </div>
 </template>
-

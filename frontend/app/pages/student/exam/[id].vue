@@ -2,13 +2,22 @@
 import { Clock, AlertCircle, CheckCircle, ArrowLeft, ArrowRight, Flag } from 'lucide-vue-next'
 import type { Question, Exam } from '~/types'
 import { useExams } from '~/composables/useExams'
+import { useAuth } from '~/composables/useAuth'
 
 definePageMeta({ layout: 'student' })
 const route = useRoute()
 const router = useRouter()
 const examId = Number(route.params.id)
+const { user } = useAuth()
 
-const { getExamById, getExamQuestions, submitExam } = useExams()
+const {
+  getExamById,
+  getExamQuestions,
+  submitExam,
+  startExam: startExamSession,
+  autosaveExam,
+  logExamViolation
+} = useExams()
 
 const mockExam = ref<Exam | null>(null)
 const mockQuestions = ref<Question[]>([])
@@ -22,6 +31,14 @@ const flaggedQuestions = ref<boolean[]>([])
 const timeLeft = ref(0)
 const showConfirmModal = ref(false)
 const score = ref(0)
+const reviewQuestions = ref<Array<{
+  question_id: number
+  content: string
+  options: Record<string, string> | null
+  correct_answer: string
+  student_answer: string
+  is_correct: boolean
+}>>([])
 const violationCount = ref(0)
 const maxViolations = 3
 const antiCheatNotice = ref('')
@@ -29,6 +46,32 @@ const antiCheatWarningVisible = ref(false)
 
 let timer: ReturnType<typeof setInterval> | null = null
 let warningTimer: ReturnType<typeof setTimeout> | null = null
+let autosaveTimer: ReturnType<typeof setInterval> | null = null
+
+const answersByQuestionId = () => {
+  return mockQuestions.value.reduce<Record<string, string>>((acc, question, index) => {
+    const answer = answers.value[index]
+    if (answer) acc[String(question.id)] = answer
+    return acc
+  }, {})
+}
+
+const restoreAnswers = (savedAnswers: Record<string, string> | undefined) => {
+  if (!savedAnswers) return
+  mockQuestions.value.forEach((question, index) => {
+    const saved = savedAnswers[String(question.id)]
+    if (saved) answers.value[index] = saved
+  })
+}
+
+const saveProgress = async () => {
+  if (!isExamInProgress.value) return
+  try {
+    await autosaveExam(examId, answersByQuestionId())
+  } catch (error) {
+    console.error('Khong the tu dong luu bai lam:', error)
+  }
+}
 
 const questionData = computed(() => {
   if (mockQuestions.value.length === 0) return undefined
@@ -83,6 +126,11 @@ const registerViolation = async (reason: string) => {
   if (!isExamInProgress.value) return
 
   violationCount.value += 1
+  try {
+    await logExamViolation(examId, reason)
+  } catch (error) {
+    console.error('Khong the ghi log vi pham:', error)
+  }
   showWarning(`${reason} (Vi phạm ${violationCount.value}/${maxViolations})`)
 
   if (violationCount.value >= maxViolations) {
@@ -199,11 +247,13 @@ watch(started, (newValue) => {
         timeLeft.value--
       }
     }, 1000)
+    autosaveTimer = setInterval(saveProgress, 15000)
   }
 })
 
 watch(submitted, async (newValue) => {
   if (newValue) {
+    if (autosaveTimer) clearInterval(autosaveTimer)
     await exitFullscreen()
   }
 })
@@ -211,6 +261,7 @@ watch(submitted, async (newValue) => {
 onUnmounted(() => {
   if (timer) clearInterval(timer)
   if (warningTimer) clearTimeout(warningTimer)
+  if (autosaveTimer) clearInterval(autosaveTimer)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   window.removeEventListener('blur', handleWindowBlur)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
@@ -224,6 +275,7 @@ onUnmounted(() => {
 
 const handleAnswerSelect = (optionKey: string) => {
   answers.value[currentQuestion.value] = optionKey
+  saveProgress()
 }
 
 const toggleFlagCurrentQuestion = () => {
@@ -241,6 +293,7 @@ const handleSubmit = async () => {
   if (submitted.value) return
 
   if (timer) clearInterval(timer)
+  if (autosaveTimer) clearInterval(autosaveTimer)
 
   try {
     const payload = mockQuestions.value
@@ -254,14 +307,31 @@ const handleSubmit = async () => {
       })
       .filter((item): item is { question_id: number; student_answer: string } => item !== null)
 
-    await submitExam(examId, payload)
+    const examPassword = mockExam.value?.has_password
+      ? sessionStorage.getItem(`exam-password:${examId}`) || ''
+      : undefined
+    const result: any = await submitExam(examId, payload, examPassword)
 
-    let correctCount = 0
-    mockQuestions.value.forEach((q, idx) => {
-      if (answers.value[idx] === q.correct_answer) correctCount++
-    })
+    score.value = Number(result?.total_score ?? 0)
 
-    score.value = mockQuestions.value.length > 0 ? (correctCount / mockQuestions.value.length) * 10 : 0
+    if (mockExam.value?.allow_view_answers && result?.id) {
+      try {
+        const tokenCookie = useCookie<string | null>('token')
+        const config = useRuntimeConfig()
+        const review: any = await $fetch(`/results/${result.id}/review`, {
+          baseURL: config.public.apiBase,
+          headers: {
+            Authorization: `Bearer ${tokenCookie.value || ''}`,
+            'x-user-id': String(user.value?.id || ''),
+            'x-user-role': String(user.value?.role || '')
+          }
+        })
+        reviewQuestions.value = review?.questions || []
+      } catch (reviewError) {
+        reviewQuestions.value = []
+      }
+    }
+
     submitted.value = true
     showConfirmModal.value = false
   } catch (error) {
@@ -296,7 +366,15 @@ const prevQuestion = () => {
 }
 
 const startExam = async () => {
-  started.value = true
+  try {
+    const session = await startExamSession(examId)
+    violationCount.value = Number(session.violation_count || 0)
+    restoreAnswers(session.answers)
+    started.value = true
+  } catch (error: any) {
+    alert(error?.data?.detail || error?.message || 'Khong the bat dau bai thi')
+    return
+  }
   await nextTick()
   await enterFullscreen()
 }
@@ -368,21 +446,21 @@ const startExam = async () => {
     <div v-if="mockExam.allow_view_answers" class="panel-card p-8">
       <h3 class="mb-6 font-bold text-xl">Đáp án chi tiết</h3>
       <div class="space-y-6">
-        <div v-for="(q, idx) in mockQuestions" :key="q.id" class="border-b pb-6">
+        <div v-for="(q, idx) in reviewQuestions" :key="q.question_id" class="border-b pb-6">
           <div class="flex items-start gap-3 mb-4">
-            <span :class="['px-3 py-1 rounded-full text-sm font-bold', answers[idx] === q.correct_answer ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700']">Câu {{ idx + 1 }}</span>
+            <span :class="['px-3 py-1 rounded-full text-sm font-bold', q.is_correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700']">Câu {{ idx + 1 }}</span>
             <p class="flex-1 font-medium">{{ q.content }}</p>
           </div>
           <div class="ml-16 space-y-2">
             <div
               v-for="[key, opt] in getOptionEntries(q.options)"
               :key="key"
-              :class="['p-3 rounded-lg flex border', key === q.correct_answer ? 'bg-green-50 border-green-200' : answers[idx] === key && key !== q.correct_answer ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-transparent']"
+              :class="['p-3 rounded-lg flex border', key === q.correct_answer ? 'bg-green-50 border-green-200' : q.student_answer === key && key !== q.correct_answer ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-transparent']"
             >
               <span class="mr-2 font-bold">{{ key }}.</span>
               <span class="flex-1">{{ opt }}</span>
               <span v-if="key === q.correct_answer" class="text-green-600 ml-2 font-medium">(Đáp án đúng)</span>
-              <span v-if="answers[idx] === key && key !== q.correct_answer" class="text-red-600 ml-2 font-medium">(Bạn chọn)</span>
+              <span v-if="q.student_answer === key && key !== q.correct_answer" class="text-red-600 ml-2 font-medium">(Bạn chọn)</span>
             </div>
           </div>
         </div>
@@ -393,7 +471,7 @@ const startExam = async () => {
   <div v-else class="flex flex-col lg:flex-row gap-6">
     <div
       v-if="antiCheatWarningVisible"
-      class="fixed top-4 right-4 z-50 max-w-sm rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 shadow-lg"
+      class="fixed right-4 top-24 z-[70] max-w-sm rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 shadow-lg"
     >
       <p class="font-semibold mb-1"> Cảnh báo gian lận</p>
       <p class="text-sm">{{ antiCheatNotice }}</p>

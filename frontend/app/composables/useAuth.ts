@@ -4,6 +4,7 @@ import { authService } from '~/services/auth'
 
 export const useAuth = () => {
   // ----------------- STATE -----------------
+  const config = useRuntimeConfig()
   const user = useState<User | null>('user', () => null)
   const tokenCookie = useCookie<string | null>('token', {
     maxAge: 60 * 60 * 24, // 1 ngày
@@ -15,7 +16,7 @@ export const useAuth = () => {
   // ----------------- LOGIN -----------------
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await authService.login({ username, password })
+      const response = await authService.login({ username, password }, config.public.apiBase)
       tokenCookie.value = response.access_token
 
       const loggedUser: User = {

@@ -1,6 +1,6 @@
 ﻿<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Download, Eye, Loader2, X } from 'lucide-vue-next'
+import { Download, Edit2, Eye, Loader2, Trash2, X } from 'lucide-vue-next'
 import {
   Chart as ChartJS,
   Title,
@@ -54,12 +54,36 @@ interface ReviewPayload {
   questions: ReviewQuestion[]
 }
 
+interface QuestionAnalytics {
+  question_id: number
+  content: string
+  difficulty: string | null
+  total_answers: number
+  correct_answers: number
+  wrong_answers: number
+  correct_rate: number
+  wrong_rate: number
+}
+
+interface ExamSession {
+  id?: number
+  session_id?: number
+  exam_id: number
+  student_id: number
+  violation_count: number
+  started_at: string | null
+  last_saved_at: string | null
+}
+
 const config = useRuntimeConfig()
 const { user, fetchUser } = useAuth()
+const tokenCookie = useCookie<string | null>('token')
 
 const exams = ref<Exam[]>([])
 const selectedExam = ref<number | null>(null)
 const examResults = ref<TeacherResult[]>([])
+const questionAnalytics = ref<QuestionAnalytics[]>([])
+const examSessions = ref<ExamSession[]>([])
 
 const loading = ref(true)
 const loadingResults = ref(false)
@@ -70,6 +94,7 @@ const loadingReview = ref(false)
 const selectedReview = ref<ReviewPayload | null>(null)
 const reviewError = ref('')
 const loadingDifficultyStats = ref(false)
+const loadingAnalytics = ref(false)
 
 type DifficultyKey = 'EASY' | 'MEDIUM' | 'HARD'
 type DifficultyStats = Record<DifficultyKey, { correct: number; total: number }>
@@ -191,6 +216,15 @@ const difficultyRows = computed(() => {
   })
 })
 
+const violationCountByStudent = computed(() => {
+  const map = new Map<number, number>()
+  for (const session of examSessions.value) {
+    const current = map.get(session.student_id) || 0
+    map.set(session.student_id, Math.max(current, Number(session.violation_count || 0)))
+  }
+  return map
+})
+
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return 'Không xác định'
   return new Date(dateStr).toLocaleString('vi-VN')
@@ -218,8 +252,9 @@ const normalizeDifficulty = (difficulty?: string | null): DifficultyKey => {
 }
 
 const headers = computed(() => ({
+  Authorization: `Bearer ${tokenCookie.value || ''}`,
   'x-user-id': String(user.value?.id || ''),
-    'x-user-role': String(user.value?.role || '')
+  'x-user-role': String(user.value?.role || '')
 }))
 
 const loadDifficultyStats = async () => {
@@ -252,6 +287,32 @@ const loadDifficultyStats = async () => {
     console.error('Lỗi tải thống kê độ khó:', err)
   } finally {
     loadingDifficultyStats.value = false
+  }
+}
+
+const loadQuestionAnalytics = async () => {
+  questionAnalytics.value = []
+  examSessions.value = []
+  if (!selectedExam.value) return
+
+  loadingAnalytics.value = true
+  try {
+    const [analyticsRes, sessionsRes] = await Promise.all([
+      $fetch<QuestionAnalytics[]>(`/results/exam/${selectedExam.value}/question-analytics`, {
+        baseURL: config.public.apiBase,
+        headers: headers.value
+      }),
+      $fetch<ExamSession[]>(`/exams/${selectedExam.value}/sessions`, {
+        baseURL: config.public.apiBase,
+        headers: headers.value
+      })
+    ])
+    questionAnalytics.value = analyticsRes || []
+    examSessions.value = sessionsRes || []
+  } catch (err) {
+    console.error('Lỗi tải phân tích câu hỏi/log vi phạm:', err)
+  } finally {
+    loadingAnalytics.value = false
   }
 }
 
@@ -290,12 +351,51 @@ const loadExamResults = async () => {
     })
     examResults.value = data || []
     await loadDifficultyStats()
+    await loadQuestionAnalytics()
   } catch (err) {
     console.error('Lỗi tải kết quả đề thi:', err)
     error.value = 'Không tải được kết quả đề thi'
     examResults.value = []
   } finally {
     loadingResults.value = false
+  }
+}
+
+const handleUpdateScore = async (result: TeacherResult) => {
+  const raw = prompt('Nhập điểm mới từ 0 đến 10', result.total_score.toString())
+  if (raw == null) return
+
+  const score = Number(raw)
+  if (Number.isNaN(score) || score < 0 || score > 10) {
+    alert('Điểm phải là số từ 0 đến 10')
+    return
+  }
+
+  try {
+    await $fetch(`/results/${result.id}/score`, {
+      method: 'PUT',
+      query: { score },
+      baseURL: config.public.apiBase,
+      headers: headers.value
+    })
+    await loadExamResults()
+  } catch (err: any) {
+    alert(err?.data?.detail || err?.message || 'Không cập nhật được điểm')
+  }
+}
+
+const handleDeleteResult = async (result: TeacherResult) => {
+  if (!confirm(`Xóa kết quả của ${result.student_name}?`)) return
+
+  try {
+    await $fetch(`/results/${result.id}`, {
+      method: 'DELETE',
+      baseURL: config.public.apiBase,
+      headers: headers.value
+    })
+    await loadExamResults()
+  } catch (err: any) {
+    alert(err?.data?.detail || err?.message || 'Không xóa được kết quả')
   }
 }
 
@@ -432,6 +532,42 @@ watch(selectedExam, async () => {
         </div>
       </div>
 
+      <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 class="mb-4 font-bold text-lg">Phân tích từng câu hỏi</h3>
+        <div v-if="loadingAnalytics" class="flex justify-center py-8">
+          <Loader2 class="w-6 h-6 animate-spin text-blue-600" />
+        </div>
+        <div v-else-if="questionAnalytics.length === 0" class="text-gray-500 text-center py-6">
+          Chưa có dữ liệu phân tích câu hỏi.
+        </div>
+        <div v-else class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left">Câu hỏi</th>
+                <th class="px-4 py-3 text-left">Độ khó</th>
+                <th class="px-4 py-3 text-right">Tổng lượt trả lời</th>
+                <th class="px-4 py-3 text-right">Đúng</th>
+                <th class="px-4 py-3 text-right">Sai</th>
+                <th class="px-4 py-3 text-right">Tỷ lệ sai</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr v-for="item in questionAnalytics" :key="item.question_id">
+                <td class="px-4 py-3 max-w-lg">{{ item.content }}</td>
+                <td class="px-4 py-3">{{ item.difficulty || '-' }}</td>
+                <td class="px-4 py-3 text-right">{{ item.total_answers }}</td>
+                <td class="px-4 py-3 text-right text-green-700">{{ item.correct_answers }}</td>
+                <td class="px-4 py-3 text-right text-red-700">{{ item.wrong_answers }}</td>
+                <td class="px-4 py-3 text-right font-semibold">
+                  {{ (item.wrong_rate * 100).toFixed(1) }}%
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="bg-white rounded-lg shadow overflow-hidden">
         <div class="p-6 border-b border-gray-200 flex justify-between items-center">
           <h3 class="font-bold text-lg">Bảng điểm chi tiết</h3>
@@ -460,6 +596,7 @@ watch(selectedExam, async () => {
                 <th class="px-6 py-3 text-left">Mã SV</th>
                 <th class="px-6 py-3 text-left">Họ tên</th>
                 <th class="px-6 py-3 text-left">Điểm</th>
+                <th class="px-6 py-3 text-left">Vi phạm</th>
                 <th class="px-6 py-3 text-left">Thời gian nộp</th>
                 <th class="px-6 py-3 text-right">Thao tác</th>
               </tr>
@@ -474,6 +611,9 @@ watch(selectedExam, async () => {
                     {{ result.total_score.toFixed(2) }}
                   </span>
                 </td>
+                <td class="px-6 py-4">
+                  {{ violationCountByStudent.get(result.student_id) || 0 }}
+                </td>
                 <td class="px-6 py-4">{{ formatDate(result.finished_at) }}</td>
                 <td class="px-6 py-4">
                   <div class="flex gap-2 justify-end">
@@ -484,6 +624,20 @@ watch(selectedExam, async () => {
                     >
                       <Eye class="w-4 h-4" />
                       Xem đáp án
+                    </button>
+                    <button
+                      @click="handleUpdateScore(result)"
+                      class="flex items-center gap-2 px-3 py-2 text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                    >
+                      <Edit2 class="w-4 h-4" />
+                      Sửa điểm
+                    </button>
+                    <button
+                      @click="handleDeleteResult(result)"
+                      class="flex items-center gap-2 px-3 py-2 text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 class="w-4 h-4" />
+                      Xóa
                     </button>
                   </div>
                 </td>

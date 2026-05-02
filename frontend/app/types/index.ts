@@ -21,7 +21,7 @@ export interface Question {
   question_type: string
   difficulty: 'EASY' | 'MEDIUM' | 'HARD' 
   options: Record<string, string> | null
-  correct_answer: string
+  correct_answer?: string
   created_by: number
 }
 
@@ -42,7 +42,7 @@ export interface Exam {
   has_password: boolean;
   allowed_classes: number[]; 
   exam_questions: number[];
-  status?: 'draft' | 'active' | 'ended';
+  status?: 'draft' | 'published' | 'closed';
 }
 export interface ExamResult {
   id: number;
@@ -75,3 +75,35 @@ export interface AvailableStudent {
   full_name: string
   student_code?: string
 } 
+
+export interface ExamViolation {
+  id: number
+  session_id: number
+  exam_id: number
+  student_id: number
+  reason: string
+  created_at: string | null
+}
+
+export interface ExamSession {
+  session_id?: number
+  id?: number
+  exam_id: number
+  student_id: number
+  answers: Record<string, string>
+  violation_count: number
+  started_at: string | null
+  last_saved_at: string | null
+  violations?: ExamViolation[]
+}
+
+export interface QuestionAnalytics {
+  question_id: number
+  content: string
+  difficulty: string | null
+  total_answers: number
+  correct_answers: number
+  wrong_answers: number
+  correct_rate: number
+  wrong_rate: number
+}

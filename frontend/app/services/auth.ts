@@ -13,9 +13,10 @@ export interface AuthResponse {
 
 export const authService = {
   // 2. Gán kiểu Promise<AuthResponse> cho hàm login
-  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+  async login(credentials: LoginCredentials, apiBase: string): Promise<AuthResponse> {
     // 3. Truyền Generic vào $fetch để ép kiểu kết quả trả về
-    return await $fetch<AuthResponse>('http://localhost:8000/login', { 
+    return await $fetch<AuthResponse>('/login', {
+      baseURL: apiBase,
       method: 'POST',
       body: credentials
     })

@@ -110,7 +110,7 @@ const handleAddStudent = async (studentId: number) => {
   // update modal
   selectedClass.value = updated
 
-  // ðŸ”¥ UPDATE LIST
+  // Update list
   const cls = classes.value.find(c => c.id === updated.id)
   if (cls) {
     cls.student_count = updated.student_count
@@ -131,7 +131,7 @@ const handleRemoveStudent = async (studentId: number) => {
   // update modal
   selectedClass.value = updated
 
-  // ðŸ”¥ UPDATE LIST
+  // Update list
   const cls = classes.value.find(c => c.id === updated.id)
   if (cls) {
     cls.student_count = updated.student_count
@@ -298,5 +298,4 @@ const handleRemoveStudent = async (studentId: number) => {
 
   </div>
 </template>
-
 

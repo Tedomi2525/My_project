@@ -1,8 +1,5 @@
 // utils/common.ts
 
-// 1. Định nghĩa URL Backend (Lấy từ biến môi trường hoặc fix cứng)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
-
 /**
  * Shared utility functions
  */
@@ -17,11 +14,12 @@ export function handleApiError(error: any, context: string = 'API call') {
   return error?.message || 'Có lỗi không xác định xảy ra'
 }
 
-// 2. Sửa lại apiCall để tự động ghép link Backend
+// Sửa lại apiCall để tự động ghép link Backend
 export async function apiCall(endpoint: string, options: RequestInit = {}) {
+  const config = useRuntimeConfig()
   // Tự động thêm dấu / nếu thiếu
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-  const url = `${API_BASE_URL}${path}`
+  const url = `${config.public.apiBase}${path}`
 
   try {
     const response = await fetch(url, {

@@ -7,6 +7,7 @@ definePageMeta({ layout: 'student' })
 
 const config = useRuntimeConfig()
 const { user, fetchUser } = useAuth()
+const tokenCookie = useCookie<string | null>('token')
 
 const results = ref<ExamResult[]>([])
 const exams = ref<Exam[]>([])
@@ -88,8 +89,7 @@ const loadReview = async (resultId: number) => {
     const review = await $fetch<ReviewPayload>(`/results/${resultId}/review`, {
       baseURL: config.public.apiBase,
       headers: {
-        'x-user-id': String(user.value.id),
-        'x-user-role': String(user.value.role)
+        Authorization: `Bearer ${tokenCookie.value || ''}`
       }
     })
 
@@ -118,8 +118,7 @@ const loadHistory = async () => {
     }
 
     const headers = {
-      'x-user-id': String(user.value.id),
-        'x-user-role': String(user.value.role)
+      Authorization: `Bearer ${tokenCookie.value || ''}`
     }
 
     const [historyRes, examsRes] = await Promise.all([
@@ -212,7 +211,7 @@ onMounted(loadHistory)
                 </button>
                 <span v-else class="text-gray-400 text-sm inline-flex items-center gap-1 justify-end w-full">
                   <EyeOff class="w-4 h-4" />
-                  ChÆ°a má»Ÿ
+                  Chưa mở
                 </span>
               </td>
             </tr>
@@ -283,4 +282,3 @@ onMounted(loadHistory)
     </div>
   </div>
 </template>
-
