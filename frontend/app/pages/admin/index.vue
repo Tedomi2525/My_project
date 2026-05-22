@@ -1,286 +1,145 @@
 <script setup lang="ts">
-import { Search, UserPlus, Edit2, Trash2, Key } from 'lucide-vue-next'
-import type { User } from '~/types'
-import { useUsers } from '~/composables/useUsers'
+import { Check, RefreshCw, X } from 'lucide-vue-next'
+import type { AccountRequest } from '~/composables/useAccountRequests'
 
 definePageMeta({ layout: 'admin' })
 
-const { getUsers, createUser, updateUser, deleteUser } = useUsers()
+const {
+  getAccountRequests,
+  approveAccountRequest,
+  rejectAccountRequest
+} = useAccountRequests()
 
-const users = ref<User[]>([])
-const searchTerm = ref('')
-const showModal = ref(false)
-const editingUser = ref<User | null>(null)
+const accountRequests = ref<AccountRequest[]>([])
+const processingRequestId = ref<number | null>(null)
 
-const formData = reactive({
-  username: '',
-  password: '',
-  fullName: '',
-  email: '',
-  role: 'student' as 'admin' | 'teacher' | 'student',
-  studentId: ''
-})
-
-const loadUsers = async () => {
+const loadAccountRequests = async () => {
   try {
-    const data: any[] = await getUsers()
-    users.value = data.map(u => ({
-      id: u.id,
-      username: u.username,
-      email: u.email,
-      role: u.role,
-      fullName: u.full_name ?? u.fullName ?? '',
-      studentId: u.student_id ?? u.studentId ?? ''
-    }))
+    accountRequests.value = await getAccountRequests()
   } catch (err) {
-    console.error('Lỗi load users:', err)
+    console.error('Lỗi load account requests:', err)
   }
 }
 
-onMounted(() => loadUsers())
+onMounted(loadAccountRequests)
 
-const filteredUsers = computed(() => {
-  const kw = (searchTerm.value ?? '').toLowerCase()
-  return users.value.filter(u =>
-    (u.fullName ?? '').toLowerCase().includes(kw) ||
-    u.username.toLowerCase().includes(kw) ||
-    (u.email ?? '').toLowerCase().includes(kw)
-  )
-})
+const getRequestRoleLabel = (role: 'teacher' | 'student') => {
+  return role === 'teacher' ? 'Giáo viên' : 'Sinh viên'
+}
 
-const getRoleBadge = (role: 'admin' | 'teacher' | 'student') => {
+const getRequestStatusBadge = (status: AccountRequest['status']) => {
   const map = {
-    admin: { cls: 'bg-purple-100 text-purple-700', lbl: 'Quản trị viên' },
-    teacher: { cls: 'bg-blue-100 text-blue-700', lbl: 'Giảng viên' },
-    student: { cls: 'bg-green-100 text-green-700', lbl: 'Sinh viên' }
+    pending: { cls: 'bg-yellow-50 text-yellow-700', lbl: 'Chờ duyệt' },
+    approved: { cls: 'bg-green-50 text-green-700', lbl: 'Đã duyệt' },
+    rejected: { cls: 'bg-red-50 text-red-700', lbl: 'Từ chối' }
   }
-  return map[role]
+  return map[status]
 }
 
-const resetForm = () => Object.assign(formData, {
-  username: '',
-  password: '',
-  fullName: '',
-  email: '',
-  role: 'student',
-  studentId: ''
-})
-
-const handleAddUser = () => {
-  editingUser.value = null
-  resetForm()
-  showModal.value = true
-}
-
-const handleEditUser = (user: User) => {
-  editingUser.value = user
-  Object.assign(formData, {
-    username: user.username,
-    password: '',
-    fullName: user.fullName,
-    email: user.email ?? '',
-    role: user.role,
-    studentId: user.studentId ?? ''
-  })
-  showModal.value = true
-}
-
-const handleDeleteUser = async (user: User) => {
-  if (!confirm('Bạn có chắc chắn muốn xóa user này?')) return
+const handleApproveRequest = async (request: AccountRequest) => {
+  processingRequestId.value = request.id
   try {
-    await deleteUser(user.id, user.role)
-    await loadUsers()
+    await approveAccountRequest(request.id)
+    await loadAccountRequests()
   } catch (err: any) {
-    alert(err.message || 'Xóa thất bại')
+    alert(err?.data?.detail || err.message || 'Duyệt yêu cầu thất bại')
+  } finally {
+    processingRequestId.value = null
   }
 }
 
-const handleResetPassword = async (user: User) => {
-  if (!confirm(`Reset mật khẩu cho ${user.fullName}?`)) return
+const handleRejectRequest = async (request: AccountRequest) => {
+  if (!confirm(`Từ chối yêu cầu của ${request.full_name}?`)) return
+
+  processingRequestId.value = request.id
   try {
-    const newPassword = user.role === 'admin' ? 'password123' : `${user.username}@`
-    await updateUser(user.id, user.role, { password: newPassword })
-    alert(`Mật khẩu mới của ${user.username}: ${newPassword}`)
+    await rejectAccountRequest(request.id)
+    await loadAccountRequests()
   } catch (err: any) {
-    alert(err.message || 'Reset mật khẩu thất bại')
-  }
-}
-
-const buildUpdateBody = () => {
-  const body: any = {
-    full_name: formData.fullName,
-    email: formData.email
-  }
-
-  if (formData.role === 'admin') {
-    body.username = formData.username
-  }
-
-  if (formData.password) {
-    body.password = formData.password
-  }
-
-  return body
-}
-
-const handleSubmit = async () => {
-  try {
-    if (editingUser.value) {
-      await updateUser(editingUser.value.id, editingUser.value.role, buildUpdateBody())
-    } else {
-      await createUser({
-        username: formData.role === 'admin' ? formData.username : undefined,
-        password: formData.role === 'admin' ? formData.password : undefined,
-        fullName: formData.fullName,
-        email: formData.role === 'admin' ? formData.email : undefined,
-        role: formData.role
-      })
-    }
-    showModal.value = false
-    resetForm()
-    await loadUsers()
-  } catch (err: any) {
-    alert(err.message || 'Có lỗi xảy ra')
+    alert(err?.data?.detail || err.message || 'Từ chối yêu cầu thất bại')
+  } finally {
+    processingRequestId.value = null
   }
 }
 </script>
 
 <template>
-  <div>
-    <div class="mb-6 flex justify-between gap-4">
-      <div class="relative flex-1 max-w-md">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          v-model="searchTerm"
-          placeholder="Tìm người dùng..."
-          class="w-full pl-10 pr-4 py-2 border rounded-lg"
-        />
+  <div class="panel-card">
+    <div class="mb-4 flex items-center justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-bold">Yêu cầu tạo tài khoản</h2>
+        <p class="text-sm text-gray-500">Sinh viên và giáo viên gửi yêu cầu từ màn đăng nhập.</p>
       </div>
       <button
-        @click="handleAddUser"
-        class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        type="button"
+        @click="loadAccountRequests"
+        class="btn-secondary"
       >
-        <UserPlus class="w-5 h-5" /> Thêm tài khoản
+        <RefreshCw class="h-4 w-4" />
+        Làm mới
       </button>
     </div>
 
-    <div class="bg-white rounded-lg shadow overflow-hidden">
+    <div v-if="accountRequests.length === 0" class="rounded-lg bg-gray-50 p-4 text-center text-sm text-gray-500">
+      Chưa có yêu cầu nào đang chờ duyệt
+    </div>
+
+    <div v-else class="overflow-hidden rounded-lg border">
       <table class="w-full">
-        <thead class="bg-gray-50 border-b">
+        <thead class="border-b bg-gray-50">
           <tr>
-            <th class="p-4 text-left">Họ tên</th>
-            <th class="p-4 text-left">Mã đăng nhập</th>
-            <th class="p-4 text-left">Email</th>
-            <th class="p-4 text-left">Vai trò</th>
-            <th class="p-4 text-left">Mật khẩu mặc định</th>
-            <th class="p-4 text-right">Thao tác</th>
+            <th class="p-3 text-left">Họ tên</th>
+            <th class="p-3 text-left">Trạng thái</th>
+            <th class="p-3 text-left">Vai trò</th>
+            <th class="p-3 text-left">Ghi chú</th>
+            <th class="p-3 text-right">Thao tác</th>
           </tr>
         </thead>
         <tbody>
           <tr
-            v-for="u in filteredUsers"
-            :key="u.id"
-            class="hover:bg-gray-50 border-b last:border-0"
+            v-for="request in accountRequests"
+            :key="request.id"
+            class="border-b last:border-0 hover:bg-gray-50"
           >
-            <td class="p-4 font-medium">{{ u.fullName }}</td>
-            <td class="p-4">{{ u.username }}</td>
-            <td class="p-4 text-gray-600">{{ u.email || '-' }}</td>
-            <td class="p-4">
-              <span
-                :class="[
-                  'px-3 py-1 rounded-full text-sm font-medium',
-                  getRoleBadge(u.role).cls
-                ]"
-              >
-                {{ getRoleBadge(u.role).lbl }}
+            <td class="p-3 font-medium">{{ request.full_name }}</td>
+            <td class="p-3">
+              <span :class="['rounded-full px-3 py-1 text-sm font-medium', getRequestStatusBadge(request.status).cls]">
+                {{ getRequestStatusBadge(request.status).lbl }}
               </span>
             </td>
-            <td class="p-4 font-mono text-sm">{{ u.role === 'admin' ? '-' : `${u.username}@` }}</td>
-            <td class="p-4 flex justify-end gap-2">
-              <button
-                @click="handleResetPassword(u)"
-                class="p-2 text-orange-600 hover:bg-orange-50 rounded"
-              >
-                <Key class="w-4 h-4" />
-              </button>
-              <button
-                @click="handleEditUser(u)"
-                class="p-2 text-blue-600 hover:bg-blue-50 rounded"
-              >
-                <Edit2 class="w-4 h-4" />
-              </button>
-              <button
-                @click="handleDeleteUser(u)"
-                class="p-2 text-red-600 hover:bg-red-50 rounded"
-              >
-                <Trash2 class="w-4 h-4" />
-              </button>
+            <td class="p-3">
+              <span class="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
+                {{ getRequestRoleLabel(request.role) }}
+              </span>
             </td>
-          </tr>
-
-          <tr v-if="filteredUsers.length === 0">
-            <td colspan="6" class="p-6 text-center text-gray-500">
-              Không có dữ liệu
+            <td class="p-3 text-gray-600">{{ request.note || '-' }}</td>
+            <td class="p-3">
+              <div class="flex justify-end gap-2">
+                <button
+                  v-if="request.status === 'pending'"
+                  type="button"
+                  @click="handleApproveRequest(request)"
+                  class="rounded p-2 text-green-600 hover:bg-green-50 disabled:opacity-50"
+                  :disabled="processingRequestId === request.id"
+                  title="Duyệt và tạo tài khoản"
+                >
+                  <Check class="h-4 w-4" />
+                </button>
+                <button
+                  v-if="request.status === 'pending'"
+                  type="button"
+                  @click="handleRejectRequest(request)"
+                  class="rounded p-2 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  :disabled="processingRequestId === request.id"
+                  title="Từ chối"
+                >
+                  <X class="h-4 w-4" />
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-
-    <div
-      v-if="showModal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-    >
-      <div class="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 class="font-bold text-xl mb-4">
-          {{ editingUser ? 'Sửa tài khoản' : 'Thêm tài khoản' }}
-        </h2>
-
-        <form @submit.prevent="handleSubmit" class="space-y-4">
-          <input v-model="formData.fullName" class="w-full border p-2 rounded" placeholder="Họ tên" />
-          <input
-            v-if="formData.role === 'admin'"
-            v-model="formData.username"
-            class="w-full border p-2 rounded"
-            placeholder="Username"
-            :required="formData.role === 'admin'"
-          />
-          <input
-            v-if="formData.role === 'admin'"
-            type="password"
-            v-model="formData.password"
-            class="w-full border p-2 rounded"
-            placeholder="Mật khẩu"
-            :required="!editingUser && formData.role === 'admin'"
-          />
-          <div v-else class="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
-            Mã đăng nhập và email sẽ được tự động tạo. Mật khẩu mặc định là mã đăng nhập thêm ký tự @.
-          </div>
-          <input
-            v-if="formData.role === 'admin'"
-            type="email"
-            v-model="formData.email"
-            class="w-full border p-2 rounded"
-            placeholder="Email"
-          />
-
-          <select v-model="formData.role" class="w-full border p-2 rounded" :disabled="!!editingUser">
-            <option value="student">Sinh viên</option>
-            <option value="teacher">Giảng viên</option>
-            <option value="admin">Quản trị viên</option>
-          </select>
-
-          <div class="flex gap-3 pt-4">
-            <button type="button" @click="showModal = false" class="flex-1 border py-2 rounded">
-              Hủy
-            </button>
-            <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded">
-              {{ editingUser ? 'Cập nhật' : 'Thêm' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
   </div>
 </template>
-

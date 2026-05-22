@@ -22,6 +22,7 @@ ROUTE_PREFIXES = {
     "/admins": "user",
     "/teachers": "user",
     "/students": "user",
+    "/account-requests": "user",
     "/classes": "class",
     "/questions": "question",
     "/exams": "exam",

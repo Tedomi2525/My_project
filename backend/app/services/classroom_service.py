@@ -14,7 +14,7 @@ def class_to_dict(class_: Class):
         "name": class_.name,
         "description": class_.description,
         "teacher_id": class_.teacher_id,
-        "student_count": len(class_.students),
+        "student_count": sum(1 for cs in class_.students if cs.student),
         "students": [
             {
                 "id": cs.student.id,
@@ -24,6 +24,7 @@ def class_to_dict(class_: Class):
                 "joined_at": cs.joined_at
             }
             for cs in class_.students
+            if cs.student
         ]
     }
 

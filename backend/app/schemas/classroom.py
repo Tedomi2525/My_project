@@ -15,7 +15,7 @@ class ClassUpdate(BaseModel):
 class StudentInClassResponse(BaseModel):
     id: int
     full_name: str
-    email: str
+    email: Optional[str] = None
     student_code: Optional[str] = None
     joined_at: datetime
 

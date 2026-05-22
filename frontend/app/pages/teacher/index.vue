@@ -37,6 +37,8 @@ const searchTerm = ref('')
 
 const availableStudents = ref<any[]>([])
 const selectedStudentId = ref<number | null>(null)
+const processingStudentId = ref<number | null>(null)
+const studentModalError = ref('')
 
 const filteredClasses = computed(() => {
   const keyword = (searchTerm.value || '').trim().toLowerCase()
@@ -94,50 +96,62 @@ const handleDeleteClass = async (id: number) => {
 }
 
 const openStudents = async (cls: Class) => {
+  studentModalError.value = ''
   selectedClass.value = await getClassDetail(cls.id)
   availableStudents.value = await getAvailableStudents(cls.id)
   selectedStudentId.value = null
 }
 
 const handleAddStudent = async (studentId: number) => {
-  if (!selectedClass.value) return
+  if (!selectedClass.value || processingStudentId.value) return
 
-  const updated = await addStudent(
-    selectedClass.value.id,
-    studentId
-  )
-  console.log('UPDATED CLASS:', updated)
-  // update modal
-  selectedClass.value = updated
+  processingStudentId.value = studentId
+  studentModalError.value = ''
+  try {
+    const updated = await addStudent(
+      selectedClass.value.id,
+      studentId
+    )
+    selectedClass.value = updated
 
-  // Update list
-  const cls = classes.value.find(c => c.id === updated.id)
-  if (cls) {
-    cls.student_count = updated.student_count
+    const cls = classes.value.find(c => c.id === updated.id)
+    if (cls) {
+      cls.student_count = updated.student_count
+    }
+
+    availableStudents.value = await getAvailableStudents(updated.id)
+  } catch (err: any) {
+    studentModalError.value = err?.data?.detail || err.message || 'Không thể thêm sinh viên vào lớp'
+  } finally {
+    processingStudentId.value = null
   }
-
-  availableStudents.value = await getAvailableStudents(updated.id)
 }
 
 
 const handleRemoveStudent = async (studentId: number) => {
-  if (!selectedClass.value) return
+  if (!selectedClass.value || processingStudentId.value) return
 
-  const updated = await removeStudent(
-    selectedClass.value.id,
-    studentId
-  )
+  processingStudentId.value = studentId
+  studentModalError.value = ''
+  try {
+    const updated = await removeStudent(
+      selectedClass.value.id,
+      studentId
+    )
 
-  // update modal
-  selectedClass.value = updated
+    selectedClass.value = updated
 
-  // Update list
-  const cls = classes.value.find(c => c.id === updated.id)
-  if (cls) {
-    cls.student_count = updated.student_count
+    const cls = classes.value.find(c => c.id === updated.id)
+    if (cls) {
+      cls.student_count = updated.student_count
+    }
+
+    availableStudents.value = await getAvailableStudents(updated.id)
+  } catch (err: any) {
+    studentModalError.value = err?.data?.detail || err.message || 'Không thể cập nhật danh sách sinh viên'
+  } finally {
+    processingStudentId.value = null
   }
-
-  availableStudents.value = await getAvailableStudents(updated.id)
 }
 
 
@@ -234,10 +248,14 @@ const handleRemoveStudent = async (studentId: number) => {
 
     <!-- STUDENT MODAL -->
     <div v-if="selectedClass" class="modal-overlay">
-      <div class="modal-card max-w-lg">
+      <div class="modal-card max-h-[90vh] max-w-lg overflow-y-auto">
         <h2 class="mb-1 font-bold text-xl">
           Quản lý sinh viên – {{ selectedClass.name }}
         </h2>
+
+        <p v-if="studentModalError" class="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          {{ studentModalError }}
+        </p>
 
         <!-- ===== STUDENTS IN CLASS ===== -->
         <p class="text-gray-600 mb-3">
@@ -258,7 +276,11 @@ const handleRemoveStudent = async (studentId: number) => {
               </div>
             </div>
 
-            <button @click="handleRemoveStudent(st.id)" class="text-red-600 hover:bg-red-50 p-2 rounded">
+            <button
+              @click="handleRemoveStudent(st.id)"
+              class="text-red-600 hover:bg-red-50 p-2 rounded disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="processingStudentId !== null"
+            >
               <UserMinus class="w-4 h-4" />
             </button>
           </div>
@@ -283,7 +305,11 @@ const handleRemoveStudent = async (studentId: number) => {
               </div>
             </div>
 
-            <button @click="handleAddStudent(st.id)" class="text-green-600 hover:bg-green-50 p-2 rounded">
+            <button
+              @click="handleAddStudent(st.id)"
+              class="text-green-600 hover:bg-green-50 p-2 rounded disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="processingStudentId !== null"
+            >
               <UserPlus class="w-4 h-4" />
             </button>
 
@@ -298,4 +324,3 @@ const handleRemoveStudent = async (studentId: number) => {
 
   </div>
 </template>
-

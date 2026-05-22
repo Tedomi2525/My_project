@@ -1,35 +1,33 @@
 <script setup lang="ts">
-import { Users, LogOut } from 'lucide-vue-next'
+import { GraduationCap, LogOut, UserCheck, Users } from 'lucide-vue-next'
 
-// 1. Lấy user và hàm logout từ composable
 const { user, logout } = useAuth()
 const route = useRoute()
-
-// Không cần router hay handleLogout thủ công nữa vì useAuth đã xử lý
 </script>
 
 <template>
   <div class="shell-wrap">
     <header class="glass-header sticky top-0 z-20">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-gray-900 font-bold text-xl">Quản trị hệ thống</h1>
+            <h1 class="text-xl font-bold text-gray-900">Quản trị hệ thống</h1>
             <p class="text-gray-600">Xin chào, {{ user?.fullName }}</p>
           </div>
           <button
+            type="button"
             @click="logout"
             class="btn-ghost-danger"
           >
-            <LogOut class="w-5 h-5" />
+            <LogOut class="h-5 w-5" />
             Đăng xuất
           </button>
         </div>
       </div>
     </header>
 
-    <div class="soft-enter-delay max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <nav class="surface-card card-hover mb-6 flex gap-3 p-3">
+    <div class="soft-enter-delay mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <nav class="surface-card card-hover mb-6 flex flex-wrap gap-3 p-3">
         <NuxtLink
           to="/admin"
           :class="[
@@ -37,8 +35,28 @@ const route = useRoute()
             route.path === '/admin' ? 'nav-pill-active' : 'nav-pill-idle'
           ]"
         >
-          <Users class="w-5 h-5" />
-          Quản lý tài khoản
+          <UserCheck class="h-5 w-5" />
+          Yêu cầu tài khoản
+        </NuxtLink>
+        <NuxtLink
+          to="/admin/teachers"
+          :class="[
+            'nav-pill flex items-center gap-2',
+            route.path === '/admin/teachers' ? 'nav-pill-active' : 'nav-pill-idle'
+          ]"
+        >
+          <GraduationCap class="h-5 w-5" />
+          Quản lý giáo viên
+        </NuxtLink>
+        <NuxtLink
+          to="/admin/students"
+          :class="[
+            'nav-pill flex items-center gap-2',
+            route.path === '/admin/students' ? 'nav-pill-active' : 'nav-pill-idle'
+          ]"
+        >
+          <Users class="h-5 w-5" />
+          Quản lý sinh viên
         </NuxtLink>
       </nav>
 

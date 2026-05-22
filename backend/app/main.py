@@ -14,6 +14,7 @@ from app.routers.questions import router as question_router
 from app.routers.exams import router as exam_router
 from app.routers.results import router as result_router
 from app.routers.auth import router as auth_router
+from app.routers.account_requests import router as account_request_router
 
 # Tạo bảng
 models.Base.metadata.create_all(bind=engine)
@@ -37,6 +38,7 @@ app.include_router(class_router)
 app.include_router(question_router)
 app.include_router(exam_router)
 app.include_router(result_router)
+app.include_router(account_request_router)
 
 
 @app.get("/")
