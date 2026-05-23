@@ -242,6 +242,17 @@ const optionEntries = (options: Record<string, string> | null) => {
   return Object.entries(options)
 }
 
+const parseAnswerKeys = (value?: string) => {
+  return (value || '')
+    .split(',')
+    .map((item) => item.trim().toUpperCase())
+    .filter(Boolean)
+}
+
+const hasAnswerKey = (value: string | undefined, key: string) => {
+  return parseAnswerKeys(value).includes(key)
+}
+
 const normalizeDifficulty = (difficulty?: string | null): DifficultyKey => {
   if (!difficulty) return 'MEDIUM'
   const normalized = difficulty.toUpperCase()
@@ -678,17 +689,17 @@ watch(selectedExam, async () => {
                 :key="key"
                 :class="[
                   'p-3 rounded border text-sm',
-                  key === q.correct_answer
+                  hasAnswerKey(q.correct_answer, key)
                     ? 'bg-green-50 border-green-200'
-                    : key === q.student_answer
+                    : hasAnswerKey(q.student_answer, key)
                       ? 'bg-red-50 border-red-200'
                       : 'bg-gray-50 border-gray-200'
                 ]"
               >
                 <span class="font-semibold mr-2">{{ String.fromCharCode(65 + optIdx) }}.</span>
                 <span>{{ value }}</span>
-                <span v-if="key === q.correct_answer" class="ml-2 text-green-700 font-medium">(Đáp án đúng)</span>
-                <span v-if="key === q.student_answer && key !== q.correct_answer" class="ml-2 text-red-700 font-medium">(Đã chọn)</span>
+                <span v-if="hasAnswerKey(q.correct_answer, key)" class="ml-2 text-green-700 font-medium">(Đáp án đúng)</span>
+                <span v-if="hasAnswerKey(q.student_answer, key) && !hasAnswerKey(q.correct_answer, key)" class="ml-2 text-red-700 font-medium">(Đã chọn)</span>
               </div>
             </div>
           </div>

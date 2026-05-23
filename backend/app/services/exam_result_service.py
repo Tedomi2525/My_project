@@ -16,6 +16,49 @@ from app.schemas.exam_result_detail import ExamResultDetailBase
 
 
 class ResultService:
+    MULTI_SELECT_TYPE = "MULTI_SELECT"
+
+    @staticmethod
+    def _parse_answer_keys(value: str | None) -> set[str]:
+        if not value:
+            return set()
+        return {
+            part.strip().upper()
+            for part in value.split(",")
+            if part.strip()
+        }
+
+    @staticmethod
+    def _score_answer(question: Question | None, student_answer: str | None) -> float:
+        if not question or not question.correct_answer:
+            return 0.0
+
+        if str(question.question_type or "").upper() != ResultService.MULTI_SELECT_TYPE:
+            return (
+                1.0
+                if question.correct_answer.strip().lower() == (student_answer or "").strip().lower()
+                else 0.0
+            )
+
+        option_count = len(question.options or {})
+        correct_answers = ResultService._parse_answer_keys(question.correct_answer)
+        selected_answers = ResultService._parse_answer_keys(student_answer)
+        correct_count = len(correct_answers)
+
+        if option_count < 2 or correct_count == 0:
+            return 0.0
+
+        chosen_correct = len(selected_answers & correct_answers)
+        chosen_wrong = len(selected_answers - correct_answers)
+        wrong_answer_count = option_count - correct_count
+
+        if wrong_answer_count <= 0:
+            raw_score = chosen_correct / correct_count
+        else:
+            raw_score = (chosen_correct / correct_count) - (0.9 * chosen_wrong / wrong_answer_count)
+
+        return round(max(0.0, min(raw_score, 1.0)), 2)
+
     # --- CREATE (Nop bai & Cham diem) ---
     @staticmethod
     def submit_exam(
@@ -108,7 +151,7 @@ class ResultService:
         exam_question_ids = {link.question_id for link in exam_question_links}
         total_questions = len(exam_question_ids)
 
-        correct_count = 0
+        earned_score = 0.0
 
         for ans in answers:
             if ans.question_id not in exam_question_ids:
@@ -116,11 +159,9 @@ class ResultService:
 
             question = db.query(Question).filter(Question.id == ans.question_id).first()
 
-            is_correct = False
-            if question and question.correct_answer:
-                if question.correct_answer.strip().lower() == ans.student_answer.strip().lower():
-                    is_correct = True
-                    correct_count += 1
+            question_score = ResultService._score_answer(question, ans.student_answer)
+            earned_score += question_score
+            is_correct = question_score >= 1.0
 
             detail = ExamResultDetail(
                 result_id=db_result.id,
@@ -130,7 +171,7 @@ class ResultService:
             )
             db.add(detail)
 
-        db_result.total_score = (correct_count / total_questions) * 10 if total_questions > 0 else 0.0
+        db_result.total_score = round((earned_score / total_questions) * 10, 2) if total_questions > 0 else 0.0
         if session:
             session.submitted_at = datetime.now()
             session.answers = {

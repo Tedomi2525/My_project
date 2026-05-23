@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
+from pydantic import ValidationError
 
 from app.database import get_db
 from app.dependencies import get_current_teacher
@@ -98,7 +99,10 @@ def update_question(
         raise HTTPException(status_code=403, detail="You do not have access to this question")
 
     data.pop("created_by", None)
-    q = QuestionService.update_question(db, question_id, data)
+    try:
+        q = QuestionService.update_question(db, question_id, data)
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     if not q:
         raise HTTPException(status_code=404, detail="Question not found")
     return q

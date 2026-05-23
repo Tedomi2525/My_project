@@ -201,7 +201,18 @@ class QuestionService:
         if not db_question:
             return None
             
-        for key, value in question_data.items():
+        merged_data = {
+            "content": db_question.content,
+            "question_type": db_question.question_type,
+            "difficulty": getattr(db_question.difficulty, "value", db_question.difficulty),
+            "options": db_question.options,
+            "correct_answer": db_question.correct_answer,
+            "created_by": db_question.created_by,
+            **question_data,
+        }
+        validated_question = QuestionCreate(**merged_data)
+
+        for key, value in validated_question.model_dump(exclude={"created_by"}).items():
             setattr(db_question, key, value)
             
         db.commit()

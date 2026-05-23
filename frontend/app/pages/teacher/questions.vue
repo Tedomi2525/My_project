@@ -18,13 +18,19 @@ const editingQuestion = ref<Question | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const importSummary = ref<null | { importedCount: number; totalRows: number }>(null)
 const importErrors = ref<Array<{ row: number; message: string }>>([])
+const maxOptionCount = 10
+const answerKeys = Array.from({ length: maxOptionCount }, (_, index) =>
+  String.fromCharCode(65 + index)
+)
 
 const formData = reactive({
   content: '',
   question_type: 'MCQ',
   difficulty: 'EASY',
+  option_count: 4,
   options: { A: '', B: '', C: '', D: '' } as Record<string, string>,
-  correct_answer: 'A'
+  correct_answer: 'A',
+  correct_answers: ['A'] as string[]
 })
 
 const authHeaders = async () => {
@@ -107,11 +113,72 @@ const getDiffLabel = (level: string) => {
   return map[level] || 'Dễ'
 }
 
+const currentAnswerKeys = computed(() => answerKeys.slice(0, formData.option_count))
+
+const getQuestionTypeLabel = (type: string) => {
+  return type === 'MULTI_SELECT' ? 'Nhiều đáp án đúng' : 'Một đáp án đúng'
+}
+
+const parseAnswerKeys = (value?: string) => {
+  return (value || '')
+    .split(',')
+    .map((item) => item.trim().toUpperCase())
+    .filter(Boolean)
+}
+
+const isCorrectAnswer = (question: Question, key: string) => {
+  return parseAnswerKeys(question.correct_answer).includes(key)
+}
+
+const buildDefaultOptions = (count: number) => {
+  return answerKeys.slice(0, count).reduce<Record<string, string>>((acc, key) => {
+    acc[key] = ''
+    return acc
+  }, {})
+}
+
+const normalizeOptionCount = (count: number) => {
+  return Math.min(maxOptionCount, Math.max(2, Number(count) || 2))
+}
+
+const syncOptionCount = () => {
+  formData.option_count = normalizeOptionCount(formData.option_count)
+  const nextOptions = buildDefaultOptions(formData.option_count)
+
+  for (const key of Object.keys(nextOptions)) {
+    nextOptions[key] = formData.options[key] || ''
+  }
+
+  formData.options = nextOptions
+
+  if (!currentAnswerKeys.value.includes(formData.correct_answer)) {
+    formData.correct_answer = currentAnswerKeys.value[0] || 'A'
+  }
+
+  formData.correct_answers = formData.correct_answers.filter((key) =>
+    currentAnswerKeys.value.includes(key)
+  )
+}
+
+watch(() => formData.option_count, syncOptionCount)
+watch(() => formData.question_type, (type) => {
+  if (type === 'MULTI_SELECT' && formData.correct_answers.length === 0) {
+    formData.correct_answers = [formData.correct_answer]
+  }
+
+  if (type !== 'MULTI_SELECT' && !currentAnswerKeys.value.includes(formData.correct_answer)) {
+    formData.correct_answer = formData.correct_answers[0] || currentAnswerKeys.value[0] || 'A'
+  }
+})
+
 const resetForm = () => {
   formData.content = ''
+  formData.question_type = 'MCQ'
   formData.difficulty = 'EASY'
-  formData.options = { A: '', B: '', C: '', D: '' }
+  formData.option_count = 4
+  formData.options = buildDefaultOptions(4)
   formData.correct_answer = 'A'
+  formData.correct_answers = ['A']
 }
 
 const openCreate = () => {
@@ -123,9 +190,14 @@ const openCreate = () => {
 const openEdit = (q: Question) => {
   editingQuestion.value = q
   formData.content = q.content
+  formData.question_type = q.question_type || 'MCQ'
   formData.difficulty = q.difficulty || 'EASY'
-  formData.options = { A: '', B: '', C: '', D: '', ...(q.options || {}) }
-  formData.correct_answer = q.correct_answer
+  const optionKeys = Object.keys(q.options || {})
+  formData.option_count = normalizeOptionCount(optionKeys.length || 4)
+  formData.options = { ...buildDefaultOptions(formData.option_count), ...(q.options || {}) }
+  formData.correct_answer = q.correct_answer || 'A'
+  formData.correct_answers = parseAnswerKeys(q.correct_answer)
+  syncOptionCount()
   showModal.value = true
 }
 
@@ -155,12 +227,34 @@ const downloadCsvTemplate = () => {
 }
 
 const handleSubmit = async () => {
+  syncOptionCount()
+
+  const payloadOptions = currentAnswerKeys.value.reduce<Record<string, string>>((acc, key) => {
+    acc[key] = String(formData.options[key] || '').trim()
+    return acc
+  }, {})
+
+  const correctAnswer =
+    formData.question_type === 'MULTI_SELECT'
+      ? currentAnswerKeys.value.filter((key) => formData.correct_answers.includes(key)).join(',')
+      : formData.correct_answer
+
+  if (Object.values(payloadOptions).some((value) => !value)) {
+    alert('Vui lòng nhập đầy đủ nội dung các đáp án.')
+    return
+  }
+
+  if (!correctAnswer) {
+    alert('Vui lòng chọn ít nhất 1 đáp án đúng.')
+    return
+  }
+
   const payload = {
     content: formData.content,
-    question_type: 'MCQ',
+    question_type: formData.question_type,
     difficulty: formData.difficulty,
-    options: formData.options,
-    correct_answer: formData.correct_answer,
+    options: payloadOptions,
+    correct_answer: correctAnswer,
     created_by: user.value!.id
   }
 
@@ -343,6 +437,9 @@ onMounted(fetchQuestions)
               >
                 {{ getDiffLabel(q.difficulty) }}
               </span>
+              <span class="text-xs px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 font-medium">
+                {{ getQuestionTypeLabel(q.question_type) }}
+              </span>
             </div>
             <p class="font-medium text-lg text-gray-800">{{ q.content }}</p>
           </div>
@@ -363,14 +460,14 @@ onMounted(fetchQuestions)
             :key="key"
             :class="[
               'p-3 rounded-lg border text-sm',
-              key === q.correct_answer
+              isCorrectAnswer(q, String(key))
                 ? 'bg-green-50 border-green-200 text-green-800'
                 : 'bg-white border-gray-200 text-gray-600'
             ]"
           >
             <span class="font-bold mr-1">{{ key }}.</span> {{ text }}
             <span
-              v-if="key === q.correct_answer"
+              v-if="isCorrectAnswer(q, String(key))"
               class="ml-2 text-xs font-bold text-green-600 uppercase tracking-wider border border-green-200 px-1 rounded"
             >
               Đúng
@@ -414,21 +511,59 @@ onMounted(fetchQuestions)
               </select>
             </div>
             <div class="flex-1">
+              <label class="block text-sm font-medium mb-1 text-gray-700">Loại câu hỏi</label>
+              <select v-model="formData.question_type" class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                <option value="MCQ">Một đáp án đúng</option>
+                <option value="MULTI_SELECT">Nhiều đáp án đúng</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label class="block text-sm font-medium mb-1 text-gray-700">Số lượng đáp án</label>
+              <input
+                v-model.number="formData.option_count"
+                type="number"
+                min="2"
+                :max="maxOptionCount"
+                class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+            <div class="sm:col-span-2" v-if="formData.question_type === 'MCQ'">
               <label class="block text-sm font-medium mb-1 text-gray-700">Đáp án đúng</label>
               <select
                 v-model="formData.correct_answer"
                 class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
               >
-                <option v-for="key in ['A', 'B', 'C', 'D']" :key="key" :value="key">
+                <option v-for="key in currentAnswerKeys" :key="key" :value="key">
                   Đáp án {{ key }}
                 </option>
               </select>
+            </div>
+            <div class="sm:col-span-2" v-else>
+              <label class="block text-sm font-medium mb-2 text-gray-700">Đáp án đúng</label>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <label
+                  v-for="key in currentAnswerKeys"
+                  :key="key"
+                  class="flex items-center gap-2 rounded-lg border border-gray-300 bg-white p-2.5 text-sm cursor-pointer hover:bg-gray-50"
+                >
+                  <input
+                    v-model="formData.correct_answers"
+                    type="checkbox"
+                    :value="key"
+                    class="w-4 h-4 accent-blue-600"
+                  />
+                  <span>Đáp án {{ key }}</span>
+                </label>
+              </div>
             </div>
           </div>
 
           <div class="space-y-3 bg-gray-50 p-4 rounded-lg border">
             <label class="block text-sm font-semibold text-gray-700">Các lựa chọn</label>
-            <div v-for="key in ['A', 'B', 'C', 'D']" :key="key" class="flex gap-3 items-center">
+            <div v-for="key in currentAnswerKeys" :key="key" class="flex gap-3 items-center">
               <div class="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-200 font-bold text-gray-600 text-sm shadow-sm">
                 {{ key }}
               </div>

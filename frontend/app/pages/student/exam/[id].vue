@@ -112,6 +112,18 @@ const currentOptionEntries = computed(() => getOptionEntries(questionData.value?
 const isExamInProgress = computed(() => started.value && !submitted.value)
 const flaggedCount = computed(() => flaggedQuestions.value.filter(Boolean).length)
 const isCurrentQuestionFlagged = computed(() => Boolean(flaggedQuestions.value[currentQuestion.value]))
+const isMultiSelectQuestion = computed(() => questionData.value?.question_type === 'MULTI_SELECT')
+
+const parseAnswerKeys = (value?: string) => {
+  return (value || '')
+    .split(',')
+    .map((item) => item.trim().toUpperCase())
+    .filter(Boolean)
+}
+
+const hasAnswerKey = (value: string | undefined, key: string) => {
+  return parseAnswerKeys(value).includes(key)
+}
 
 const showWarning = (message: string) => {
   antiCheatNotice.value = message
@@ -274,7 +286,21 @@ onUnmounted(() => {
 })
 
 const handleAnswerSelect = (optionKey: string) => {
-  answers.value[currentQuestion.value] = optionKey
+  if (!isMultiSelectQuestion.value) {
+    answers.value[currentQuestion.value] = optionKey
+    saveProgress()
+    return
+  }
+
+  const selected = parseAnswerKeys(answers.value[currentQuestion.value])
+  const nextSelected = selected.includes(optionKey)
+    ? selected.filter((key) => key !== optionKey)
+    : [...selected, optionKey]
+
+  answers.value[currentQuestion.value] = currentOptionEntries.value
+    .map(([key]) => key)
+    .filter((key) => nextSelected.includes(key))
+    .join(',')
   saveProgress()
 }
 
@@ -455,12 +481,12 @@ const startExam = async () => {
             <div
               v-for="[key, opt] in getOptionEntries(q.options)"
               :key="key"
-              :class="['p-3 rounded-lg flex border', key === q.correct_answer ? 'bg-green-50 border-green-200' : q.student_answer === key && key !== q.correct_answer ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-transparent']"
+              :class="['p-3 rounded-lg flex border', hasAnswerKey(q.correct_answer, key) ? 'bg-green-50 border-green-200' : hasAnswerKey(q.student_answer, key) ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-transparent']"
             >
               <span class="mr-2 font-bold">{{ key }}.</span>
               <span class="flex-1">{{ opt }}</span>
-              <span v-if="key === q.correct_answer" class="text-green-600 ml-2 font-medium">(Đáp án đúng)</span>
-              <span v-if="q.student_answer === key && key !== q.correct_answer" class="text-red-600 ml-2 font-medium">(Bạn chọn)</span>
+              <span v-if="hasAnswerKey(q.correct_answer, key)" class="text-green-600 ml-2 font-medium">(Đáp án đúng)</span>
+              <span v-if="hasAnswerKey(q.student_answer, key) && !hasAnswerKey(q.correct_answer, key)" class="text-red-600 ml-2 font-medium">(Bạn chọn)</span>
             </div>
           </div>
         </div>
@@ -527,15 +553,18 @@ const startExam = async () => {
         </div>
 
         <div class="space-y-3">
+          <p v-if="isMultiSelectQuestion" class="text-sm text-gray-500">
+            Câu này có thể có nhiều đáp án đúng.
+          </p>
           <label
             v-for="[key, opt] in currentOptionEntries"
             :key="key"
-            :class="['flex items-start gap-4 p-5 rounded-lg cursor-pointer transition-all border-2', answers[currentQuestion] === key ? 'bg-blue-50 border-blue-500 shadow-md' : 'bg-gray-50 border-transparent hover:bg-gray-100']"
+            :class="['flex items-start gap-4 p-5 rounded-lg cursor-pointer transition-all border-2', hasAnswerKey(answers[currentQuestion], key) ? 'bg-blue-50 border-blue-500 shadow-md' : 'bg-gray-50 border-transparent hover:bg-gray-100']"
           >
             <input
-              type="radio"
+              :type="isMultiSelectQuestion ? 'checkbox' : 'radio'"
               :name="`q-${currentQuestion}`"
-              :checked="answers[currentQuestion] === key"
+              :checked="hasAnswerKey(answers[currentQuestion], key)"
               @change="handleAnswerSelect(key)"
               class="mt-1.5 w-5 h-5 accent-blue-600"
             />
