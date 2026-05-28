@@ -32,6 +32,17 @@ class StudentService:
                 student_code=student_code
             )
             db.add(student)
+            db.flush()
+            AccountService.sync_legacy_user(
+                db,
+                user_id=student.id,
+                username=student.username,
+                email=student.email,
+                password=student.password,
+                full_name=student.full_name,
+                role="student",
+                student_code=student.student_code,
+            )
             db.commit()
             db.refresh(student)
             return student
@@ -73,6 +84,16 @@ class StudentService:
             setattr(student, key, value)
 
         try:
+            AccountService.sync_legacy_user(
+                db,
+                user_id=student.id,
+                username=student.username,
+                email=student.email,
+                password=student.password,
+                full_name=student.full_name,
+                role="student",
+                student_code=student.student_code,
+            )
             db.commit()
             db.refresh(student)
             return student

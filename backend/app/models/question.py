@@ -21,7 +21,10 @@ class Question(Base):
     
     options = Column(JSON, nullable=True) 
     correct_answer = Column(String(255))
+    topic_id = Column(Integer, ForeignKey("question_topic.id"), nullable=True)
+    visibility = Column(String(50), default="public", nullable=False)
     
     created_by = Column(Integer, ForeignKey("teacher.id"))
 
     exam_links = relationship("ExamQuestion", back_populates="question")
+    topic = relationship("QuestionTopic", back_populates="questions")

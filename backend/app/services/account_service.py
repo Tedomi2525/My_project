@@ -1,5 +1,6 @@
 import re
 from typing import Optional, Tuple, Type
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException, status
@@ -58,12 +59,80 @@ class AccountService:
                 if match:
                     max_number = max(max_number, int(match.group(1)))
 
+        legacy_usernames = db.execute(
+            text("SELECT username FROM `user` WHERE username LIKE :pattern"),
+            {"pattern": f"{prefix}%"},
+        ).fetchall()
+        for (username,) in legacy_usernames:
+            if not username:
+                continue
+            match = pattern.match(username)
+            if match:
+                max_number = max(max_number, int(match.group(1)))
+
         next_number = max_number + 1
         while True:
             code = f"{prefix}{next_number:0{AccountService.CODE_WIDTH}d}"
-            if not AccountService.find_by_username(db, code):
+            if (
+                not AccountService.find_by_username(db, code)
+                and not AccountService._exists_in_legacy_user(db, "username", code)
+            ):
                 return code
             next_number += 1
+
+    @staticmethod
+    def sync_legacy_user(
+        db: Session,
+        *,
+        user_id: int,
+        username: str,
+        email: str | None,
+        password: str,
+        full_name: str | None,
+        role: str,
+        student_code: str | None = None,
+    ) -> None:
+        existing = db.execute(
+            text("SELECT id FROM `user` WHERE id = :id"),
+            {"id": user_id},
+        ).first()
+        params = {
+            "id": user_id,
+            "username": username,
+            "email": email,
+            "password": password,
+            "full_name": full_name,
+            "role": role,
+            "student_code": student_code,
+        }
+
+        if existing:
+            db.execute(
+                text(
+                    """
+                    UPDATE `user`
+                    SET username = :username,
+                        email = :email,
+                        password = :password,
+                        full_name = :full_name,
+                        role = :role,
+                        student_code = :student_code
+                    WHERE id = :id
+                    """
+                ),
+                params,
+            )
+            return
+
+        db.execute(
+            text(
+                """
+                INSERT INTO `user` (id, username, email, password, full_name, role, student_code)
+                VALUES (:id, :username, :email, :password, :full_name, :role, :student_code)
+                """
+            ),
+            params,
+        )
 
     @staticmethod
     def _exists_in_model(
@@ -79,6 +148,22 @@ class AccountService:
         if exclude_id:
             q = q.filter(model.id != exclude_id)
         return db.query(q.exists()).scalar()
+
+    @staticmethod
+    def _exists_in_legacy_user(
+        db: Session,
+        field_name: str,
+        value: Optional[str],
+        exclude_id: Optional[int] = None,
+    ) -> bool:
+        if not value:
+            return False
+        query = f"SELECT id FROM `user` WHERE {field_name} = :value"
+        params = {"value": value}
+        if exclude_id:
+            query += " AND id != :exclude_id"
+            params["exclude_id"] = exclude_id
+        return db.execute(text(query), params).first() is not None
 
     @staticmethod
     def ensure_unique_identity(
@@ -110,6 +195,22 @@ class AccountService:
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Mã sinh viên đã tồn tại"
                     )
+
+        if AccountService._exists_in_legacy_user(db, "username", username, exclude_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username Ä‘Ã£ tá»“n táº¡i"
+            )
+        if AccountService._exists_in_legacy_user(db, "email", email, exclude_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email Ä‘Ã£ tá»“n táº¡i"
+            )
+        if AccountService._exists_in_legacy_user(db, "student_code", student_code, exclude_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="MÃ£ sinh viÃªn Ä‘Ã£ tá»“n táº¡i"
+            )
 
     @staticmethod
     def handle_db_error(e: Exception):

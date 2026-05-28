@@ -4,8 +4,9 @@ import io
 from collections import defaultdict
 
 from sqlalchemy.orm import Session
-from sqlalchemy import exists
+from sqlalchemy import exists, or_
 from app.models.question import Question
+from app.models.question_topic import QuestionTopic
 from app.models.question import DifficultyLevel as QuestionDifficultyLevel
 from app.models.teacher import Teacher
 from app.schemas.question import QuestionCreate
@@ -26,7 +27,12 @@ class QuestionService:
     def _get_accessible_teacher_questions(db: Session, teacher_id: int):
         teacher_count = db.query(Teacher).count()
 
-        query = db.query(Question).filter(Question.created_by == teacher_id)
+        query = db.query(Question).filter(
+            or_(
+                Question.visibility == "public",
+                Question.created_by == teacher_id,
+            )
+        )
 
         # Backward compatibility:
         # some legacy questions were created with a stale/non-existent teacher id.
@@ -39,6 +45,27 @@ class QuestionService:
             )
 
         return query.all()
+
+    @staticmethod
+    def get_topics(db: Session):
+        return db.query(QuestionTopic).order_by(QuestionTopic.name.asc()).all()
+
+    @staticmethod
+    def create_topic(db: Session, name: str, description: str | None, created_by: int):
+        normalized_name = name.strip()
+        topic = db.query(QuestionTopic).filter(QuestionTopic.name == normalized_name).first()
+        if topic:
+            return topic
+
+        topic = QuestionTopic(
+            name=normalized_name,
+            description=description,
+            created_by=created_by,
+        )
+        db.add(topic)
+        db.commit()
+        db.refresh(topic)
+        return topic
 
     # --- CREATE ---
     @staticmethod
@@ -109,6 +136,7 @@ class QuestionService:
                         difficulty=QuestionDifficultyLevel(difficulty),
                         options=options,
                         correct_answer=correct_answer,
+                        visibility="public",
                         created_by=teacher_id,
                     )
                 )
@@ -138,13 +166,25 @@ class QuestionService:
         return db.query(Question).filter(Question.id == question_id).first()
 
     @staticmethod
-    def get_questions(db: Session, skip: int = 0, limit: int = 100):
-        return db.query(Question).offset(skip).limit(limit).all()
+    def get_questions(db: Session, skip: int = 0, limit: int | None = None):
+        query = db.query(Question).offset(skip)
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
 
     @staticmethod
-    def get_questions_for_teacher(db: Session, teacher_id: int, skip: int = 0, limit: int = 100):
+    def get_questions_for_teacher(db: Session, teacher_id: int, skip: int = 0, limit: int | None = None):
         questions = QuestionService._get_accessible_teacher_questions(db, teacher_id)
+        if limit is None:
+            return questions[skip:]
         return questions[skip: skip + limit]
+
+    @staticmethod
+    def can_teacher_access_question(db: Session, question_id: int, teacher_id: int) -> bool:
+        question = QuestionService.get_question(db, question_id)
+        if not question:
+            return False
+        return question.visibility == "public" or question.created_by == teacher_id
 
     @staticmethod
     def get_random_questions_by_difficulty(
@@ -207,6 +247,8 @@ class QuestionService:
             "difficulty": getattr(db_question.difficulty, "value", db_question.difficulty),
             "options": db_question.options,
             "correct_answer": db_question.correct_answer,
+            "topic_id": db_question.topic_id,
+            "visibility": db_question.visibility,
             "created_by": db_question.created_by,
             **question_data,
         }

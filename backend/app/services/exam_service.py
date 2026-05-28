@@ -13,6 +13,16 @@ from app.models.question import Question
 from app.schemas.exam import ExamCreate
 
 
+def _normalize_datetime(value):
+    if value is None:
+        return None
+    return value.replace(tzinfo=None, microsecond=0)
+
+
+def _unique_ids(values):
+    return list(dict.fromkeys(values or []))
+
+
 class ExamService:
     # =====================================================
     # EXAM CRUD (NO AUTH / NO ROLE)
@@ -26,8 +36,8 @@ class ExamService:
     ):
         exam_data = exam_in.model_dump()
 
-        class_ids = exam_data.pop("class_ids", [])
-        question_ids = exam_data.pop("questions", [])
+        class_ids = _unique_ids(exam_data.pop("class_ids", []))
+        question_ids = _unique_ids(exam_data.pop("questions", []))
 
         exam_data["created_by"] = owner_id
 
@@ -123,20 +133,54 @@ class ExamService:
             .first()
             is not None
         )
-        protected_fields = {
-            "duration_minutes",
-            "start_time",
-            "end_time",
-            "class_ids",
-            "questions",
-            "shuffle_questions",
-            "shuffle_options",
-        }
-        if has_results and any(field in exam_data for field in protected_fields):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot change exam structure after submissions exist",
+        if has_results:
+            existing_class_ids = {
+                row[0]
+                for row in db.query(ExamAllowedClass.class_id)
+                .filter(ExamAllowedClass.exam_id == exam_id)
+                .all()
+            }
+            existing_question_ids = {
+                row[0]
+                for row in db.query(ExamQuestion.question_id)
+                .filter(ExamQuestion.exam_id == exam_id)
+                .all()
+            }
+            protected_changed = (
+                (
+                    "duration_minutes" in exam_data
+                    and exam_data["duration_minutes"] != db_exam.duration_minutes
+                )
+                or (
+                    "start_time" in exam_data
+                    and _normalize_datetime(exam_data["start_time"]) != _normalize_datetime(db_exam.start_time)
+                )
+                or (
+                    "end_time" in exam_data
+                    and _normalize_datetime(exam_data["end_time"]) != _normalize_datetime(db_exam.end_time)
+                )
+                or (
+                    "shuffle_questions" in exam_data
+                    and exam_data["shuffle_questions"] != db_exam.shuffle_questions
+                )
+                or (
+                    "shuffle_options" in exam_data
+                    and exam_data["shuffle_options"] != db_exam.shuffle_options
+                )
+                or (
+                    "class_ids" in exam_data
+                    and set(exam_data["class_ids"] or []) != existing_class_ids
+                )
+                or (
+                    "questions" in exam_data
+                    and set(exam_data["questions"] or []) != existing_question_ids
+                )
             )
+            if protected_changed:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot change exam structure after submissions exist",
+                )
 
         # ---------- class ids ----------
         if "class_ids" in exam_data:
@@ -144,6 +188,7 @@ class ExamService:
             
             # Chỉ xóa và thêm lại nếu new_class_ids là list
             if isinstance(new_class_ids, list):
+                new_class_ids = _unique_ids(new_class_ids)
                 db.query(ExamAllowedClass).filter(
                     ExamAllowedClass.exam_id == exam_id
                 ).delete()
@@ -162,7 +207,7 @@ class ExamService:
 
             if isinstance(new_question_ids, list):
                 # Normalize: unique IDs, keep original order
-                normalized_question_ids = list(dict.fromkeys(new_question_ids))
+                normalized_question_ids = _unique_ids(new_question_ids)
 
                 if has_results:
                     # Preserve historic structure for exams that already have attempts:
@@ -246,6 +291,13 @@ class ExamService:
 
         if not db_exam:
             return False
+
+        db.query(ExamViolation).filter(
+            ExamViolation.exam_id == exam_id
+        ).delete(synchronize_session=False)
+        db.query(ExamSession).filter(
+            ExamSession.exam_id == exam_id
+        ).delete(synchronize_session=False)
 
         db.delete(db_exam)
         db.commit()

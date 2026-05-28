@@ -29,6 +29,16 @@ class TeacherService:
                 full_name=teacher_in.full_name
             )
             db.add(teacher)
+            db.flush()
+            AccountService.sync_legacy_user(
+                db,
+                user_id=teacher.id,
+                username=teacher.username,
+                email=teacher.email,
+                password=teacher.password,
+                full_name=teacher.full_name,
+                role="teacher",
+            )
             db.commit()
             db.refresh(teacher)
             return teacher
@@ -67,6 +77,15 @@ class TeacherService:
             setattr(teacher, key, value)
 
         try:
+            AccountService.sync_legacy_user(
+                db,
+                user_id=teacher.id,
+                username=teacher.username,
+                email=teacher.email,
+                password=teacher.password,
+                full_name=teacher.full_name,
+                role="teacher",
+            )
             db.commit()
             db.refresh(teacher)
             return teacher

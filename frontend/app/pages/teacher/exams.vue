@@ -99,7 +99,7 @@ const loadPageData = async () => {
     }
 
     const [qRes, cRes] = await Promise.all([
-      $fetch<Question[]>('/questions', {
+      $fetch<Question[]>('/questions/', {
         baseURL: config.public.apiBase,
         headers
       }),
@@ -403,7 +403,7 @@ const handleSubmit = async () => {
 
     await getExams()
   } catch (err: any) {
-    alert(err.response?.data?.detail || err.message)
+    alert(err?.data?.detail || err?.response?.data?.detail || err.message)
   } finally {
     isSubmitting.value = false
   }

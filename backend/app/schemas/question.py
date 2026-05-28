@@ -15,6 +15,8 @@ class QuestionBase(BaseModel):
     difficulty: DifficultyLevel = DifficultyLevel.EASY
     options: Optional[Dict[str, Any]] = None
     correct_answer: str
+    topic_id: Optional[int] = None
+    visibility: str = "public"
 
     @field_validator("question_type")
     @classmethod
@@ -30,6 +32,14 @@ class QuestionBase(BaseModel):
             if part.strip()
         ]
         return ",".join(dict.fromkeys(answer_keys))
+
+    @field_validator("visibility")
+    @classmethod
+    def normalize_visibility(cls, value):
+        normalized = (value or "public").strip().lower()
+        if normalized not in {"public", "private"}:
+            raise ValueError("visibility must be public or private")
+        return normalized
 
     @model_validator(mode="after")
     def validate_answers(self):
@@ -74,6 +84,8 @@ class ExamQuestionResponse(BaseModel):
     question_type: Optional[str] = "MCQ"
     difficulty: DifficultyLevel = DifficultyLevel.EASY
     options: Optional[Dict[str, Any]] = None
+    topic_id: Optional[int] = None
+    visibility: str = "public"
     created_by: int
 
     class Config:
@@ -114,3 +126,20 @@ class RandomQuestionSelectionResponse(BaseModel):
     medium_count: int
     hard_count: int
     total_selected: int
+
+
+class QuestionTopicBase(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    description: Optional[str] = None
+
+
+class QuestionTopicCreate(QuestionTopicBase):
+    pass
+
+
+class QuestionTopicResponse(QuestionTopicBase):
+    id: int
+    created_by: Optional[int] = None
+
+    class Config:
+        from_attributes = True

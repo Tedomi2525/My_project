@@ -34,7 +34,7 @@ export const useExams = () => {
 
     loading.value = true
     try {
-      const res = await $fetch<Exam[]>('/exams', {
+      const res = await $fetch<Exam[]>('/exams/', {
         baseURL: config.public.apiBase,
         headers: authHeader()
       })
@@ -100,7 +100,7 @@ export const useExams = () => {
     questions: number[]
   }): Promise<Exam> => {
     await ensureAuth()
-    const exam = await $fetch<Exam>('/exams', {
+    const exam = await $fetch<Exam>('/exams/', {
       method: 'POST',
       body: payload,
       baseURL: config.public.apiBase,

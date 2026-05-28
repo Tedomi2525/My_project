@@ -10,12 +10,34 @@ from app.schemas.question import (
     QuestionImportRequest,
     QuestionImportResponse,
     QuestionResponse,
+    QuestionTopicCreate,
+    QuestionTopicResponse,
     RandomQuestionSelectionRequest,
     RandomQuestionSelectionResponse,
 )
 from app.services.question_service import QuestionService
 
 router = APIRouter(prefix="/questions", tags=["Questions"])
+
+@router.get("/topics/", response_model=List[QuestionTopicResponse])
+def get_question_topics(
+    db: Session = Depends(get_db),
+    current_teacher=Depends(get_current_teacher)
+):
+    return QuestionService.get_topics(db)
+
+@router.post("/topics/", response_model=QuestionTopicResponse)
+def create_question_topic(
+    topic: QuestionTopicCreate,
+    db: Session = Depends(get_db),
+    current_teacher=Depends(get_current_teacher)
+):
+    return QuestionService.create_topic(
+        db,
+        name=topic.name,
+        description=topic.description,
+        created_by=current_teacher.id,
+    )
 
 @router.post("/", response_model=QuestionResponse)
 def create_question(
@@ -91,11 +113,7 @@ def update_question(
     if not existing_question:
         raise HTTPException(status_code=404, detail="Question not found")
 
-    accessible_ids = {
-        question.id
-        for question in QuestionService.get_questions_for_teacher(db, current_teacher.id)
-    }
-    if question_id not in accessible_ids:
+    if not QuestionService.can_teacher_access_question(db, question_id, current_teacher.id):
         raise HTTPException(status_code=403, detail="You do not have access to this question")
 
     data.pop("created_by", None)
@@ -113,11 +131,7 @@ def delete_question(
     db: Session = Depends(get_db),
     current_teacher=Depends(get_current_teacher)
 ):
-    accessible_ids = {
-        question.id
-        for question in QuestionService.get_questions_for_teacher(db, current_teacher.id)
-    }
-    if question_id not in accessible_ids:
+    if not QuestionService.can_teacher_access_question(db, question_id, current_teacher.id):
         raise HTTPException(status_code=403, detail="You do not have access to this question")
 
     success = QuestionService.delete_question(db, question_id)

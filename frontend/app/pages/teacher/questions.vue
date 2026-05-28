@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Search, Plus, Edit2, Trash2, Filter, Upload } from 'lucide-vue-next'
-import type { Question } from '~/types'
+import type { Question, QuestionTopic } from '~/types'
 
 definePageMeta({ layout: 'teacher' })
 
@@ -13,11 +13,13 @@ const loading = ref(false)
 const importLoading = ref(false)
 const searchTerm = ref('')
 const selectedDifficulty = ref('ALL')
+const selectedTopicId = ref<number | 'ALL'>('ALL')
 const showModal = ref(false)
 const editingQuestion = ref<Question | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const importSummary = ref<null | { importedCount: number; totalRows: number }>(null)
 const importErrors = ref<Array<{ row: number; message: string }>>([])
+const topics = ref<QuestionTopic[]>([])
 const maxOptionCount = 10
 const answerKeys = Array.from({ length: maxOptionCount }, (_, index) =>
   String.fromCharCode(65 + index)
@@ -30,7 +32,10 @@ const formData = reactive({
   option_count: 4,
   options: { A: '', B: '', C: '', D: '' } as Record<string, string>,
   correct_answer: 'A',
-  correct_answers: ['A'] as string[]
+  correct_answers: ['A'] as string[],
+  topic_id: null as number | null,
+  visibility: 'public' as 'public' | 'private',
+  new_topic_name: ''
 })
 
 const authHeaders = async () => {
@@ -62,14 +67,18 @@ const api = async <T>(url: string, options: any = {}) =>
 const fetchQuestions = async () => {
   loading.value = true
   try {
-    questions.value = await api<Question[]>('/questions')
+    questions.value = await api<Question[]>('/questions/')
   } finally {
     loading.value = false
   }
 }
 
+const fetchTopics = async () => {
+  topics.value = await api<QuestionTopic[]>('/questions/topics/')
+}
+
 const createQuestion = (payload: any) =>
-  api<Question>('/questions', { method: 'POST', body: payload })
+  api<Question>('/questions/', { method: 'POST', body: payload })
 
 const updateQuestion = (id: number, payload: any) =>
   api<Question>(`/questions/${id}`, { method: 'PUT', body: payload })
@@ -83,15 +92,25 @@ const importQuestionsFromCsv = (payload: { filename: string; csv_content: string
     { method: 'POST', body: payload }
   )
 
+const createTopic = (payload: { name: string; description?: string }) =>
+  api<QuestionTopic>('/questions/topics/', { method: 'POST', body: payload })
+
 const filteredQuestions = computed(() =>
   questions.value.filter((q) => {
     const matchesSearch = q.content.toLowerCase().includes(searchTerm.value.toLowerCase())
     const matchesDifficulty =
       selectedDifficulty.value === 'ALL' || q.difficulty === selectedDifficulty.value
+    const matchesTopic =
+      selectedTopicId.value === 'ALL' || q.topic_id === selectedTopicId.value
 
-    return matchesSearch && matchesDifficulty
+    return matchesSearch && matchesDifficulty && matchesTopic
   })
 )
+
+const topicName = (topicId?: number | null) => {
+  if (!topicId) return 'Chưa có chủ đề'
+  return topics.value.find((topic) => topic.id === topicId)?.name || `Chủ đề #${topicId}`
+}
 
 const getDiffColor = (level: string) => {
   switch (level) {
@@ -179,6 +198,9 @@ const resetForm = () => {
   formData.options = buildDefaultOptions(4)
   formData.correct_answer = 'A'
   formData.correct_answers = ['A']
+  formData.topic_id = topics.value[0]?.id ?? null
+  formData.visibility = 'public'
+  formData.new_topic_name = ''
 }
 
 const openCreate = () => {
@@ -197,6 +219,9 @@ const openEdit = (q: Question) => {
   formData.options = { ...buildDefaultOptions(formData.option_count), ...(q.options || {}) }
   formData.correct_answer = q.correct_answer || 'A'
   formData.correct_answers = parseAnswerKeys(q.correct_answer)
+  formData.topic_id = q.topic_id ?? null
+  formData.visibility = q.visibility || 'public'
+  formData.new_topic_name = ''
   syncOptionCount()
   showModal.value = true
 }
@@ -228,6 +253,14 @@ const downloadCsvTemplate = () => {
 
 const handleSubmit = async () => {
   syncOptionCount()
+  let topicId = formData.topic_id
+
+  if (formData.new_topic_name.trim()) {
+    const topic = await createTopic({ name: formData.new_topic_name.trim() })
+    topicId = topic.id
+    formData.topic_id = topic.id
+    await fetchTopics()
+  }
 
   const payloadOptions = currentAnswerKeys.value.reduce<Record<string, string>>((acc, key) => {
     acc[key] = String(formData.options[key] || '').trim()
@@ -255,6 +288,8 @@ const handleSubmit = async () => {
     difficulty: formData.difficulty,
     options: payloadOptions,
     correct_answer: correctAnswer,
+    topic_id: topicId,
+    visibility: formData.visibility,
     created_by: user.value!.id
   }
 
@@ -312,7 +347,10 @@ const handleImportCsv = async (event: Event) => {
   }
 }
 
-onMounted(fetchQuestions)
+onMounted(async () => {
+  await fetchTopics()
+  await fetchQuestions()
+})
 </script>
 
 <template>
@@ -343,6 +381,19 @@ onMounted(fetchQuestions)
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
+      </div>
+
+      <div class="relative w-56">
+        <Filter class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        <select
+          v-model="selectedTopicId"
+          class="w-full pl-9 pr-4 py-2 border rounded-lg bg-white outline-none cursor-pointer focus:ring-2 focus:ring-blue-500 appearance-none"
+        >
+          <option value="ALL">Tất cả chủ đề</option>
+          <option v-for="topic in topics" :key="topic.id" :value="topic.id">
+            {{ topic.name }}
+          </option>
+        </select>
       </div>
 
       <input
@@ -440,6 +491,19 @@ onMounted(fetchQuestions)
               <span class="text-xs px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 font-medium">
                 {{ getQuestionTypeLabel(q.question_type) }}
               </span>
+              <span class="text-xs px-2 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-700 font-medium">
+                {{ topicName(q.topic_id) }}
+              </span>
+              <span
+                :class="[
+                  'text-xs px-2 py-0.5 rounded border font-medium',
+                  q.visibility === 'private'
+                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                ]"
+              >
+                {{ q.visibility === 'private' ? 'Riêng tư' : 'Dùng chung' }}
+              </span>
             </div>
             <p class="font-medium text-lg text-gray-800">{{ q.content }}</p>
           </div>
@@ -516,6 +580,43 @@ onMounted(fetchQuestions)
                 <option value="MCQ">Một đáp án đúng</option>
                 <option value="MULTI_SELECT">Nhiều đáp án đúng</option>
               </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label class="block text-sm font-medium mb-1 text-gray-700">Chủ đề</label>
+              <select
+                v-model="formData.topic_id"
+                class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+              >
+                <option :value="null">Chưa có chủ đề</option>
+                <option v-for="topic in topics" :key="topic.id" :value="topic.id">
+                  {{ topic.name }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1 text-gray-700">Tạo chủ đề mới</label>
+              <input
+                v-model="formData.new_topic_name"
+                class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="Nhập nếu muốn tạo nhanh"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2 text-gray-700">Phạm vi ngân hàng</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex items-center gap-2 rounded-lg border border-gray-300 bg-white p-2.5 text-sm cursor-pointer hover:bg-gray-50">
+                <input v-model="formData.visibility" type="radio" value="public" class="w-4 h-4 accent-blue-600" />
+                <span>Dùng chung</span>
+              </label>
+              <label class="flex items-center gap-2 rounded-lg border border-gray-300 bg-white p-2.5 text-sm cursor-pointer hover:bg-gray-50">
+                <input v-model="formData.visibility" type="radio" value="private" class="w-4 h-4 accent-blue-600" />
+                <span>Riêng tư</span>
+              </label>
             </div>
           </div>
 

@@ -22,7 +22,16 @@ export interface Question {
   difficulty: 'EASY' | 'MEDIUM' | 'HARD' 
   options: Record<string, string> | null
   correct_answer?: string
+  topic_id?: number | null
+  visibility?: 'public' | 'private'
   created_by: number
+}
+
+export interface QuestionTopic {
+  id: number
+  name: string
+  description?: string | null
+  created_by?: number | null
 }
 
 

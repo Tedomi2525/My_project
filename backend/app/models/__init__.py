@@ -5,6 +5,7 @@ from .student import Student
 from .classroom import Class
 from .class_student import ClassStudent
 from .question import Question
+from .question_topic import QuestionTopic
 from .exam import Exam
 from .exam_question import ExamQuestion
 from .exam_allowed_class import ExamAllowedClass

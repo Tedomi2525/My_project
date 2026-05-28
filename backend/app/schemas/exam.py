@@ -12,6 +12,17 @@ from datetime import datetime, timedelta, timezone
 EXAM_STATUSES = {"draft", "published", "closed"}
 
 
+def unique_ints(values) -> List[int]:
+    result = []
+    seen = set()
+    for value in values or []:
+        item = int(value)
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
 # =====================================================
 # Base Schema
 # =====================================================
@@ -149,15 +160,15 @@ class ExamResponse(BaseModel):
     @classmethod
     def extract_class_ids(cls, v):
         if v and isinstance(v, list) and hasattr(v[0], "class_id"):
-            return [item.class_id for item in v]
-        return v or []
+            return unique_ints(item.class_id for item in v)
+        return unique_ints(v)
 
     # ===== Extract question_id from ExamQuestion =====
     @field_validator("exam_questions", mode="before")
     @classmethod
     def extract_question_ids(cls, v):
         if v and isinstance(v, list) and hasattr(v[0], "question_id"):
-            return [item.question_id for item in v]
-        return v or []
+            return unique_ints(item.question_id for item in v)
+        return unique_ints(v)
 
     model_config = ConfigDict(from_attributes=True)
