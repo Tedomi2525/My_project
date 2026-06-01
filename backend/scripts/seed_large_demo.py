@@ -23,8 +23,8 @@ from app.models.teacher import Teacher  # noqa: E402
 from app.services.account_service import AccountService  # noqa: E402
 
 
-TEACHER_COUNT = 7
-STUDENT_COUNT = 75
+TEACHER_COUNT = 10
+STUDENT_COUNT = 200
 CLASS_COUNT = 14
 QUESTION_COUNT = 210
 EXAM_COUNT = 10

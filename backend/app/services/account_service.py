@@ -92,10 +92,6 @@ class AccountService:
         role: str,
         student_code: str | None = None,
     ) -> None:
-        existing = db.execute(
-            text("SELECT id FROM `user` WHERE id = :id"),
-            {"id": user_id},
-        ).first()
         params = {
             "id": user_id,
             "username": username,
@@ -106,29 +102,19 @@ class AccountService:
             "student_code": student_code,
         }
 
-        if existing:
-            db.execute(
-                text(
-                    """
-                    UPDATE `user`
-                    SET username = :username,
-                        email = :email,
-                        password = :password,
-                        full_name = :full_name,
-                        role = :role,
-                        student_code = :student_code
-                    WHERE id = :id
-                    """
-                ),
-                params,
-            )
-            return
-
         db.execute(
             text(
                 """
                 INSERT INTO `user` (id, username, email, password, full_name, role, student_code)
                 VALUES (:id, :username, :email, :password, :full_name, :role, :student_code)
+                ON DUPLICATE KEY UPDATE
+                    id = VALUES(id),
+                    username = VALUES(username),
+                    email = VALUES(email),
+                    password = VALUES(password),
+                    full_name = VALUES(full_name),
+                    role = VALUES(role),
+                    student_code = VALUES(student_code)
                 """
             ),
             params,

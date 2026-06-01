@@ -12,6 +12,10 @@ class ClassUpdate(BaseModel):
     description: Optional[str] = None
 
 
+class ClassStudentsBulkAdd(BaseModel):
+    student_ids: List[int] = Field(default_factory=list)
+
+
 class StudentInClassResponse(BaseModel):
     id: int
     full_name: str

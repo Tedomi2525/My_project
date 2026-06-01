@@ -120,6 +120,48 @@ class ClassService:
         db.commit()
 
     @staticmethod
+    def add_students(db: Session, class_id: int, student_ids: list[int]):
+        unique_student_ids = list(dict.fromkeys(student_ids))
+        if not unique_student_ids:
+            raise HTTPException(status_code=400, detail="No students selected")
+
+        students = db.query(Student).filter(
+            Student.id.in_(unique_student_ids)
+        ).all()
+        found_ids = {student.id for student in students}
+        missing_ids = [student_id for student_id in unique_student_ids if student_id not in found_ids]
+
+        if missing_ids:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Student not found: {', '.join(map(str, missing_ids))}"
+            )
+
+        existing_ids = {
+            row.student_id
+            for row in db.query(ClassStudent.student_id).filter(
+                ClassStudent.class_id == class_id,
+                ClassStudent.student_id.in_(unique_student_ids)
+            ).all()
+        }
+
+        new_links = [
+            ClassStudent(class_id=class_id, student_id=student_id)
+            for student_id in unique_student_ids
+            if student_id not in existing_ids
+        ]
+
+        if new_links:
+            db.add_all(new_links)
+            db.commit()
+
+        return {
+            "requested": len(unique_student_ids),
+            "added": len(new_links),
+            "skipped": len(existing_ids)
+        }
+
+    @staticmethod
     def remove_student(db: Session, class_id: int, student_id: int):
         link = db.query(ClassStudent).filter(
             ClassStudent.class_id == class_id,

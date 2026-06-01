@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Search, Plus, Edit2, Trash2, Filter, Upload } from 'lucide-vue-next'
+import { Search, Plus, Edit2, Trash2, Filter, Upload, Sparkles } from 'lucide-vue-next'
 import type { Question, QuestionTopic } from '~/types'
 
 definePageMeta({ layout: 'teacher' })
@@ -130,6 +130,120 @@ const getDiffLabel = (level: string) => {
     HARD: 'Khó'
   }
   return map[level] || 'Dễ'
+}
+
+const difficultySignals = {
+  EASY: [
+    'la gi',
+    'la ai',
+    'o dau',
+    'khi nao',
+    'bao nhieu',
+    'chon dap an dung',
+    'nhan biet',
+    'dinh nghia',
+    'ke ten',
+    'liet ke',
+    'nêu',
+    'nhớ',
+    'xác định'
+  ],
+  MEDIUM: [
+    'giai thich',
+    'vi sao',
+    'tai sao',
+    'phan biet',
+    'so sanh',
+    'ap dung',
+    'tinh',
+    'tinh toan',
+    'phan tich',
+    'mô tả',
+    'giải thích',
+    'so sánh',
+    'áp dụng',
+    'phân tích'
+  ],
+  HARD: [
+    'chung minh',
+    'danh gia',
+    'nhan xet',
+    'toi uu',
+    'thiet ke',
+    'de xuat',
+    'suy luan',
+    'van dung cao',
+    'tinh huong',
+    'phuc tap',
+    'chứng minh',
+    'đánh giá',
+    'tối ưu',
+    'thiết kế',
+    'đề xuất',
+    'suy luận',
+    'tình huống',
+    'phức tạp'
+  ]
+}
+
+const normalizeText = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'd')
+
+const countKeywordHits = (source: string, keywords: string[]) =>
+  keywords.filter((keyword) => source.includes(normalizeText(keyword))).length
+
+const suggestedDifficulty = computed(() => {
+  const content = formData.content.trim()
+  const optionTexts = Object.values(formData.options || {}).join(' ')
+  const source = normalizeText(`${content} ${optionTexts}`)
+
+  if (!content) return null
+
+  const scores: Record<'EASY' | 'MEDIUM' | 'HARD', number> = {
+    EASY: countKeywordHits(source, difficultySignals.EASY),
+    MEDIUM: countKeywordHits(source, difficultySignals.MEDIUM),
+    HARD: countKeywordHits(source, difficultySignals.HARD)
+  }
+
+  const wordCount = source.split(/\s+/).filter(Boolean).length
+  const filledOptionCount = Object.values(formData.options || {}).filter((value) => value.trim()).length
+
+  if (wordCount >= 35) scores.HARD += 1
+  if (wordCount >= 18) scores.MEDIUM += 1
+  if (formData.question_type === 'MULTI_SELECT') scores.MEDIUM += 1
+  if (filledOptionCount >= 5) scores.MEDIUM += 1
+
+  if (scores.HARD >= 2 || scores.HARD > scores.MEDIUM) return 'HARD'
+  if (scores.MEDIUM >= 1 || scores.HARD === 1) return 'MEDIUM'
+  return 'EASY'
+})
+
+const suggestedDifficultyReason = computed(() => {
+  if (!suggestedDifficulty.value) return ''
+
+  const source = normalizeText(`${formData.content} ${Object.values(formData.options || {}).join(' ')}`)
+  const matchedKeywords = difficultySignals[suggestedDifficulty.value]
+    .filter((keyword) => source.includes(normalizeText(keyword)))
+    .slice(0, 3)
+
+  if (matchedKeywords.length) {
+    return `Từ khóa: ${matchedKeywords.join(', ')}`
+  }
+
+  if (suggestedDifficulty.value === 'HARD') return 'Câu hỏi dài hoặc cần suy luận nhiều bước.'
+  if (suggestedDifficulty.value === 'MEDIUM') return 'Câu hỏi có độ dài/kiểu trả lời ở mức vận dụng.'
+  return 'Câu hỏi thiên về nhận biết hoặc ghi nhớ.'
+})
+
+const applySuggestedDifficulty = () => {
+  if (suggestedDifficulty.value) {
+    formData.difficulty = suggestedDifficulty.value
+  }
 }
 
 const currentAnswerKeys = computed(() => answerKeys.slice(0, formData.option_count))
@@ -580,6 +694,36 @@ onMounted(async () => {
                 <option value="MCQ">Một đáp án đúng</option>
                 <option value="MULTI_SELECT">Nhiều đáp án đúng</option>
               </select>
+            </div>
+          </div>
+
+          <div
+            v-if="suggestedDifficulty"
+            class="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-sm text-indigo-950"
+          >
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <Sparkles class="h-4 w-4 text-indigo-600" />
+                  <span class="font-semibold">Gợi ý độ khó</span>
+                  <span
+                    class="rounded border px-2 py-0.5 text-xs font-medium"
+                    :class="getDiffColor(suggestedDifficulty)"
+                  >
+                    {{ getDiffLabel(suggestedDifficulty) }}
+                  </span>
+                </div>
+                <p class="mt-1 text-xs text-indigo-800">{{ suggestedDifficultyReason }}</p>
+              </div>
+              <button
+                type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="formData.difficulty === suggestedDifficulty"
+                @click="applySuggestedDifficulty"
+              >
+                <Sparkles class="h-4 w-4" />
+                Áp dụng
+              </button>
             </div>
           </div>
 

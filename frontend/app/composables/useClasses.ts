@@ -118,6 +118,16 @@ export const useClasses = (
     return getClassDetail(classId)
   }
 
+  const addStudents = async (classId: number, studentIds: number[]) => {
+    await $fetch(`/classes/${classId}/students/bulk`, {
+      method: 'POST',
+      body: { student_ids: studentIds },
+      baseURL: config.public.apiBase,
+      headers: authHeader()
+    })
+    return getClassDetail(classId)
+  }
+
   return {
     classes,
     loading,
@@ -128,6 +138,7 @@ export const useClasses = (
     deleteClass,
     removeStudent,
     getAvailableStudents,
-    addStudent
+    addStudent,
+    addStudents
   }
 }

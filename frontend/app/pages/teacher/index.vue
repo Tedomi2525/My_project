@@ -19,7 +19,8 @@ const {
   deleteClass,
   removeStudent,
   getAvailableStudents,
-  addStudent
+  addStudent,
+  addStudents
 } = useClasses(
   computed(() => user.value?.id),
   computed(() => user.value?.role)
@@ -36,9 +37,12 @@ const selectedClass = ref<Class | null>(null)
 const searchTerm = ref('')
 
 const availableStudents = ref<any[]>([])
-const selectedStudentId = ref<number | null>(null)
 const processingStudentId = ref<number | null>(null)
+const selectedAvailableStudentIds = ref<number[]>([])
+const addingSelectedStudents = ref(false)
 const studentModalError = ref('')
+const classStudentSearchTerm = ref('')
+const availableStudentSearchTerm = ref('')
 
 const filteredClasses = computed(() => {
   const keyword = (searchTerm.value || '').trim().toLowerCase()
@@ -51,6 +55,53 @@ const filteredClasses = computed(() => {
   })
 })
 
+const matchesStudentKeyword = (student: AvailableStudent, keyword: string) => {
+  const normalizedKeyword = keyword.trim().toLowerCase()
+  if (!normalizedKeyword) return true
+
+  return [
+    student.full_name,
+    student.student_code,
+    'email' in student ? String(student.email || '') : ''
+  ].some((value) => (value || '').toLowerCase().includes(normalizedKeyword))
+}
+
+const filteredClassStudents = computed(() => {
+  if (!selectedClass.value) return []
+  return selectedClass.value.students.filter((student) =>
+    matchesStudentKeyword(student, classStudentSearchTerm.value)
+  )
+})
+
+const filteredAvailableStudents = computed(() =>
+  availableStudents.value.filter((student) =>
+    matchesStudentKeyword(student, availableStudentSearchTerm.value)
+  )
+)
+
+const selectableVisibleStudentIds = computed(() =>
+  filteredAvailableStudents.value.map((student) => student.id)
+)
+
+const isAllVisibleStudentsSelected = computed(() => {
+  const visibleIds = selectableVisibleStudentIds.value
+  return visibleIds.length > 0 && visibleIds.every((id) => selectedAvailableStudentIds.value.includes(id))
+})
+
+const refreshStudentLists = async (classId: number) => {
+  const updated = await getClassDetail(classId)
+  selectedClass.value = updated
+
+  const cls = classes.value.find(c => c.id === updated.id)
+  if (cls) {
+    cls.student_count = updated.student_count
+  }
+
+  availableStudents.value = await getAvailableStudents(updated.id)
+  selectedAvailableStudentIds.value = selectedAvailableStudentIds.value.filter((id) =>
+    availableStudents.value.some((student) => student.id === id)
+  )
+}
 
 /* ================= LOAD ================= */
 onMounted(() => {
@@ -99,7 +150,9 @@ const openStudents = async (cls: Class) => {
   studentModalError.value = ''
   selectedClass.value = await getClassDetail(cls.id)
   availableStudents.value = await getAvailableStudents(cls.id)
-  selectedStudentId.value = null
+  selectedAvailableStudentIds.value = []
+  classStudentSearchTerm.value = ''
+  availableStudentSearchTerm.value = ''
 }
 
 const handleAddStudent = async (studentId: number) => {
@@ -120,10 +173,47 @@ const handleAddStudent = async (studentId: number) => {
     }
 
     availableStudents.value = await getAvailableStudents(updated.id)
+    selectedAvailableStudentIds.value = selectedAvailableStudentIds.value.filter((id) => id !== studentId)
   } catch (err: any) {
     studentModalError.value = err?.data?.detail || err.message || 'Không thể thêm sinh viên vào lớp'
   } finally {
     processingStudentId.value = null
+  }
+}
+
+const toggleVisibleStudents = () => {
+  const visibleIds = selectableVisibleStudentIds.value
+  if (isAllVisibleStudentsSelected.value) {
+    selectedAvailableStudentIds.value = selectedAvailableStudentIds.value.filter((id) => !visibleIds.includes(id))
+    return
+  }
+
+  selectedAvailableStudentIds.value = Array.from(new Set([
+    ...selectedAvailableStudentIds.value,
+    ...visibleIds
+  ]))
+}
+
+const handleAddSelectedStudents = async () => {
+  if (!selectedClass.value || addingSelectedStudents.value || !selectedAvailableStudentIds.value.length) return
+
+  addingSelectedStudents.value = true
+  studentModalError.value = ''
+  try {
+    const updated = await addStudents(selectedClass.value.id, selectedAvailableStudentIds.value)
+    selectedClass.value = updated
+
+    const cls = classes.value.find(c => c.id === updated.id)
+    if (cls) {
+      cls.student_count = updated.student_count
+    }
+
+    availableStudents.value = await getAvailableStudents(updated.id)
+    selectedAvailableStudentIds.value = []
+  } catch (err: any) {
+    studentModalError.value = err?.data?.detail || err.message || 'Không thể thêm danh sách sinh viên vào lớp'
+  } finally {
+    addingSelectedStudents.value = false
   }
 }
 
@@ -134,19 +224,11 @@ const handleRemoveStudent = async (studentId: number) => {
   processingStudentId.value = studentId
   studentModalError.value = ''
   try {
-    const updated = await removeStudent(
+    await removeStudent(
       selectedClass.value.id,
       studentId
     )
-
-    selectedClass.value = updated
-
-    const cls = classes.value.find(c => c.id === updated.id)
-    if (cls) {
-      cls.student_count = updated.student_count
-    }
-
-    availableStudents.value = await getAvailableStudents(updated.id)
+    await refreshStudentLists(selectedClass.value.id)
   } catch (err: any) {
     studentModalError.value = err?.data?.detail || err.message || 'Không thể cập nhật danh sách sinh viên'
   } finally {
@@ -248,7 +330,7 @@ const handleRemoveStudent = async (studentId: number) => {
 
     <!-- STUDENT MODAL -->
     <div v-if="selectedClass" class="modal-overlay">
-      <div class="modal-card max-h-[90vh] max-w-lg overflow-y-auto">
+      <div class="modal-card max-h-[90vh] max-w-2xl overflow-y-auto">
         <h2 class="mb-1 font-bold text-xl">
           Quản lý sinh viên – {{ selectedClass.name }}
         </h2>
@@ -262,12 +344,26 @@ const handleRemoveStudent = async (studentId: number) => {
           Sinh viên trong lớp ({{ selectedClass.student_count }})
         </p>
 
+        <div v-if="selectedClass.students.length" class="relative mb-3">
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            v-model="classStudentSearchTerm"
+            type="text"
+            placeholder="Tìm sinh viên trong lớp..."
+            class="input-field pl-9 pr-4"
+          />
+        </div>
+
         <div v-if="!selectedClass.students.length" class="text-center text-gray-500 mb-4">
           Chưa có sinh viên
         </div>
 
+        <div v-else-if="!filteredClassStudents.length" class="text-center text-gray-500 mb-6">
+          Không tìm thấy sinh viên phù hợp
+        </div>
+
         <div v-else class="space-y-2 mb-6">
-          <div v-for="st in selectedClass.students" :key="st.id"
+          <div v-for="st in filteredClassStudents" :key="st.id"
             class="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
             <div>
               <div class="font-medium">{{ st.full_name }}</div>
@@ -291,24 +387,72 @@ const handleRemoveStudent = async (studentId: number) => {
           Thêm sinh viên
         </p>
 
+        <div v-if="availableStudents.length" class="mb-3 flex flex-col gap-3 sm:flex-row">
+          <div class="relative flex-1">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              v-model="availableStudentSearchTerm"
+              type="text"
+              placeholder="Tìm sinh viên để thêm..."
+              class="input-field pl-9 pr-4"
+            />
+          </div>
+
+          <button
+            @click="handleAddSelectedStudents"
+            class="btn-primary whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="addingSelectedStudents || !selectedAvailableStudentIds.length"
+          >
+            <UserPlus class="w-4 h-4" />
+            Thêm {{ selectedAvailableStudentIds.length || '' }}
+          </button>
+        </div>
+
+        <div v-if="availableStudents.length" class="mb-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm text-gray-600">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              class="h-4 w-4 accent-blue-600"
+              :checked="isAllVisibleStudentsSelected"
+              :disabled="!filteredAvailableStudents.length"
+              @change="toggleVisibleStudents"
+            />
+            Chọn tất cả đang hiển thị
+          </label>
+          <span>{{ selectedAvailableStudentIds.length }} đã chọn</span>
+        </div>
+
         <div v-if="!availableStudents.length" class="text-gray-500 mb-4">
           Không còn sinh viên để thêm
         </div>
 
+        <div v-else-if="!filteredAvailableStudents.length" class="text-gray-500 mb-4">
+          Không tìm thấy sinh viên phù hợp
+        </div>
+
         <div v-else class="space-y-2 mb-6">
-          <div v-for="st in availableStudents" :key="st.id"
+          <div v-for="st in filteredAvailableStudents" :key="st.id"
             class="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
-            <div>
-              <div class="font-medium">{{ st.full_name }}</div>
-              <div class="text-sm text-gray-500">
-                {{ st.student_code || 'N/A' }}
+            <label class="flex min-w-0 flex-1 items-center gap-3 cursor-pointer">
+              <input
+                v-model="selectedAvailableStudentIds"
+                type="checkbox"
+                class="h-4 w-4 shrink-0 accent-blue-600"
+                :value="st.id"
+              />
+              <div class="min-w-0">
+                <div class="font-medium truncate">{{ st.full_name }}</div>
+                <div class="text-sm text-gray-500">
+                  {{ st.student_code || 'N/A' }}
+                </div>
               </div>
-            </div>
+            </label>
 
             <button
               @click="handleAddStudent(st.id)"
-              class="text-green-600 hover:bg-green-50 p-2 rounded disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="processingStudentId !== null"
+              class="ml-3 text-green-600 hover:bg-green-50 p-2 rounded disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="processingStudentId !== null || addingSelectedStudents"
+              title="Thêm sinh viên này"
             >
               <UserPlus class="w-4 h-4" />
             </button>

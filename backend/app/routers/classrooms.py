@@ -10,7 +10,8 @@ from app.schemas.classroom import (
     ClassCreate,
     ClassUpdate,
     ClassResponse,
-    ClassDetailResponse
+    ClassDetailResponse,
+    ClassStudentsBulkAdd
 )
 from app.services.classroom_service import ClassService
 
@@ -112,6 +113,26 @@ def delete_class(
 
     ClassService.delete_class(db, class_id)
     return {"message": "Class deleted successfully"}
+
+
+@router.post("/{class_id}/students/bulk")
+def add_students(
+    class_id: int,
+    data: ClassStudentsBulkAdd,
+    db: Session = Depends(get_db),
+    current_teacher=Depends(get_current_teacher)
+):
+    cls = ClassService.get_class(db, class_id)
+
+    if cls["teacher_id"] != current_teacher.id:
+        raise HTTPException(status_code=403, detail="Not your class")
+
+    result = ClassService.add_students(
+        db=db,
+        class_id=class_id,
+        student_ids=data.student_ids
+    )
+    return {"message": "Students added", **result}
 
 
 @router.post("/{class_id}/students/{student_id}")
