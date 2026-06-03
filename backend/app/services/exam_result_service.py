@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, case
+from sqlalchemy import func, case, and_
 from typing import List
 from datetime import datetime
 from fastapi import HTTPException, status
@@ -12,6 +12,8 @@ from app.models.exam import Exam
 from app.models.exam_allowed_class import ExamAllowedClass
 from app.models.class_student import ClassStudent
 from app.models.exam_session import ExamSession
+from app.models.question_topic import QuestionTopic
+from app.models.student import Student
 from app.schemas.exam_result_detail import ExamResultDetailBase
 
 
@@ -415,5 +417,178 @@ class ResultService:
                     "wrong_rate": wrong / total if total else 0.0,
                 }
             )
+
+        return result
+
+    @staticmethod
+    def get_student_exam_analytics(db: Session, student_id: int):
+        rows = (
+            db.query(
+                ExamResult.id.label("result_id"),
+                ExamResult.exam_id,
+                Exam.title.label("exam_title"),
+                ExamResult.student_id,
+                ExamResult.finished_at,
+                Student.full_name.label("student_name"),
+                Student.student_code,
+                ExamResult.total_score,
+                Question.topic_id,
+                QuestionTopic.name.label("topic_name"),
+                Question.difficulty,
+                func.count(ExamQuestion.question_id).label("total"),
+                func.sum(
+                    case(
+                        (ExamResultDetail.is_correct.is_(True), 1),
+                        else_=0,
+                    )
+                ).label("correct"),
+            )
+            .join(Exam, Exam.id == ExamResult.exam_id)
+            .join(Student, Student.id == ExamResult.student_id)
+            .join(ExamQuestion, ExamQuestion.exam_id == ExamResult.exam_id)
+            .join(Question, Question.id == ExamQuestion.question_id)
+            .outerjoin(
+                ExamResultDetail,
+                and_(
+                    ExamResultDetail.result_id == ExamResult.id,
+                    ExamResultDetail.question_id == Question.id,
+                ),
+            )
+            .outerjoin(QuestionTopic, QuestionTopic.id == Question.topic_id)
+            .filter(ExamResult.student_id == student_id)
+            .group_by(
+                ExamResult.id,
+                ExamResult.exam_id,
+                Exam.title,
+                ExamResult.student_id,
+                ExamResult.finished_at,
+                Student.full_name,
+                Student.student_code,
+                ExamResult.total_score,
+                Question.topic_id,
+                QuestionTopic.name,
+                Question.difficulty,
+            )
+            .order_by(ExamResult.finished_at.desc(), ExamResult.id.desc())
+            .all()
+        )
+
+        if not rows:
+            rows = (
+                db.query(
+                    ExamResult.id.label("result_id"),
+                    ExamResult.exam_id,
+                    Exam.title.label("exam_title"),
+                    ExamResult.student_id,
+                    ExamResult.finished_at,
+                    Student.full_name.label("student_name"),
+                    Student.student_code,
+                    ExamResult.total_score,
+                    Question.topic_id,
+                    QuestionTopic.name.label("topic_name"),
+                    Question.difficulty,
+                    func.count(ExamResultDetail.id).label("total"),
+                    func.sum(
+                        case(
+                            (ExamResultDetail.is_correct.is_(True), 1),
+                            else_=0,
+                        )
+                    ).label("correct"),
+                )
+                .join(Exam, Exam.id == ExamResult.exam_id)
+                .join(Student, Student.id == ExamResult.student_id)
+                .join(ExamResultDetail, ExamResultDetail.result_id == ExamResult.id)
+                .join(Question, Question.id == ExamResultDetail.question_id)
+                .outerjoin(QuestionTopic, QuestionTopic.id == Question.topic_id)
+                .filter(ExamResult.student_id == student_id)
+                .group_by(
+                    ExamResult.id,
+                    ExamResult.exam_id,
+                    Exam.title,
+                    ExamResult.student_id,
+                    ExamResult.finished_at,
+                    Student.full_name,
+                    Student.student_code,
+                    ExamResult.total_score,
+                    Question.topic_id,
+                    QuestionTopic.name,
+                    Question.difficulty,
+                )
+                .order_by(ExamResult.finished_at.desc(), ExamResult.id.desc())
+                .all()
+            )
+
+        analytics_by_result = {}
+
+        for row in rows:
+            result_id = row.result_id
+            if result_id not in analytics_by_result:
+                analytics_by_result[result_id] = {
+                    "result_id": result_id,
+                    "exam_id": row.exam_id,
+                    "exam_title": row.exam_title or f"Exam #{row.exam_id}",
+                    "student_id": row.student_id,
+                    "student_name": row.student_name or f"Student #{row.student_id}",
+                    "student_code": row.student_code or "",
+                    "total_score": row.total_score or 0.0,
+                    "correct_answers": 0,
+                    "total_questions": 0,
+                    "correct_rate": 0.0,
+                    "by_topic": {},
+                    "by_difficulty": {},
+                }
+
+            item = analytics_by_result[result_id]
+            total = int(row.total or 0)
+            correct = int(row.correct or 0)
+
+            item["total_questions"] += total
+            item["correct_answers"] += correct
+
+            topic_key = str(row.topic_id) if row.topic_id is not None else "NO_TOPIC"
+            topic_label = row.topic_name or "Chưa có chủ đề"
+            diff_key = row.difficulty.value if row.difficulty else "UNKNOWN"
+
+            for group_name, key, label in (
+                ("by_topic", topic_key, topic_label),
+                ("by_difficulty", diff_key, diff_key),
+            ):
+                bucket = item[group_name].setdefault(
+                    key,
+                    {
+                        "key": key,
+                        "label": label,
+                        "correct": 0,
+                        "total": 0,
+                        "correct_rate": 0.0,
+                    },
+                )
+                bucket["correct"] += correct
+                bucket["total"] += total
+
+        result = []
+        difficulty_order = {"EASY": 0, "MEDIUM": 1, "HARD": 2, "UNKNOWN": 3}
+
+        for item in analytics_by_result.values():
+            total_questions = item["total_questions"]
+            item["correct_rate"] = (
+                item["correct_answers"] / total_questions if total_questions else 0.0
+            )
+
+            for group_name in ("by_topic", "by_difficulty"):
+                for bucket in item[group_name].values():
+                    bucket["correct_rate"] = (
+                        bucket["correct"] / bucket["total"] if bucket["total"] else 0.0
+                    )
+
+            item["by_topic"] = sorted(
+                item["by_topic"].values(),
+                key=lambda bucket: bucket["label"],
+            )
+            item["by_difficulty"] = sorted(
+                item["by_difficulty"].values(),
+                key=lambda bucket: difficulty_order.get(bucket["key"], 99),
+            )
+            result.append(item)
 
         return result

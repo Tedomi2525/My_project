@@ -11,6 +11,7 @@ const tokenCookie = useCookie<string | null>('token')
 
 const results = ref<ExamResult[]>([])
 const exams = ref<Exam[]>([])
+const analytics = ref<StudentExamAnalytics[]>([])
 const loading = ref(true)
 const error = ref('')
 const loadingReview = ref(false)
@@ -38,6 +39,29 @@ interface ReviewPayload {
   questions: ReviewQuestion[]
 }
 
+interface StudentAnalyticsBucket {
+  key: string
+  label: string
+  correct: number
+  total: number
+  correct_rate: number
+}
+
+interface StudentExamAnalytics {
+  result_id: number
+  exam_id: number
+  exam_title: string
+  student_id: number
+  student_name: string
+  student_code: string
+  total_score: number
+  correct_answers: number
+  total_questions: number
+  correct_rate: number
+  by_topic: StudentAnalyticsBucket[]
+  by_difficulty: StudentAnalyticsBucket[]
+}
+
 const selectedReview = ref<ReviewPayload | null>(null)
 
 const studentResults = computed(() =>
@@ -49,6 +73,7 @@ const studentResults = computed(() =>
 )
 
 const examMap = computed(() => new Map(exams.value.map(exam => [exam.id, exam])))
+const analyticsByResult = computed(() => new Map(analytics.value.map(item => [item.result_id, item])))
 
 const avgScore = computed(() => {
   if (!studentResults.value.length) return '0.0'
@@ -60,6 +85,12 @@ const maxScore = computed(() => {
   if (!studentResults.value.length) return 0
   return Math.max(...studentResults.value.map(r => r.total_score))
 })
+
+const analyticsRows = computed(() =>
+  studentResults.value
+    .map(result => analyticsByResult.value.get(result.id))
+    .filter(Boolean) as StudentExamAnalytics[]
+)
 
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return 'Không xác định'
@@ -88,6 +119,16 @@ const parseAnswerKeys = (value?: string) => {
 
 const hasAnswerKey = (value: string | undefined, key: string) => {
   return parseAnswerKeys(value).includes(key)
+}
+
+const difficultyLabel = (difficulty: string) => {
+  const labels: Record<string, string> = {
+    EASY: 'Dễ',
+    MEDIUM: 'Trung bình',
+    HARD: 'Khó',
+    UNKNOWN: 'Không rõ'
+  }
+  return labels[difficulty] || difficulty
 }
 
 const loadReview = async (resultId: number) => {
@@ -145,6 +186,16 @@ const loadHistory = async () => {
 
     results.value = historyRes || []
     exams.value = examsRes || []
+
+    try {
+      analytics.value = await $fetch<StudentExamAnalytics[]>(`/results/student/${user.value.id}/analytics`, {
+        baseURL: config.public.apiBase,
+        headers
+      })
+    } catch (analyticsErr) {
+      console.error('Lỗi tải phân tích kết quả:', analyticsErr)
+      analytics.value = []
+    }
   } catch (err) {
     console.error('Lỗi tải lịch sử thi:', err)
     error.value = 'Không tải được lịch sử thi'
@@ -188,7 +239,75 @@ onMounted(loadHistory)
         Bạn chưa có bài thi nào
       </div>
 
-      <div v-else class="bg-white rounded shadow overflow-hidden">
+      <div v-else class="bg-white rounded shadow p-6 mb-6">
+        <h3 class="mb-4 font-bold text-lg">Phân tích kết quả của bạn</h3>
+        <div v-if="analyticsRows.length === 0" class="text-gray-500 text-center py-6">
+          Chưa có dữ liệu phân tích.
+        </div>
+        <div v-else class="space-y-4">
+          <div
+            v-for="item in analyticsRows"
+            :key="item.result_id"
+            class="rounded-lg border border-gray-200 p-4"
+          >
+            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h4 class="font-semibold text-gray-900">{{ examTitle(item.exam_id) }}</h4>
+                <p class="text-sm text-gray-500">
+                  Đúng {{ item.correct_answers }}/{{ item.total_questions }} câu
+                  ({{ (item.correct_rate * 100).toFixed(1) }}%)
+                </p>
+              </div>
+              <span :class="['w-fit px-3 py-1 rounded-full text-sm font-bold', item.total_score >= 8 ? 'bg-green-100 text-green-700' : item.total_score >= 5 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700']">
+                {{ item.total_score.toFixed(1) }} điểm
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div>
+                <p class="mb-2 text-sm font-semibold text-gray-700">Theo chủ đề</p>
+                <div class="space-y-2">
+                  <div
+                    v-for="bucket in item.by_topic"
+                    :key="bucket.key"
+                    class="rounded border border-gray-200 bg-gray-50 px-3 py-2"
+                  >
+                    <div class="flex justify-between gap-3 text-sm">
+                      <span class="font-medium text-gray-700">{{ bucket.label }}</span>
+                      <span class="font-semibold">{{ bucket.correct }}/{{ bucket.total }}</span>
+                    </div>
+                    <div class="mt-2 h-1.5 rounded-full bg-gray-200">
+                      <div
+                        class="h-1.5 rounded-full bg-blue-500"
+                        :style="{ width: `${Math.round(bucket.correct_rate * 100)}%` }"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p class="mb-2 text-sm font-semibold text-gray-700">Theo mức độ</p>
+                <div class="space-y-2">
+                  <div
+                    v-for="bucket in item.by_difficulty"
+                    :key="bucket.key"
+                    class="flex items-center justify-between gap-3 rounded border border-gray-200 px-3 py-2 text-sm"
+                  >
+                    <span class="font-medium text-gray-700">{{ difficultyLabel(bucket.key) }}</span>
+                    <span class="font-semibold">
+                      {{ bucket.correct }}/{{ bucket.total }}
+                      <span class="text-xs text-gray-500">({{ (bucket.correct_rate * 100).toFixed(1) }}%)</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="studentResults.length > 0" class="bg-white rounded shadow overflow-hidden">
         <table class="w-full">
           <thead class="bg-gray-50 border-b">
             <tr>

@@ -12,6 +12,7 @@ from app.schemas.exam_result_teacher import ExamResultTeacherResponse
 from app.schemas.result_review import ResultReviewResponse
 from app.schemas.student_difficulty_stats import StudentDifficultyStatsResponse
 from app.schemas.question_analytics import QuestionAnalyticsResponse
+from app.schemas.student_exam_analytics import StudentExamAnalyticsResponse
 from app.services.exam_result_service import ResultService
 
 router = APIRouter(prefix="/results", tags=["Results"])
@@ -130,6 +131,21 @@ def get_student_difficulty_stats(
         )
 
     return ResultService.get_student_difficulty_stats(db, student_id)
+
+
+@router.get("/student/{student_id}/analytics", response_model=List[StudentExamAnalyticsResponse])
+def get_student_exam_analytics(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    if get_role_name(current_user) != "student" or current_user.id != student_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only view your own analytics"
+        )
+
+    return ResultService.get_student_exam_analytics(db, student_id)
 
 
 @router.get("/exam/{exam_id}", response_model=List[ExamResultTeacherResponse])

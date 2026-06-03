@@ -11,3 +11,4 @@ from .exam_result import ExamResultCreate, ExamResultResponse
 from .exam_result_detail import ExamResultDetailCreate, ExamResultDetailResponse
 from .auth import LoginRequest, TokenResponse
 from .student_difficulty_stats import StudentDifficultyStatsResponse
+from .student_exam_analytics import StudentExamAnalyticsResponse
