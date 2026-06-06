@@ -19,6 +19,10 @@ const editingQuestion = ref<Question | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const importSummary = ref<null | { importedCount: number; totalRows: number }>(null)
 const importErrors = ref<Array<{ row: number; message: string }>>([])
+const showSuggestionModal = ref(false)
+const suggestionLoading = ref(false)
+const suggestionError = ref('')
+const generatedSuggestions = ref<GeneratedQuestionSuggestion[]>([])
 const topics = ref<QuestionTopic[]>([])
 const maxOptionCount = 10
 const answerKeys = Array.from({ length: maxOptionCount }, (_, index) =>
@@ -36,6 +40,24 @@ const formData = reactive({
   topic_id: null as number | null,
   visibility: 'public' as 'public' | 'private',
   new_topic_name: ''
+})
+
+interface GeneratedQuestionSuggestion {
+  content: string
+  question_type: string
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD'
+  options: Record<string, string>
+  correct_answer: string
+  topic_id: number | null
+  source_question_id: number
+  source_content: string
+  reason: string
+}
+
+const suggestionForm = reactive({
+  target_difficulty: 'EASY' as 'EASY' | 'MEDIUM' | 'HARD',
+  topic_id: 'ALL' as number | 'ALL',
+  count: 3
 })
 
 const authHeaders = async () => {
@@ -94,6 +116,16 @@ const importQuestionsFromCsv = (payload: { filename: string; csv_content: string
 
 const createTopic = (payload: { name: string; description?: string }) =>
   api<QuestionTopic>('/questions/topics/', { method: 'POST', body: payload })
+
+const generateQuestionSuggestions = (payload: {
+  target_difficulty: 'EASY' | 'MEDIUM' | 'HARD'
+  topic_id?: number | null
+  count: number
+}) =>
+  api<{ suggestions: GeneratedQuestionSuggestion[]; total_generated: number }>(
+    '/questions/generate-suggestions',
+    { method: 'POST', body: payload }
+  )
 
 const filteredQuestions = computed(() =>
   questions.value.filter((q) => {
@@ -340,6 +372,63 @@ const openEdit = (q: Question) => {
   showModal.value = true
 }
 
+const openSuggestionModal = () => {
+  suggestionError.value = ''
+  generatedSuggestions.value = []
+  suggestionForm.topic_id = selectedTopicId.value === 'ALL' ? 'ALL' : selectedTopicId.value
+  suggestionForm.target_difficulty =
+    selectedDifficulty.value === 'EASY' ||
+    selectedDifficulty.value === 'MEDIUM' ||
+    selectedDifficulty.value === 'HARD'
+      ? selectedDifficulty.value
+      : 'EASY'
+  showSuggestionModal.value = true
+}
+
+const handleGenerateSuggestions = async () => {
+  suggestionLoading.value = true
+  suggestionError.value = ''
+  generatedSuggestions.value = []
+
+  try {
+    const result = await generateQuestionSuggestions({
+      target_difficulty: suggestionForm.target_difficulty,
+      topic_id: suggestionForm.topic_id === 'ALL' ? null : suggestionForm.topic_id,
+      count: Math.min(10, Math.max(1, Number(suggestionForm.count) || 1))
+    })
+    generatedSuggestions.value = result.suggestions || []
+    if (generatedSuggestions.value.length === 0) {
+      suggestionError.value = 'Chua tao duoc goi y phu hop.'
+    }
+  } catch (error: any) {
+    suggestionError.value = error?.data?.detail || error?.message || 'Khong tao duoc goi y cau hoi.'
+  } finally {
+    suggestionLoading.value = false
+  }
+}
+
+const useSuggestionDraft = (suggestion: GeneratedQuestionSuggestion) => {
+  editingQuestion.value = null
+  resetForm()
+  formData.content = suggestion.content
+  formData.question_type = suggestion.question_type || 'MCQ'
+  formData.difficulty = suggestion.difficulty
+  const optionKeys = Object.keys(suggestion.options || {})
+  formData.option_count = normalizeOptionCount(optionKeys.length || 4)
+  formData.options = {
+    ...buildDefaultOptions(formData.option_count),
+    ...(suggestion.options || {})
+  }
+  formData.correct_answer = suggestion.correct_answer || 'A'
+  formData.correct_answers = parseAnswerKeys(suggestion.correct_answer)
+  formData.topic_id = suggestion.topic_id ?? null
+  formData.visibility = 'private'
+  formData.new_topic_name = ''
+  syncOptionCount()
+  showSuggestionModal.value = false
+  showModal.value = true
+}
+
 const triggerImportPicker = () => {
   fileInput.value?.click()
 }
@@ -535,6 +624,14 @@ onMounted(async () => {
       </button>
 
       <button
+        @click="openSuggestionModal"
+        class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+      >
+        <Sparkles class="w-5 h-5" />
+        <span class="hidden sm:inline">Gợi ý câu hỏi</span>
+      </button>
+
+      <button
         @click="openCreate"
         class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
       >
@@ -651,6 +748,126 @@ onMounted(async () => {
               Đúng
             </span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="showSuggestionModal"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
+    >
+      <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="font-bold text-xl flex items-center gap-2">
+            <span class="bg-indigo-100 text-indigo-600 p-1 rounded">
+              <Sparkles class="w-5 h-5" />
+            </span>
+            Gợi ý câu hỏi mới
+          </h2>
+          <button @click="showSuggestionModal = false" class="px-3 py-1.5 rounded-lg border hover:bg-gray-50">
+            Đóng
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div>
+            <label class="block text-sm font-medium mb-1 text-gray-700">Chủ đề</label>
+            <select
+              v-model="suggestionForm.topic_id"
+              class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+            >
+              <option value="ALL">Tất cả chủ đề</option>
+              <option v-for="topic in topics" :key="topic.id" :value="topic.id">
+                {{ topic.name }}
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1 text-gray-700">Mức độ cần sinh</label>
+            <select
+              v-model="suggestionForm.target_difficulty"
+              class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+            >
+              <option value="EASY">Dễ</option>
+              <option value="MEDIUM">Trung bình</option>
+              <option value="HARD">Khó</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1 text-gray-700">Số lượng</label>
+            <input
+              v-model.number="suggestionForm.count"
+              type="number"
+              min="1"
+              max="10"
+              class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div class="flex items-end">
+            <button
+              @click="handleGenerateSuggestions"
+              :disabled="suggestionLoading"
+              class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-white transition hover:bg-indigo-700 disabled:opacity-60"
+            >
+              <Sparkles class="w-4 h-4" />
+              {{ suggestionLoading ? 'Đang gợi ý...' : 'Sinh gợi ý' }}
+            </button>
+          </div>
+        </div>
+
+        <p v-if="suggestionError" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          {{ suggestionError }}
+        </p>
+
+        <div v-if="generatedSuggestions.length" class="mt-6 space-y-4">
+          <div
+            v-for="(suggestion, index) in generatedSuggestions"
+            :key="`${suggestion.source_question_id}-${index}`"
+            class="rounded-lg border border-gray-200 p-4"
+          >
+            <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div class="mb-2 flex flex-wrap items-center gap-2">
+                  <span
+                    class="text-xs px-2 py-0.5 rounded border font-medium"
+                    :class="getDiffColor(suggestion.difficulty)"
+                  >
+                    {{ getDiffLabel(suggestion.difficulty) }}
+                  </span>
+                  <span class="text-xs rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-700">
+                    Từ câu #{{ suggestion.source_question_id }}
+                  </span>
+                </div>
+                <p class="font-semibold text-gray-900">{{ suggestion.content }}</p>
+                <p class="mt-1 text-xs text-gray-500">{{ suggestion.reason }}</p>
+              </div>
+              <button
+                @click="useSuggestionDraft(suggestion)"
+                class="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                Dùng bản nháp
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div
+                v-for="(text, key) in suggestion.options"
+                :key="key"
+                :class="[
+                  'rounded-lg border p-2 text-sm',
+                  parseAnswerKeys(suggestion.correct_answer).includes(String(key))
+                    ? 'border-green-200 bg-green-50 text-green-800'
+                    : 'border-gray-200 bg-gray-50 text-gray-700'
+                ]"
+              >
+                <span class="font-bold mr-1">{{ key }}.</span>{{ text }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="!suggestionLoading && !suggestionError" class="mt-6 rounded-lg border border-dashed p-8 text-center text-gray-500">
+          Chọn mức độ và bấm Sinh gợi ý để tạo bản nháp từ ngân hàng câu hỏi.
         </div>
       </div>
     </div>

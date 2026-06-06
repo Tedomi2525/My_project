@@ -10,6 +10,8 @@ from app.schemas.question import (
     QuestionImportRequest,
     QuestionImportResponse,
     QuestionResponse,
+    QuestionSuggestionRequest,
+    QuestionSuggestionResponse,
     QuestionTopicCreate,
     QuestionTopicResponse,
     RandomQuestionSelectionRequest,
@@ -94,6 +96,23 @@ def get_random_question_selection(
         "hard_count": payload.hard_count,
         "total_selected": len(question_ids),
     }
+
+@router.post("/generate-suggestions", response_model=QuestionSuggestionResponse)
+def generate_question_suggestions(
+    payload: QuestionSuggestionRequest,
+    db: Session = Depends(get_db),
+    current_teacher=Depends(get_current_teacher)
+):
+    try:
+        return QuestionService.generate_question_suggestions(
+            db=db,
+            teacher_id=current_teacher.id,
+            target_difficulty=payload.target_difficulty.value,
+            count=payload.count,
+            topic_id=payload.topic_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 @router.get("/{question_id}", response_model=QuestionResponse)
 def get_question(question_id: int, db: Session = Depends(get_db)):

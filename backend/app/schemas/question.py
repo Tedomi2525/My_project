@@ -128,6 +128,29 @@ class RandomQuestionSelectionResponse(BaseModel):
     total_selected: int
 
 
+class QuestionSuggestionRequest(BaseModel):
+    target_difficulty: DifficultyLevel = DifficultyLevel.EASY
+    topic_id: Optional[int] = None
+    count: int = Field(default=3, ge=1, le=10)
+
+
+class QuestionSuggestionItem(BaseModel):
+    content: str
+    question_type: str = "MCQ"
+    difficulty: DifficultyLevel
+    options: Dict[str, Any]
+    correct_answer: str
+    topic_id: Optional[int] = None
+    source_question_id: int
+    source_content: str
+    reason: str
+
+
+class QuestionSuggestionResponse(BaseModel):
+    suggestions: List[QuestionSuggestionItem] = Field(default_factory=list)
+    total_generated: int
+
+
 class QuestionTopicBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: Optional[str] = None

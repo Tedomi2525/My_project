@@ -230,6 +230,93 @@ class QuestionService:
         random.shuffle(selected_ids)
         return selected_ids
 
+    @staticmethod
+    def _generated_content(source_content: str, target_difficulty: str, variant_index: int) -> tuple[str, str]:
+        normalized = " ".join(source_content.strip().split())
+        templates = {
+            QuestionDifficultyLevel.EASY.value: [
+                ("Chọn đáp án đúng: {content}", "Biến thể nhận biết từ câu hỏi gốc."),
+                ("Câu nào sau đây trả lời đúng cho vấn đề: {content}", "Giữ ở mức nhớ/nhận biết."),
+                ("Hãy xác định đáp án đúng cho câu hỏi: {content}", "Gợi ý câu hỏi dễ dựa trên nội dung gốc."),
+            ],
+            QuestionDifficultyLevel.MEDIUM.value: [
+                ("Dựa vào kiến thức liên quan, hãy chọn đáp án phù hợp nhất: {content}", "Tăng lên mức áp dụng cơ bản."),
+                ("Khi cần giải thích nội dung sau, đáp án nào là hợp lý nhất: {content}", "Tạo biến thể yêu cầu hiểu và giải thích."),
+                ("Áp dụng kiến thức đã học để trả lời: {content}", "Gợi ý câu hỏi trung bình từ câu hỏi gốc."),
+            ],
+            QuestionDifficultyLevel.HARD.value: [
+                ("Trong một tình huống cần vận dụng cao, đáp án nào phù hợp nhất cho vấn đề: {content}", "Tăng độ khó theo hướng vận dụng/suy luận."),
+                ("Nếu phải phân tích sâu nội dung sau, lựa chọn nào chính xác nhất: {content}", "Tạo biến thể phân tích từ câu hỏi gốc."),
+                ("Hãy suy luận và chọn đáp án tối ưu cho câu hỏi: {content}", "Gợi ý câu hỏi khó dựa trên nội dung gốc."),
+            ],
+        }
+        selected_templates = templates.get(target_difficulty, templates[QuestionDifficultyLevel.EASY.value])
+        template, reason = selected_templates[variant_index % len(selected_templates)]
+        return template.format(content=normalized), reason
+
+    @staticmethod
+    def generate_question_suggestions(
+        db: Session,
+        teacher_id: int,
+        target_difficulty: str,
+        count: int,
+        topic_id: int | None = None,
+    ):
+        target_difficulty = str(target_difficulty).upper()
+        if target_difficulty not in {level.value for level in QuestionDifficultyLevel}:
+            raise ValueError("target_difficulty must be one of EASY, MEDIUM, HARD")
+
+        questions = QuestionService._get_accessible_teacher_questions(db, teacher_id)
+        if topic_id is not None:
+            questions = [question for question in questions if question.topic_id == topic_id]
+
+        usable_questions = [
+            question
+            for question in questions
+            if question.content and question.options and question.correct_answer
+        ]
+        if not usable_questions:
+            raise ValueError("No suitable questions available for generating suggestions")
+
+        random.shuffle(usable_questions)
+        suggestions = []
+        seen_content = set()
+        max_attempts = max(count * 4, len(usable_questions))
+
+        for attempt_index in range(max_attempts):
+            if len(suggestions) >= count:
+                break
+
+            source = usable_questions[attempt_index % len(usable_questions)]
+            content, reason = QuestionService._generated_content(
+                source.content,
+                target_difficulty,
+                attempt_index,
+            )
+            content_key = content.strip().lower()
+            if content_key in seen_content:
+                continue
+
+            seen_content.add(content_key)
+            suggestions.append(
+                {
+                    "content": content,
+                    "question_type": source.question_type or "MCQ",
+                    "difficulty": target_difficulty,
+                    "options": source.options,
+                    "correct_answer": source.correct_answer,
+                    "topic_id": source.topic_id,
+                    "source_question_id": source.id,
+                    "source_content": source.content,
+                    "reason": reason,
+                }
+            )
+
+        return {
+            "suggestions": suggestions,
+            "total_generated": len(suggestions),
+        }
+
     # --- UPDATE ---
     @staticmethod
     def update_question(db: Session, question_id: int, question_data: Dict[str, Any]):
