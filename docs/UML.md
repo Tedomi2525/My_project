@@ -1,237 +1,121 @@
-﻿# Tài liệu UML đầy đủ - Hệ thống Thi Trắc Nghiệm
+# UML - Hệ thống Thi Trắc Nghiệm
 
-## 0) Phạm vi tài liệu
-Tài liệu này mô tả đầy đủ các chức năng theo **backend hiện tại** (FastAPI), gồm các nhóm API:
-- `/login`
-- `/users`
-- `/classes`
-- `/questions`
-- `/exams`
-- `/results`
-- `/` (health check)
+## 0. Phạm vi
 
-Lưu ý triển khai hiện tại:
-- Đăng nhập trả JWT ở `/login`.
-- Nhiều API nghiệp vụ đang xác thực bằng header `x-user-id`.
+Tài liệu này mô tả UML/DFD cho dự án thi trắc nghiệm hiện tại, dựa trên backend FastAPI, frontend Nuxt/Vue và file UML gốc của nhóm.
 
-## 1) Danh sách đầy đủ các use-case
+Kiến trúc chính:
 
-### Nhóm A - Xác thực
+- Frontend: Nuxt 4/Vue 3.
+- Backend: FastAPI, có thể chạy dạng monolith hoặc qua API Gateway.
+- Database: MySQL.
+- Vai trò: `Admin`, `Teacher`, `Student`.
+- Các nhóm API chính: `/login`, `/admins`, `/teachers`, `/students`, `/account-requests`, `/classes`, `/questions`, `/exams`, `/results`.
 
-#### UC-A1: Đăng nhập hệ thống
-- Tác nhân: Admin/Teacher/Student
-- API: `POST /login`
-- Tiền điều kiện: Có tài khoản hợp lệ
-- Kết quả: Nhận `access_token`, `user_id`, `role`, `full_name`
+Các bảng chính đang dùng:
 
-#### UC-A2: Kiểm tra trạng thái API
-- Tác nhân: Bất kỳ client
-- API: `GET /`
-- Kết quả: Nhận thông báo API đang chạy
-
-### Nhóm B - Quản lý người dùng (`/users`)
-
-#### UC-B1: Tạo người dùng
-- Tác nhân: Quản trị vận hành (theo nghiệp vụ)
-- API: `POST /users`
-- Kết quả: Tạo user mới (student/teacher/admin)
-
-#### UC-B2: Xem danh sách người dùng
-- API: `GET /users`
-- Kết quả: Trả danh sách user (có phân trang `skip`, `limit`)
-
-#### UC-B3: Xem chi tiết người dùng
-- API: `GET /users/{user_id}`
-
-#### UC-B4: Cập nhật người dùng
-- API: `PUT /users/{user_id}`
-- Kết quả: Cập nhật thông tin user, có thể đổi mật khẩu
-
-#### UC-B5: Xóa người dùng
-- API: `DELETE /users/{user_id}`
-
-### Nhóm C - Quản lý lớp học (`/classes`)
-
-#### UC-C1: Giáo viên xem danh sách lớp của mình
-- API: `GET /classes`
-
-#### UC-C2: Giáo viên tạo lớp
-- API: `POST /classes`
-
-#### UC-C3: Giáo viên xem chi tiết lớp
-- API: `GET /classes/{class_id}`
-
-#### UC-C4: Giáo viên cập nhật lớp
-- API: `PUT /classes/{class_id}`
-
-#### UC-C5: Giáo viên xóa lớp
-- API: `DELETE /classes/{class_id}`
-
-#### UC-C6: Giáo viên xem học sinh chưa thuộc lớp
-- API: `GET /classes/{class_id}/available-students`
-
-#### UC-C7: Giáo viên thêm học sinh vào lớp
-- API: `POST /classes/{class_id}/students/{student_id}`
-
-#### UC-C8: Giáo viên xóa học sinh khỏi lớp
-- API: `DELETE /classes/{class_id}/students/{student_id}`
-
-### Nhóm D - Quản lý câu hỏi (`/questions`)
-
-#### UC-D1: Tạo câu hỏi
-- API: `POST /questions`
-
-#### UC-D2: Xem danh sách câu hỏi
-- API: `GET /questions`
-
-#### UC-D3: Xem chi tiết câu hỏi
-- API: `GET /questions/{question_id}`
-
-#### UC-D4: Cập nhật câu hỏi
-- API: `PUT /questions/{question_id}`
-
-#### UC-D5: Xóa câu hỏi
-- API: `DELETE /questions/{question_id}`
-
-### Nhóm E - Quản lý đề thi (`/exams`)
-
-#### UC-E1: Giáo viên xem đề thi của mình
-- API: `GET /exams`
-
-#### UC-E2: Giáo viên tạo đề thi
-- API: `POST /exams`
-- Bao gồm: thông tin đề, danh sách lớp được phép (`class_ids`), danh sách câu hỏi (`questions`)
-
-#### UC-E3: Học sinh xem các đề của mình
-- API: `GET /exams/my-exams`
-
-#### UC-E4: Xem chi tiết đề thi
-- API: `GET /exams/{exam_id}`
-- Có kiểm tra quyền truy cập đề
-
-#### UC-E5: Cập nhật đề thi
-- API: `PUT /exams/{exam_id}`
-- Có kiểm tra quyền và cập nhật lớp/câu hỏi
-
-#### UC-E6: Xóa đề thi
-- API: `DELETE /exams/{exam_id}`
-
-#### UC-E7: Xem danh sách câu hỏi trong đề
-- API: `GET /exams/{exam_id}/questions`
-
-#### UC-E8: Kiểm tra mật khẩu đề thi
-- API: `POST /exams/{exam_id}/check-password`
-
-### Nhóm F - Kết quả thi (`/results`)
-
-#### UC-F1: Học sinh nộp bài thi
-- API: `POST /results/submit/{exam_id}`
-- Hệ thống chấm tự động, lưu `exam_result` và `exam_result_detail`
-
-#### UC-F2: Xem một kết quả thi
-- API: `GET /results/{result_id}`
-
-#### UC-F3: Xem lịch sử thi của học sinh
-- API: `GET /results/student/{student_id}`
-
-#### UC-F4: Giáo viên xem kết quả theo đề
-- API: `GET /results/exam/{exam_id}`
-
-#### UC-F5: Review bài làm
-- API: `GET /results/{result_id}/review`
-- Student chỉ xem bài của mình và khi đề cho phép `allow_view_answers`
-- Teacher chỉ xem bài thuộc đề do mình tạo
-
-#### UC-F6: Cập nhật điểm thủ công
-- API: `PUT /results/{result_id}/score`
-
-#### UC-F7: Xóa kết quả thi
-- API: `DELETE /results/{result_id}`
-
-## 2) Mô hình Use-case tổng quan
-
-```mermaid
-flowchart LR
-  Admin[Admin]
-  Teacher[Teacher]
-  Student[Student]
-  Client[Client/Monitoring]
-
-  subgraph System[Quiz Exam System]
-    U1([Đăng nhập])
-    U2([Kiểm tra trạng thái hệ thống])
-    U3([Quản lý người dùng])
-    U4([Quản lý lớp học])
-    U5([Quản lý học sinh trong lớp])
-    U6([Quản lý câu hỏi])
-    U7([Quản lý đề thi])
-    U8([Kiểm tra mật khẩu đề])
-    U9([Xem đề được phép thi])
-    U10([Nộp bài va chấm điểm])
-    U11([Xem lịch sử/kết quả])
-    U12([Review bài làm])
-    U13([Sửa điểm/Xóa kết quả])
-  end
-
-  Admin --> U1
-  Admin --> U3
-
-  Teacher --> U1
-  Teacher --> U4
-  Teacher --> U5
-  Teacher --> U6
-  Teacher --> U7
-  Teacher --> U8
-  Teacher --> U11
-  Teacher --> U12
-  Teacher --> U13
-
-  Student --> U1
-  Student --> U8
-  Student --> U9
-  Student --> U10
-  Student --> U11
-  Student --> U12
-
-  Client --> U2
+```text
+admin
+teacher
+student
+account_request
+class
+class_student
+question_topic
+question
+exam
+exam_question
+exam_allowed_class
+exam_session
+exam_violation
+exam_result
+exam_result_detail
 ```
 
-## 3) Mô hình Use-case chi tiết theo phân hệ
+## 1. Use Case Chính
 
-```mermaid
-flowchart LR
-  Teacher[Teacher]
-  Student[Student]
+### UC-01: Đăng nhập hệ thống
 
-  subgraph ExamModule[Exam Module]
-    E1([Tạo đề])
-    E2([Sửa đề])
-    E3([Xóa đề])
-    E4([Xem đề])
-    E5([Xem câu hỏi trong đề])
-    E6([Kiểm tra mật khẩu đề])
-    E7([Nộp bài])
-    E8([Review kết quả])
-  end
+| Mục | Nội dung |
+|---|---|
+| Actor | Admin, Teacher, Student |
+| API | `POST /login` |
+| Mô tả | Người dùng nhập username/password, hệ thống xác thực tài khoản và trả JWT kèm `user_id`, `role`, `full_name`. |
+| Kết quả | Người dùng được điều hướng đến trang tương ứng với vai trò. |
 
-  Teacher --> E1
-  Teacher --> E2
-  Teacher --> E3
-  Teacher --> E4
-  Teacher --> E5
-  Teacher --> E6
-  Teacher --> E8
+### UC-02: Admin quản lý tài khoản
 
-  Student --> E4
-  Student --> E5
-  Student --> E6
-  Student --> E7
-  Student --> E8
-```
+| Mục | Nội dung |
+|---|---|
+| Actor | Admin |
+| API | `/admins`, `/teachers`, `/students`, `/account-requests` |
+| Mô tả | Admin xem, tạo, sửa, xóa tài khoản; duyệt hoặc từ chối yêu cầu tạo tài khoản. |
+| Bảng liên quan | `admin`, `teacher`, `student`, `account_request` |
 
-## 4) Biểu đồ luồng dữ liệu (DFD)
+### UC-03: Teacher quản lý lớp học
 
-### 4.1 DFD mức ngữ cảnh (Context Diagram)
+| Mục | Nội dung |
+|---|---|
+| Actor | Teacher |
+| API | `/classes` |
+| Mô tả | Teacher tạo/sửa/xóa lớp, xem chi tiết lớp, thêm/xóa sinh viên khỏi lớp. |
+| Bảng liên quan | `class`, `class_student`, `student` |
+
+### UC-04: Teacher quản lý ngân hàng câu hỏi
+
+| Mục | Nội dung |
+|---|---|
+| Actor | Teacher |
+| API | `/questions`, `/questions/topics`, `/questions/import/csv`, `/questions/random-selection`, `/questions/generate-suggestions` |
+| Mô tả | Teacher tạo/sửa/xóa câu hỏi, quản lý chủ đề, import CSV, chọn câu hỏi ngẫu nhiên và sinh gợi ý câu hỏi. |
+| Bảng liên quan | `question_topic`, `question` |
+
+### UC-05: Teacher quản lý đề thi
+
+| Mục | Nội dung |
+|---|---|
+| Actor | Teacher |
+| API | `/exams` |
+| Mô tả | Teacher tạo/sửa/xóa đề, chọn câu hỏi, gán lớp, đặt thời gian, mật khẩu, số lần làm, cấu hình xáo trộn và publish đề. |
+| Bảng liên quan | `exam`, `exam_question`, `exam_allowed_class` |
+
+### UC-06: Student xem đề thi và kiểm tra mật khẩu
+
+| Mục | Nội dung |
+|---|---|
+| Actor | Student |
+| API | `GET /exams/my-exams`, `POST /exams/{exam_id}/check-password` |
+| Mô tả | Student xem các đề được gán theo lớp và nhập mật khẩu nếu đề có yêu cầu. |
+| Bảng liên quan | `exam`, `exam_allowed_class`, `class_student` |
+
+### UC-07: Student làm bài và nộp bài
+
+| Mục | Nội dung |
+|---|---|
+| Actor | Student |
+| API | `GET /exams/{exam_id}`, `GET /exams/{exam_id}/questions`, `POST /exams/{exam_id}/start`, `PUT /exams/{exam_id}/autosave`, `POST /exams/{exam_id}/violations`, `POST /results/submit/{exam_id}` |
+| Mô tả | Student mở đề, bắt đầu phiên thi, làm bài, hệ thống autosave, ghi nhận vi phạm và nộp bài. |
+| Bảng liên quan | `exam_session`, `exam_violation`, `exam_result`, `exam_result_detail` |
+
+### UC-08: Student xem lịch sử, phân tích và review bài làm
+
+| Mục | Nội dung |
+|---|---|
+| Actor | Student |
+| API | `/results/student/{student_id}`, `/results/student/{student_id}/analytics`, `/results/{result_id}/review` |
+| Mô tả | Student xem lịch sử thi, thống kê cá nhân theo chủ đề/mức độ và review bài nếu đề cho phép xem đáp án. |
+| Bảng liên quan | `exam_result`, `exam_result_detail`, `question`, `question_topic` |
+
+### UC-09: Teacher xem thống kê và cập nhật điểm
+
+| Mục | Nội dung |
+|---|---|
+| Actor | Teacher |
+| API | `/results/exam/{exam_id}`, `/results/exam/{exam_id}/question-analytics`, `/results/{result_id}/review`, `/results/{result_id}/score` |
+| Mô tả | Teacher xem kết quả theo đề, phân tích từng câu, review bài làm và cập nhật điểm thủ công khi cần. |
+| Bảng liên quan | `exam_result`, `exam_result_detail`, `question` |
+
+## 2. Use Case Tổng Quan
 
 ```mermaid
 flowchart LR
@@ -239,19 +123,66 @@ flowchart LR
   Teacher[Teacher]
   Student[Student]
 
-  System((He thong thi trac nghiem))
+  subgraph System[Online Quiz Exam System]
+    UC1([Đăng nhập])
+    UC2([Quản lý tài khoản])
+    UC3([Duyệt/từ chối yêu cầu tài khoản])
+    UC4([Quản lý lớp học])
+    UC5([Quản lý sinh viên trong lớp])
+    UC6([Quản lý chủ đề/câu hỏi])
+    UC7([Import CSV và sinh gợi ý câu hỏi])
+    UC8([Tạo/sửa/xóa/publish đề thi])
+    UC9([Xem đề được gán])
+    UC10([Kiểm tra mật khẩu đề])
+    UC11([Làm bài, autosave, ghi nhận vi phạm])
+    UC12([Nộp bài và nhận điểm])
+    UC13([Xem lịch sử/phân tích cá nhân])
+    UC14([Review bài làm])
+    UC15([Xem thống kê và cập nhật điểm])
+  end
 
-  Admin -->|Thong tin tai khoan, yeu cau quan ly user| System
-  System -->|Danh sach user, ket qua xu ly| Admin
+  Admin --> UC1
+  Admin --> UC2
+  Admin --> UC3
 
-  Teacher -->|Thong tin lop, cau hoi, de thi, yeu cau thong ke| System
-  System -->|Danh sach lop, cau hoi, de thi, ket qua, thong ke| Teacher
+  Teacher --> UC1
+  Teacher --> UC4
+  Teacher --> UC5
+  Teacher --> UC6
+  Teacher --> UC7
+  Teacher --> UC8
+  Teacher --> UC14
+  Teacher --> UC15
 
-  Student -->|Thong tin dang nhap, mat khau de, bai lam| System
-  System -->|Danh sach de thi, cau hoi, ket qua, lich su thi| Student
+  Student --> UC1
+  Student --> UC9
+  Student --> UC10
+  Student --> UC11
+  Student --> UC12
+  Student --> UC13
+  Student --> UC14
 ```
 
-### 4.2 DFD mức 0
+## 3. DFD Mức Ngữ Cảnh
+
+```mermaid
+flowchart LR
+  Admin[Admin]
+  Teacher[Teacher]
+  Student[Student]
+  System((Hệ thống thi trắc nghiệm))
+
+  Admin -->|Thông tin đăng nhập, yêu cầu quản lý tài khoản| System
+  System -->|Danh sách tài khoản, trạng thái yêu cầu| Admin
+
+  Teacher -->|Lớp học, câu hỏi, đề thi, yêu cầu thống kê| System
+  System -->|Danh sách lớp, câu hỏi, đề thi, kết quả, báo cáo| Teacher
+
+  Student -->|Thông tin đăng nhập, mật khẩu đề, bài làm| System
+  System -->|Đề thi, câu hỏi, phiên thi, điểm, lịch sử, phân tích| Student
+```
+
+## 4. DFD Mức 0
 
 ```mermaid
 flowchart TB
@@ -259,156 +190,119 @@ flowchart TB
   Teacher[Teacher]
   Student[Student]
 
-  P1((1. Quan ly xac thuc))
-  P2((2. Quan ly nguoi dung))
-  P3((3. Quan ly lop hoc))
-  P4((4. Quan ly cau hoi))
-  P5((5. Quan ly de thi))
-  P6((6. Quan ly bai thi va ket qua))
-  P7((7. Thong ke va review))
+  P1((1. Xác thực và phân quyền))
+  P2((2. Quản lý tài khoản))
+  P3((3. Quản lý lớp học))
+  P4((4. Quản lý câu hỏi))
+  P5((5. Quản lý đề thi))
+  P6((6. Phiên thi và nộp bài))
+  P7((7. Kết quả, review và thống kê))
 
-  D1[(D1. User)]
-  D2[(D2. Class)]
-  D3[(D3. Class_Student)]
-  D4[(D4. Question)]
-  D5[(D5. Exam)]
-  D6[(D6. Exam_Question)]
-  D7[(D7. Exam_Allowed_Class)]
-  D8[(D8. Exam_Result)]
-  D9[(D9. Exam_Result_Detail)]
+  D1[(admin/teacher/student)]
+  D2[(account_request)]
+  D3[(class)]
+  D4[(class_student)]
+  D5[(question_topic)]
+  D6[(question)]
+  D7[(exam)]
+  D8[(exam_question)]
+  D9[(exam_allowed_class)]
+  D10[(exam_session)]
+  D11[(exam_violation)]
+  D12[(exam_result)]
+  D13[(exam_result_detail)]
 
-  Admin -->|Thong tin dang nhap| P1
-  Teacher -->|Thong tin dang nhap| P1
-  Student -->|Thong tin dang nhap| P1
-  P1 -->|Kiem tra tai khoan| D1
-  P1 -->|Token, role, user_id| Admin
-  P1 -->|Token, role, user_id| Teacher
-  P1 -->|Token, role, user_id| Student
+  Admin -->|username/password| P1
+  Teacher -->|username/password| P1
+  Student -->|username/password| P1
+  P1 -->|kiểm tra tài khoản| D1
+  P1 -->|JWT + role| Admin
+  P1 -->|JWT + role| Teacher
+  P1 -->|JWT + role| Student
 
-  Admin -->|Them/sua/xoa/xem user| P2
-  P2 -->|Doc/ghi user| D1
-  P2 -->|Danh sach user, thong bao| Admin
+  Admin -->|tạo/sửa/xóa tài khoản| P2
+  Admin -->|duyệt/từ chối yêu cầu| P2
+  Teacher -->|gửi yêu cầu tạo tài khoản| P2
+  Student -->|gửi yêu cầu tạo tài khoản| P2
+  P2 -->|đọc/ghi tài khoản| D1
+  P2 -->|đọc/ghi yêu cầu| D2
 
-  Teacher -->|Tao/sua/xoa/xem lop, them/xoa SV| P3
-  P3 -->|Doc/ghi lop hoc| D2
-  P3 -->|Doc/ghi phan lop| D3
-  P3 -->|Doc user sinh vien| D1
-  P3 -->|Thong tin lop hoc| Teacher
+  Teacher -->|tạo/sửa/xóa lớp, thêm/xóa sinh viên| P3
+  P3 -->|đọc/ghi lớp| D3
+  P3 -->|đọc/ghi thành viên lớp| D4
+  P3 -->|đọc sinh viên| D1
 
-  Teacher -->|Tao/sua/xoa/xem cau hoi| P4
-  P4 -->|Doc/ghi cau hoi| D4
-  P4 -->|Danh sach cau hoi| Teacher
+  Teacher -->|chủ đề, câu hỏi, import, random, gợi ý| P4
+  P4 -->|đọc/ghi chủ đề| D5
+  P4 -->|đọc/ghi câu hỏi| D6
 
-  Teacher -->|Tao/sua/xoa/xem de thi| P5
-  Student -->|Yeu cau xem de thi| P5
-  Student -->|Nhap mat khau de| P5
-  P5 -->|Doc/ghi de thi| D5
-  P5 -->|Doc/ghi cau hoi trong de| D6
-  P5 -->|Doc/ghi lop duoc phep thi| D7
-  P5 -->|Thong tin de thi| Teacher
-  P5 -->|Danh sach de, chi tiet de, ket qua kiem tra mat khau| Student
+  Teacher -->|tạo/sửa/xóa/publish đề| P5
+  Student -->|xem đề được gán, kiểm tra mật khẩu| P5
+  P5 -->|đọc/ghi đề| D7
+  P5 -->|đọc/ghi câu hỏi trong đề| D8
+  P5 -->|đọc/ghi lớp được phép thi| D9
 
-  Student -->|Bai lam, dap an| P6
-  P6 -->|Doc de thi| D5
-  P6 -->|Doc cau hoi de thi| D6
-  P6 -->|Ghi ket qua thi| D8
-  P6 -->|Ghi chi tiet bai lam| D9
-  P6 -->|Ket qua thi, lich su thi| Student
+  Student -->|bắt đầu thi, autosave, vi phạm, nộp bài| P6
+  P6 -->|đọc đề| D7
+  P6 -->|đọc câu hỏi trong đề| D8
+  P6 -->|đọc đáp án đúng| D6
+  P6 -->|đọc/ghi phiên thi| D10
+  P6 -->|ghi vi phạm| D11
+  P6 -->|ghi kết quả| D12
+  P6 -->|ghi chi tiết bài làm| D13
 
-  Teacher -->|Yeu cau thong ke, review bai lam| P7
-  Student -->|Yeu cau xem review| P7
-  P7 -->|Doc ket qua thi| D8
-  P7 -->|Doc chi tiet bai lam| D9
-  P7 -->|Doc cau hoi| D4
-  P7 -->|Doc de thi| D5
-  P7 -->|Bao cao, thong ke, review| Teacher
-  P7 -->|Chi tiet bai lam| Student
+  Teacher -->|xem thống kê, review, sửa điểm| P7
+  Student -->|xem lịch sử, review, phân tích cá nhân| P7
+  P7 -->|đọc/ghi điểm| D12
+  P7 -->|đọc chi tiết bài làm| D13
+  P7 -->|đọc câu hỏi| D6
+  P7 -->|đọc chủ đề| D5
+  P7 -->|báo cáo| Teacher
+  P7 -->|lịch sử/phân tích| Student
 ```
 
-### 4.3 DFD mức 1 cho phân hệ làm bài thi
-
-```mermaid
-flowchart LR
-  Student[Student]
-
-  P61((6.1 Lay de thi va cau hoi))
-  P62((6.2 Lam bai va ghi nhan dap an))
-  P63((6.3 Nop bai va cham diem))
-  P64((6.4 Luu ket qua va lich su))
-
-  D5[(Exam)]
-  D6[(Exam_Question)]
-  D4[(Question)]
-  D8[(Exam_Result)]
-  D9[(Exam_Result_Detail)]
-
-  Student -->|Yeu cau vao thi| P61
-  P61 -->|Doc thong tin de| D5
-  P61 -->|Doc danh sach cau hoi| D6
-  P61 -->|Doc noi dung cau hoi| D4
-  P61 -->|De thi + cau hoi| Student
-
-  Student -->|Lua chon dap an| P62
-  P62 -->|Danh sach dap an tam thoi| P63
-
-  Student -->|Yeu cau nop bai| P63
-  P63 -->|Doc dap an dung| D4
-  P63 -->|Tinh diem| P64
-
-  P64 -->|Luu ket qua tong| D8
-  P64 -->|Luu chi tiet tung cau| D9
-  P64 -->|Ket qua thi| Student
-```
-
-### 4.4 DFD mức 1 cho phân hệ thống kê và review
-
-```mermaid
-flowchart LR
-  Teacher[Teacher]
-  Student[Student]
-
-  P71((7.1 Lay ket qua theo de thi))
-  P72((7.2 Tong hop thong ke))
-  P73((7.3 Lay chi tiet review))
-  P74((7.4 Tra bao cao va bai lam))
-
-  D8[(Exam_Result)]
-  D9[(Exam_Result_Detail)]
-  D4[(Question)]
-  D5[(Exam)]
-
-  Teacher -->|Chon de thi can xem thong ke| P71
-  P71 -->|Doc ket qua theo de| D8
-  P71 -->|Danh sach ket qua| P72
-
-  P72 -->|Doc chi tiet bai lam| D9
-  P72 -->|Doc cau hoi| D4
-  P72 -->|Thong ke diem, do kho| P74
-
-  Teacher -->|Chon bai lam can review| P73
-  Student -->|Yeu cau xem bai lam| P73
-  P73 -->|Doc ket qua thi| D8
-  P73 -->|Doc chi tiet bai lam| D9
-  P73 -->|Doc cau hoi va thong tin de| D4
-  P73 -->|Doc thong tin de thi| D5
-  P73 -->|Du lieu review| P74
-
-  P74 -->|Bao cao thong ke, chi tiet bai lam| Teacher
-  P74 -->|Chi tiet bai lam| Student
-```
-
-## 5) Mô hình lớp (Class Diagram)
+## 5. Class Diagram Theo Database Hiện Tại
 
 ```mermaid
 classDiagram
-class User {
+class Admin {
   +int id
   +string username
   +string email
   +string password
   +string full_name
-  +string role
+}
+
+class Teacher {
+  +int id
+  +string username
+  +string email
+  +string password
+  +string full_name
+}
+
+class Student {
+  +int id
+  +string username
+  +string email
+  +string password
+  +string full_name
   +string student_code
+}
+
+class AccountRequest {
+  +int id
+  +string full_name
+  +string email
+  +string role
+  +text note
+  +string status
+  +int created_account_id
+  +string email_status
+  +text email_error
+  +datetime email_sent_at
+  +datetime created_at
+  +datetime updated_at
 }
 
 class Class {
@@ -425,6 +319,13 @@ class ClassStudent {
   +datetime joined_at
 }
 
+class QuestionTopic {
+  +int id
+  +string name
+  +text description
+  +int created_by
+}
+
 class Question {
   +int id
   +text content
@@ -432,6 +333,8 @@ class Question {
   +enum difficulty
   +json options
   +string correct_answer
+  +int topic_id
+  +string visibility
   +int created_by
 }
 
@@ -443,9 +346,10 @@ class Exam {
   +datetime start_time
   +datetime end_time
   +string password
+  +string status
   +int created_by
   +bool allow_view_answers
-  +int? max_attempts
+  +int max_attempts
   +bool shuffle_questions
   +bool shuffle_options
 }
@@ -460,6 +364,26 @@ class ExamAllowedClass {
   +int id
   +int exam_id
   +int class_id
+}
+
+class ExamSession {
+  +int id
+  +int exam_id
+  +int student_id
+  +json answers
+  +int violation_count
+  +datetime started_at
+  +datetime last_saved_at
+  +datetime submitted_at
+}
+
+class ExamViolation {
+  +int id
+  +int session_id
+  +int exam_id
+  +int student_id
+  +string reason
+  +datetime created_at
 }
 
 class ExamResult {
@@ -479,446 +403,480 @@ class ExamResultDetail {
   +bool is_correct
 }
 
-User "1" <-- "0..*" Class : teacher
-User "1" <-- "0..*" ClassStudent : student
-Class "1" <-- "0..*" ClassStudent : class_
-Exam "1" <-- "0..*" ExamQuestion : exam
-Question "1" <-- "0..*" ExamQuestion : question
-Exam "1" <-- "0..*" ExamAllowedClass : exam
-Exam "1" <-- "0..*" ExamResult : exam
-User "1" <-- "0..*" ExamResult : student
-ExamResult "1" <-- "0..*" ExamResultDetail : result
-Question "1" <-- "0..*" ExamResultDetail : question
+Teacher "1" --> "0..*" Class : manages
+Class "1" --> "0..*" ClassStudent : has
+Student "1" --> "0..*" ClassStudent : joins
 
-Question ..> User : created_by (FK)
-Exam ..> User : created_by (FK)
-ExamAllowedClass ..> Class : class_id (FK)
+Teacher "1" --> "0..*" QuestionTopic : creates
+QuestionTopic "1" --> "0..*" Question : groups
+Teacher "1" --> "0..*" Question : creates
+
+Teacher "1" --> "0..*" Exam : creates
+Exam "1" --> "0..*" ExamQuestion : includes
+Question "1" --> "0..*" ExamQuestion : selected
+Exam "1" --> "0..*" ExamAllowedClass : assigned_to
+Class "1" --> "0..*" ExamAllowedClass : allowed
+
+Exam "1" --> "0..*" ExamSession : starts
+Student "1" --> "0..*" ExamSession : takes
+ExamSession "1" --> "0..*" ExamViolation : logs
+Exam "1" --> "0..*" ExamViolation : has
+Student "1" --> "0..*" ExamViolation : triggers
+
+Exam "1" --> "0..*" ExamResult : produces
+Student "1" --> "0..*" ExamResult : receives
+ExamResult "1" --> "0..*" ExamResultDetail : contains
+Question "1" --> "0..*" ExamResultDetail : referenced
+
+Admin ..> AccountRequest : approves/rejects
+AccountRequest ..> Teacher : creates optionally
+AccountRequest ..> Student : creates optionally
 ```
 
-### 5.1 Class Diagram theo hướng thiết kế có methods
+Ghi chú: `account_request.created_account_id` không khai báo khóa ngoại cố định vì tài khoản được tạo có thể là `teacher` hoặc `student`.
 
-Lưu ý: sơ đồ dưới đây là bản phục vụ báo cáo phân tích thiết kế hướng đối tượng, nên có bổ sung các thao tác nghiệp vụ chính. Nó không nhằm phản ánh 1:1 các method đang nằm trong file model Python.
+## 6. Class Diagram Nghiệp Vụ
 
 ```mermaid
 classDiagram
-class User {
-  +int id
-  +string username
-  +string email
-  +string password
-  +string full_name
-  +string role
-  +string student_code
-  +login()
-  +logout()
-  +updateProfile()
-}
-
 class Admin {
-  +createUser()
+  +login()
+  +createAdmin()
+  +createTeacher()
+  +createStudent()
   +updateUser()
   +deleteUser()
-  +viewUsers()
+  +approveAccountRequest()
+  +rejectAccountRequest()
 }
 
 class Teacher {
+  +login()
   +createClass()
   +updateClass()
   +deleteClass()
   +addStudentToClass()
-  +removeStudentFromClass()
   +createQuestion()
-  +updateQuestion()
-  +deleteQuestion()
+  +importQuestionsFromCsv()
+  +generateQuestionSuggestions()
   +createExam()
-  +updateExam()
-  +deleteExam()
-  +viewStatistics()
+  +publishExam()
+  +viewExamStatistics()
   +reviewResult()
+  +updateResultScore()
 }
 
 class Student {
+  +login()
   +viewMyExams()
   +checkExamPassword()
   +startExam()
+  +autosaveAnswers()
+  +logViolation()
   +submitExam()
   +viewHistory()
+  +viewAnalytics()
   +reviewOwnResult()
 }
 
-class Class {
-  +int id
-  +string name
-  +string description
-  +int teacher_id
+class AccountService {
+  +findByUsername()
+  +verifyPassword()
+  +generateAccountCode()
+  +syncLegacyUser()
+}
+
+class AccountRequestService {
+  +createRequest()
+  +getRequests()
+  +approveRequest()
+  +rejectRequest()
+  +getPublicStatus()
+}
+
+class ClassroomService {
+  +createClass()
+  +getClassesByTeacher()
+  +updateClass()
+  +deleteClass()
   +addStudent()
+  +addStudents()
   +removeStudent()
-  +getStudentList()
+  +getAvailableStudents()
 }
 
-class ClassStudent {
-  +int id
-  +int class_id
-  +int student_id
-  +datetime joined_at
+class ExamService {
+  +createExam()
+  +updateExam()
+  +deleteExam()
+  +setStatus()
+  +getExamsForStudent()
+  +checkExamPassword()
+  +startExamSession()
+  +autosaveExamSession()
+  +logViolation()
 }
 
-class Question {
-  +int id
-  +text content
-  +string question_type
-  +enum difficulty
-  +json options
-  +string correct_answer
-  +int created_by
-  +create()
-  +update()
-  +delete()
+class QuestionService {
+  +createTopic()
+  +createQuestion()
+  +importQuestionsFromCsv()
+  +getRandomQuestionsByDifficulty()
+  +generateQuestionSuggestions()
+  +updateQuestion()
+  +deleteQuestion()
 }
 
-class Exam {
-  +int id
-  +string title
-  +text description
-  +int duration_minutes
-  +datetime start_time
-  +datetime end_time
-  +string password
-  +int created_by
-  +bool allow_view_answers
-  +int? max_attempts
-  +bool shuffle_questions
-  +bool shuffle_options
-  +checkPassword()
-  +getQuestions()
-  +publish()
+class ResultService {
+  +submitExam()
+  +scoreAnswer()
+  +getStudentHistory()
+  +getResultReview()
+  +getStudentExamAnalytics()
+  +getQuestionAnalyticsForTeacher()
+  +updateResultScore()
+  +deleteResult()
 }
 
-class ExamQuestion {
-  +int id
-  +int exam_id
-  +int question_id
-}
-
-class ExamAllowedClass {
-  +int id
-  +int exam_id
-  +int class_id
-}
-
-class ExamResult {
-  +int id
-  +int exam_id
-  +int student_id
-  +float total_score
-  +datetime started_at
-  +datetime finished_at
-  +calculateScore()
-  +saveResult()
-  +getReview()
-}
-
-class ExamResultDetail {
-  +int id
-  +int result_id
-  +int question_id
-  +string student_answer
-  +bool is_correct
-}
-
-User <|-- Admin
-User <|-- Teacher
-User <|-- Student
-
-Teacher "1" --> "0..*" Class : manages
-Student "1" --> "0..*" ClassStudent : joins
-Class "1" --> "0..*" ClassStudent : contains
-Teacher "1" --> "0..*" Question : creates
-Teacher "1" --> "0..*" Exam : creates
-Exam "1" --> "0..*" ExamQuestion : has
-Question "1" --> "0..*" ExamQuestion : belongs_to
-Exam "1" --> "0..*" ExamAllowedClass : allows
-Class "1" --> "0..*" ExamAllowedClass : assigned
-Student "1" --> "0..*" ExamResult : receives
-Exam "1" --> "0..*" ExamResult : produces
-ExamResult "1" --> "0..*" ExamResultDetail : contains
-Question "1" --> "0..*" ExamResultDetail : references
+Admin --> AccountService : uses
+Admin --> AccountRequestService : uses
+Admin --> Teacher : manages
+Admin --> Student : manages
+Teacher --> ClassroomService : uses
+Teacher --> QuestionService : uses
+Teacher --> ExamService : uses
+Teacher --> ResultService : uses
+Student --> ExamService : uses
+Student --> ResultService : uses
 ```
 
-## 6) Mô hình đối tượng (Object Snapshot)
-
-- `admin_1:User {id=1, role="admin"}`
-- `teacher_5:User {id=5, role="teacher"}`
-- `student_12:User {id=12, role="student", student_code="SE1201"}`
-- `class_3:Class {id=3, name="SE401", teacher_id=5}`
-- `class_student_1:ClassStudent {class_id=3, student_id=12}`
-- `question_101:Question {id=101, difficulty="MEDIUM"}`
-- `exam_10:Exam {id=10, created_by=5, max_attempts=1, allow_view_answers=true}`
-- `exam_question_1:ExamQuestion {exam_id=10, question_id=101}`
-- `allow_class_1:ExamAllowedClass {exam_id=10, class_id=3}`
-- `result_55:ExamResult {exam_id=10, student_id=12, total_score=8.0}`
-- `result_detail_1:ExamResultDetail {result_id=55, question_id=101, is_correct=true}`
-
-## 7) Các biểu đồ tuần tự theo giao diện hiện tại
-
-Lưu ý: phần này chỉ giữ các luồng đang có màn hình ở frontend hiện tại. Các API backend chưa có màn hình riêng như `sửa điểm` hoặc `xóa kết quả` không đưa vào đây.
+## 7. Sequence Diagrams
 
 ### SD-01: Đăng nhập và điều hướng theo vai trò
+
 ```mermaid
 sequenceDiagram
 actor User
-participant LoginPage as Login Page
-participant AuthComposable as useAuth.login()
+participant LoginPage as login.vue
+participant Auth as useAuth.login()
 participant AuthAPI as POST /login
-participant UserService
-participant DB
+participant AccountService
+participant DB as MySQL
 
 User->>LoginPage: Nhập username/password
-LoginPage->>AuthComposable: handleSubmit()
-AuthComposable->>AuthAPI: Gửi thông tin đăng nhập
-AuthAPI->>UserService: get_user_by_username()
-UserService->>DB: SELECT user
-DB-->>UserService: user
-UserService-->>AuthAPI: verify_password()
-AuthAPI-->>AuthComposable: access_token + user_id + role
-AuthComposable-->>LoginPage: Lưu user/token
+LoginPage->>Auth: handleSubmit()
+Auth->>AuthAPI: Gửi thông tin đăng nhập
+AuthAPI->>AccountService: find_by_username()
+AccountService->>DB: SELECT admin/teacher/student
+DB-->>AccountService: account
+AuthAPI->>AccountService: verify_password()
+AccountService-->>AuthAPI: valid/invalid
+AuthAPI-->>Auth: access_token + user_id + role
+Auth-->>LoginPage: Lưu token/user
 LoginPage-->>User: Điều hướng /admin, /teacher hoặc /student
 ```
 
-### SD-02: Admin quản lý tài khoản người dùng
+### SD-02: Người dùng gửi yêu cầu tạo tài khoản
+
+```mermaid
+sequenceDiagram
+actor Guest as Teacher/Student chưa có tài khoản
+participant RequestPage as account request form
+participant RequestAPI as /account-requests
+participant AccountRequestService
+participant DB as MySQL
+
+Guest->>RequestPage: Nhập họ tên, email, vai trò, ghi chú
+RequestPage->>RequestAPI: POST /account-requests/
+RequestAPI->>AccountRequestService: create_request()
+AccountRequestService->>DB: INSERT account_request(status=pending)
+DB-->>AccountRequestService: created request
+RequestAPI-->>RequestPage: AccountRequestResponse
+RequestPage-->>Guest: Hiển thị mã/trạng thái yêu cầu
+
+Guest->>RequestPage: Kiểm tra trạng thái yêu cầu
+RequestPage->>RequestAPI: GET /account-requests/{id}/status
+RequestAPI->>AccountRequestService: get_public_status()
+AccountRequestService->>DB: SELECT account_request
+RequestAPI-->>RequestPage: pending/approved/rejected + email_status
+```
+
+### SD-03: Admin quản lý tài khoản người dùng
+
 ```mermaid
 sequenceDiagram
 actor Admin
 participant AdminPage as admin/index.vue
-participant UserAPI as /users
-participant UserService
-participant DB
+participant AdminAPI as /admins
+participant TeacherAPI as /teachers
+participant StudentAPI as /students
+participant RequestAPI as /account-requests
+participant AccountService
+participant AccountRequestService
+participant DB as MySQL
 
-Admin->>AdminPage: Mở trang quản lý user
-AdminPage->>UserAPI: GET /users
-UserAPI->>UserService: get_users()
-UserService->>DB: SELECT users
-DB-->>UserService: user list
-UserService-->>UserAPI: users
-UserAPI-->>AdminPage: danh sách tài khoản
+Admin->>AdminPage: Mở trang quản lý tài khoản
+AdminPage->>AdminAPI: GET /admins
+AdminPage->>TeacherAPI: GET /teachers
+AdminPage->>StudentAPI: GET /students
+AdminAPI-->>AdminPage: admin list
+TeacherAPI-->>AdminPage: teacher list
+StudentAPI-->>AdminPage: student list
 
-alt Thêm tài khoản
+alt Tạo tài khoản
   Admin->>AdminPage: Nhập form tạo mới
-  AdminPage->>UserAPI: POST /users
-  UserAPI->>UserService: create_user()
-  UserService->>DB: INSERT user
-  DB-->>UserService: created user
-  UserAPI-->>AdminPage: UserResponse
+  AdminPage->>TeacherAPI: POST /teachers hoặc POST /students
+  TeacherAPI->>AccountService: ensure_unique_identity()
+  AccountService->>DB: INSERT teacher/student
+  TeacherAPI-->>AdminPage: AccountResponse
 else Sửa tài khoản
   Admin->>AdminPage: Cập nhật thông tin
-  AdminPage->>UserAPI: PUT /users/{id}
-  UserAPI->>UserService: update_user()
-  UserService->>DB: UPDATE user
-  DB-->>UserService: updated user
-  UserAPI-->>AdminPage: UserResponse
+  AdminPage->>TeacherAPI: PUT /teachers/{id} hoặc PUT /students/{id}
+  TeacherAPI->>AccountService: sync_legacy_user()
+  AccountService->>DB: UPDATE teacher/student
+  TeacherAPI-->>AdminPage: AccountResponse
 else Xóa tài khoản
   Admin->>AdminPage: Xác nhận xóa
-  AdminPage->>UserAPI: DELETE /users/{id}
-  UserAPI->>UserService: delete_user()
-  UserService->>DB: DELETE user
-  UserAPI-->>AdminPage: success
+  AdminPage->>TeacherAPI: DELETE /teachers/{id} hoặc DELETE /students/{id}
+  TeacherAPI->>DB: DELETE teacher/student
+  TeacherAPI-->>AdminPage: success
+else Duyệt/từ chối yêu cầu
+  AdminPage->>RequestAPI: GET /account-requests
+  RequestAPI->>AccountRequestService: get_requests()
+  AccountRequestService->>DB: SELECT account_request
+  RequestAPI-->>AdminPage: danh sách yêu cầu
+  Admin->>AdminPage: Duyệt hoặc từ chối
+  AdminPage->>RequestAPI: POST /account-requests/{id}/approve hoặc /reject
+  RequestAPI->>AccountRequestService: approve_request()/reject_request()
+  AccountRequestService->>DB: INSERT teacher/student nếu approve
+  AccountRequestService->>DB: UPDATE account_request.status
+  RequestAPI-->>AdminPage: trạng thái mới
 end
-
-AdminPage->>UserAPI: GET /users
-UserAPI-->>AdminPage: danh sách mới
 ```
 
-### SD-03: Teacher quản lý lớp học và sinh viên trong lớp
+### SD-04: Teacher quản lý lớp học và sinh viên trong lớp
+
 ```mermaid
 sequenceDiagram
 actor Teacher
-participant TeacherClassPage as teacher/index.vue
+participant Page as teacher/index.vue
 participant ClassAPI as /classes
-participant Dep as get_current_user
-participant ClassService
-participant DB
+participant Dep as get_current_teacher
+participant ClassroomService
+participant DB as MySQL
 
-Teacher->>TeacherClassPage: Mở trang lớp học
-TeacherClassPage->>ClassAPI: GET /classes
+Teacher->>Page: Mở trang lớp học
+Page->>ClassAPI: GET /classes
 ClassAPI->>Dep: Kiểm tra teacher
 Dep-->>ClassAPI: current_teacher
-ClassAPI->>ClassService: get_classes_by_teacher()
-ClassService->>DB: SELECT class by teacher_id
-DB-->>ClassService: class list
-ClassService-->>ClassAPI: classes
-ClassAPI-->>TeacherClassPage: danh sách lớp
+ClassAPI->>ClassroomService: get_classes_by_teacher()
+ClassroomService->>DB: SELECT class WHERE teacher_id
+DB-->>ClassroomService: class list
+ClassAPI-->>Page: danh sách lớp
 
 alt Tạo hoặc sửa lớp
-  Teacher->>TeacherClassPage: Nhập form lớp học
-  TeacherClassPage->>ClassAPI: POST/PUT /classes
-  ClassAPI->>ClassService: create_class()/update_class()
-  ClassService->>DB: INSERT/UPDATE class
-  ClassAPI-->>TeacherClassPage: class detail
+  Teacher->>Page: Nhập form lớp học
+  Page->>ClassAPI: POST /classes hoặc PUT /classes/{id}
+  ClassAPI->>ClassroomService: create_class()/update_class()
+  ClassroomService->>DB: INSERT/UPDATE class
+  ClassAPI-->>Page: class detail
 else Quản lý sinh viên trong lớp
-  Teacher->>TeacherClassPage: Mở modal sinh viên
-  TeacherClassPage->>ClassAPI: GET /classes/{id}
-  TeacherClassPage->>ClassAPI: GET /classes/{id}/available-students
-  ClassAPI->>ClassService: get_class()/get_available_students()
-  ClassService->>DB: SELECT class + students
-  ClassService->>DB: SELECT available students
-  ClassAPI-->>TeacherClassPage: class detail + available students
-  TeacherClassPage->>ClassAPI: POST/DELETE /classes/{id}/students/{student_id}
-  ClassAPI->>ClassService: add_student()/remove_student()
-  ClassService->>DB: INSERT/DELETE class_student
-  ClassAPI-->>TeacherClassPage: success
+  Teacher->>Page: Mở modal sinh viên
+  Page->>ClassAPI: GET /classes/{id}
+  Page->>ClassAPI: GET /classes/{id}/available-students
+  ClassAPI->>ClassroomService: get_class()/get_available_students()
+  ClassroomService->>DB: SELECT class + students
+  ClassroomService->>DB: SELECT available students
+  ClassAPI-->>Page: class detail + available students
+  Teacher->>Page: Thêm/xóa sinh viên
+  Page->>ClassAPI: POST /classes/{id}/students/{student_id} hoặc POST /classes/{id}/students/bulk
+  ClassAPI->>ClassroomService: add_student()/add_students()
+  ClassroomService->>DB: INSERT class_student
+  ClassAPI-->>Page: success
+  Page->>ClassAPI: DELETE /classes/{id}/students/{student_id}
+  ClassAPI->>ClassroomService: remove_student()
+  ClassroomService->>DB: DELETE class_student
+  ClassAPI-->>Page: success
 end
 ```
 
-### SD-04: Teacher quản lý ngân hàng câu hỏi
+### SD-05: Teacher quản lý ngân hàng câu hỏi
+
 ```mermaid
 sequenceDiagram
 actor Teacher
-participant QuestionPage as teacher/questions.vue
+participant Page as teacher/questions.vue
+participant TopicAPI as /questions/topics
 participant QuestionAPI as /questions
+participant ImportAPI as /questions/import/csv
+participant SuggestAPI as /questions/generate-suggestions
 participant QuestionService
-participant DB
+participant DB as MySQL
 
-Teacher->>QuestionPage: Mở trang câu hỏi
-QuestionPage->>QuestionAPI: GET /questions
-QuestionAPI->>QuestionService: get_questions()
-QuestionService->>DB: SELECT questions
-DB-->>QuestionService: question list
-QuestionAPI-->>QuestionPage: danh sách câu hỏi
+Teacher->>Page: Mở trang câu hỏi
+Page->>TopicAPI: GET /questions/topics
+Page->>QuestionAPI: GET /questions
+TopicAPI-->>Page: danh sách chủ đề
+QuestionAPI->>QuestionService: get_questions_for_teacher()
+QuestionService->>DB: SELECT question
+QuestionAPI-->>Page: danh sách câu hỏi
 
 alt Tạo hoặc sửa câu hỏi
-  Teacher->>QuestionPage: Nhập nội dung + đáp án
-  QuestionPage->>QuestionAPI: POST/PUT /questions
+  Teacher->>Page: Nhập nội dung + đáp án
+  Page->>QuestionAPI: POST /questions hoặc PUT /questions/{id}
   QuestionAPI->>QuestionService: create_question()/update_question()
   QuestionService->>DB: INSERT/UPDATE question
-  QuestionAPI-->>QuestionPage: QuestionResponse
+  QuestionAPI-->>Page: QuestionResponse
+else Import CSV
+  Teacher->>Page: Chọn file CSV
+  Page->>ImportAPI: POST /questions/import/csv
+  ImportAPI->>QuestionService: import_questions_from_csv()
+  QuestionService->>DB: INSERT questions
+  ImportAPI-->>Page: số câu import thành công
+else Sinh câu hỏi gợi ý
+  Teacher->>Page: Chọn topic, độ khó, số lượng
+  Page->>SuggestAPI: POST /questions/generate-suggestions
+  SuggestAPI->>QuestionService: generate_question_suggestions()
+  QuestionService->>DB: SELECT source questions
+  SuggestAPI-->>Page: danh sách bản nháp gợi ý
 else Xóa câu hỏi
-  Teacher->>QuestionPage: Xác nhận xóa
-  QuestionPage->>QuestionAPI: DELETE /questions/{id}
+  Teacher->>Page: Xác nhận xóa
+  Page->>QuestionAPI: DELETE /questions/{id}
   QuestionAPI->>QuestionService: delete_question()
   QuestionService->>DB: DELETE question
-  QuestionAPI-->>QuestionPage: success
+  QuestionAPI-->>Page: success
 end
 ```
 
-### SD-05: Teacher quản lý đề thi
+### SD-06: Teacher import câu hỏi từ CSV
+
 ```mermaid
 sequenceDiagram
 actor Teacher
-participant ExamPage as teacher/exams.vue
+participant Page as teacher/questions.vue
+participant ImportAPI as /questions/import/csv
+participant QuestionService
+participant DB as MySQL
+
+Teacher->>Page: Chọn file CSV câu hỏi
+Page->>ImportAPI: POST /questions/import/csv
+ImportAPI->>QuestionService: import_questions_from_csv()
+QuestionService->>QuestionService: Parse CSV và validate từng dòng
+
+loop Mỗi dòng hợp lệ
+  QuestionService->>DB: INSERT question
+end
+
+alt Có dòng lỗi
+  QuestionService-->>ImportAPI: imported_count + errors
+  ImportAPI-->>Page: Hiển thị lỗi cần sửa
+else Tất cả hợp lệ
+  QuestionService-->>ImportAPI: imported_count
+  ImportAPI-->>Page: Import thành công
+end
+```
+
+### SD-07: Teacher quản lý đề thi
+
+```mermaid
+sequenceDiagram
+actor Teacher
+participant Page as teacher/exams.vue
 participant ExamAPI as /exams
-participant QuestionAPI as /questions
+participant QuestionAPI as /questions/random-selection
 participant ClassAPI as /classes
 participant ExamService
-participant DB
+participant DB as MySQL
 
-Teacher->>ExamPage: Mở trang đề thi
-ExamPage->>ExamAPI: GET /exams
-ExamPage->>QuestionAPI: GET /questions
-ExamPage->>ClassAPI: GET /classes
-QuestionAPI-->>ExamPage: availableQuestions
-ClassAPI-->>ExamPage: availableClasses
-ExamAPI-->>ExamPage: exam list
+Teacher->>Page: Mở trang đề thi
+Page->>ExamAPI: GET /exams
+Page->>ClassAPI: GET /classes
+ExamAPI-->>Page: exam list
+ClassAPI-->>Page: availableClasses
+
+alt Chọn câu hỏi ngẫu nhiên
+  Teacher->>Page: Chọn độ khó và số lượng
+  Page->>QuestionAPI: POST /questions/random-selection
+  QuestionAPI-->>Page: question_ids
+end
 
 alt Tạo đề
-  Teacher->>ExamPage: Nhập thông tin + chọn câu hỏi/lớp
-  ExamPage->>ExamAPI: POST /exams
+  Teacher->>Page: Nhập thông tin + chọn câu hỏi/lớp
+  Page->>ExamAPI: POST /exams
   ExamAPI->>ExamService: create_exam()
   ExamService->>DB: INSERT exam
-  ExamService->>DB: INSERT exam_allowed_class
   ExamService->>DB: INSERT exam_question
-  ExamAPI-->>ExamPage: ExamResponse
+  ExamService->>DB: INSERT exam_allowed_class
+  ExamAPI-->>Page: ExamResponse
 else Sửa đề
-  Teacher->>ExamPage: Mở modal sửa
-  ExamPage->>ExamAPI: GET /exams/{id}
-  ExamAPI-->>ExamPage: exam detail
-  ExamPage->>ExamAPI: PUT /exams/{id}
+  Teacher->>Page: Mở modal sửa
+  Page->>ExamAPI: GET /exams/{id}
+  ExamAPI-->>Page: exam detail
+  Page->>ExamAPI: PUT /exams/{id}
   ExamAPI->>ExamService: update_exam()
-  ExamService->>DB: UPDATE exam + relation
-  ExamAPI-->>ExamPage: ExamResponse
+  ExamService->>DB: UPDATE exam + relations
+  ExamAPI-->>Page: ExamResponse
 else Xóa đề
-  Teacher->>ExamPage: Xác nhận xóa
-  ExamPage->>ExamAPI: DELETE /exams/{id}
+  Teacher->>Page: Xác nhận xóa
+  Page->>ExamAPI: DELETE /exams/{id}
   ExamAPI->>ExamService: delete_exam()
   ExamService->>DB: DELETE exam
-  ExamAPI-->>ExamPage: success
+  ExamAPI-->>Page: success
+else Publish/unpublish/close đề
+  Teacher->>Page: Đổi trạng thái đề
+  Page->>ExamAPI: PATCH /exams/{id}/status hoặc POST /publish
+  ExamAPI->>ExamService: set_status()
+  ExamService->>DB: UPDATE exam.status
+  ExamAPI-->>Page: trạng thái mới
 end
 ```
 
-### SD-06: Teacher xem thống kê kết quả và review bài làm
-```mermaid
-sequenceDiagram
-actor Teacher
-participant StatisticsPage as teacher/statistics.vue
-participant ExamAPI as /exams
-participant ResultAPI as /results/exam/{exam_id}
-participant ReviewAPI as /results/{result_id}/review
-participant ResultService
-participant DB
+### SD-08: Student xem danh sách bài thi và kiểm tra mật khẩu
 
-Teacher->>StatisticsPage: Mở trang thống kê
-StatisticsPage->>ExamAPI: GET /exams
-ExamAPI-->>StatisticsPage: danh sách đề thi
-StatisticsPage->>ResultAPI: GET /results/exam/{exam_id}
-ResultAPI->>ResultService: get_exam_results_for_teacher()
-ResultService->>DB: SELECT exam results + student info
-DB-->>ResultService: result list
-ResultAPI-->>StatisticsPage: bảng điểm chi tiết
-
-loop Mỗi bài làm để tính thống kê độ khó
-  StatisticsPage->>ReviewAPI: GET /results/{result_id}/review
-  ReviewAPI->>ResultService: get_result_review()
-  ResultService->>DB: SELECT result + details + questions
-  DB-->>ResultService: review data
-  ReviewAPI-->>StatisticsPage: question details
-end
-
-alt Xem chi tiết một bài làm
-  Teacher->>StatisticsPage: Bấm "Xem đáp án"
-  StatisticsPage->>ReviewAPI: GET /results/{result_id}/review
-  ReviewAPI-->>StatisticsPage: review payload
-end
-```
-
-### SD-07: Student xem danh sách bài thi và kiểm tra mật khẩu
 ```mermaid
 sequenceDiagram
 actor Student
-participant StudentHome as student/index.vue
+participant Home as student/index.vue
 participant ExamListAPI as /exams/my-exams
 participant PasswordAPI as /exams/{exam_id}/check-password
 participant ExamService
-participant DB
+participant DB as MySQL
 
-Student->>StudentHome: Mở trang bài thi
-StudentHome->>ExamListAPI: GET /exams/my-exams
+Student->>Home: Mở trang bài thi
+Home->>ExamListAPI: GET /exams/my-exams
 ExamListAPI->>ExamService: get_exams_for_student()
-ExamService->>DB: SELECT exams by class
+ExamService->>DB: SELECT exams by class_student and exam_allowed_class
 DB-->>ExamService: exam list
-ExamListAPI-->>StudentHome: danh sách đề khả dụng
+ExamListAPI-->>Home: danh sách đề khả dụng
 
 alt Đề không có mật khẩu
-  Student->>StudentHome: Bấm "Vào thi"
-  StudentHome-->>Student: Điều hướng /student/exam/{id}
+  Student->>Home: Bấm "Vào thi"
+  Home-->>Student: Điều hướng /student/exam/{id}
 else Đề có mật khẩu
-  Student->>StudentHome: Nhập mật khẩu
-  StudentHome->>PasswordAPI: POST check-password
+  Student->>Home: Nhập mật khẩu
+  Home->>PasswordAPI: POST /exams/{exam_id}/check-password
   PasswordAPI->>ExamService: check_exam_password()
   ExamService->>DB: SELECT exam.password
-  PasswordAPI-->>StudentHome: success/fail
-  StudentHome-->>Student: Điều hướng vào bài thi nếu hợp lệ
+  PasswordAPI-->>Home: success/fail
+  Home-->>Student: Điều hướng vào bài thi nếu hợp lệ
 end
 ```
 
-### SD-08: Student làm bài thi, chống gian lận và nộp bài
+### SD-09: Student làm bài thi, chống gian lận và nộp bài
+
 ```mermaid
 sequenceDiagram
 actor Student
 participant ExamPage as student/exam/[id].vue
 participant ExamAPI as /exams/{id}
 participant QuestionAPI as /exams/{id}/questions
+participant StartAPI as /exams/{id}/start
+participant AutosaveAPI as /exams/{id}/autosave
+participant ViolationAPI as /exams/{id}/violations
 participant ResultAPI as /results/submit/{exam_id}
+participant ExamService
 participant ResultService
-participant DB
+participant DB as MySQL
 
 Student->>ExamPage: Mở bài thi
 ExamPage->>ExamAPI: GET /exams/{id}
@@ -928,39 +886,61 @@ QuestionAPI-->>ExamPage: question list
 ExamPage-->>Student: Hiển thị hướng dẫn + nút bắt đầu
 
 Student->>ExamPage: Bắt đầu làm bài
-ExamPage-->>ExamPage: Bật fullscreen + timer + anti-cheat listeners
+ExamPage->>StartAPI: POST /exams/{id}/start
+StartAPI->>ExamService: start_exam_session()
+ExamService->>DB: SELECT/INSERT exam_session
+StartAPI-->>ExamPage: session + saved answers
+ExamPage-->>ExamPage: Bật timer + fullscreen/anti-cheat listeners
+
 loop Trong quá trình làm bài
   Student->>ExamPage: Chọn đáp án / chuyển câu / đánh dấu
   ExamPage-->>ExamPage: Cập nhật answers, flaggedQuestions
+  ExamPage->>AutosaveAPI: PUT /exams/{id}/autosave
+  AutosaveAPI->>ExamService: autosave_exam_session()
+  ExamService->>DB: UPDATE exam_session.answers
 end
 
-alt Vi phạm >= 3 lần hoặc bấm nộp
-  ExamPage->>ResultAPI: POST answers
+alt Có vi phạm
+  ExamPage->>ViolationAPI: POST /exams/{id}/violations
+  ViolationAPI->>ExamService: log_violation()
+  ExamService->>DB: INSERT exam_violation
+  ViolationAPI-->>ExamPage: violation_count
+end
+
+alt Vi phạm vượt giới hạn hoặc bấm nộp
+  ExamPage->>ResultAPI: POST /results/submit/{exam_id}
   ResultAPI->>ResultService: submit_exam()
   ResultService->>DB: INSERT exam_result
   ResultService->>DB: INSERT exam_result_detail
-  ResultService->>DB: UPDATE total_score
+  ResultService->>DB: UPDATE exam_session.submitted_at
   ResultAPI-->>ExamPage: kết quả nộp bài
   ExamPage-->>Student: Hiển thị điểm và trạng thái hoàn thành
 end
 ```
 
-### SD-09: Student xem lịch sử thi và review bài làm
+### SD-10: Student xem lịch sử thi và review bài làm
+
 ```mermaid
 sequenceDiagram
 actor Student
 participant HistoryPage as student/history.vue
 participant HistoryAPI as /results/student/{student_id}
 participant ExamListAPI as /exams/my-exams
+participant AnalyticsAPI as /results/student/{student_id}/analytics
 participant ReviewAPI as /results/{result_id}/review
 participant ResultService
-participant DB
+participant DB as MySQL
 
 Student->>HistoryPage: Mở lịch sử thi
 HistoryPage->>HistoryAPI: GET /results/student/{student_id}
 HistoryPage->>ExamListAPI: GET /exams/my-exams
 HistoryAPI-->>HistoryPage: danh sách kết quả
 ExamListAPI-->>HistoryPage: danh sách đề để map tiêu đề + allow_view_answers
+
+HistoryPage->>AnalyticsAPI: GET /results/student/{student_id}/analytics
+AnalyticsAPI->>ResultService: get_student_exam_analytics()
+ResultService->>DB: SELECT result/detail/question/topic
+AnalyticsAPI-->>HistoryPage: phân tích theo chủ đề và mức độ
 
 alt Đề cho phép xem đáp án
   Student->>HistoryPage: Bấm "Xem bài"
@@ -975,58 +955,181 @@ else Chưa được mở đáp án
 end
 ```
 
-## 8) Ma trận chức năng theo vai trò
+### SD-11: Teacher xem thống kê kết quả và review bài làm
+
+```mermaid
+sequenceDiagram
+actor Teacher
+participant Page as teacher/statistics.vue
+participant ExamAPI as /exams
+participant ResultAPI as /results/exam/{exam_id}
+participant AnalyticsAPI as /results/exam/{exam_id}/question-analytics
+participant ReviewAPI as /results/{result_id}/review
+participant ScoreAPI as /results/{result_id}/score
+participant ResultService
+participant DB as MySQL
+
+Teacher->>Page: Mở trang thống kê
+Page->>ExamAPI: GET /exams
+ExamAPI-->>Page: danh sách đề thi
+Teacher->>Page: Chọn đề thi
+Page->>ResultAPI: GET /results/exam/{exam_id}
+ResultAPI->>ResultService: get_exam_results_for_teacher()
+ResultService->>DB: SELECT exam_result + student
+ResultAPI-->>Page: bảng điểm chi tiết
+
+Page->>AnalyticsAPI: GET /results/exam/{exam_id}/question-analytics
+AnalyticsAPI->>ResultService: get_question_analytics_for_teacher()
+ResultService->>DB: SELECT result_detail + question
+AnalyticsAPI-->>Page: phân tích từng câu
+
+alt Xem chi tiết một bài làm
+  Teacher->>Page: Bấm xem bài làm
+  Page->>ReviewAPI: GET /results/{result_id}/review
+  ReviewAPI->>ResultService: get_result_review()
+  ResultService->>DB: SELECT result + details + questions
+  ReviewAPI-->>Page: review payload
+else Cập nhật điểm
+  Teacher->>Page: Nhập điểm mới
+  Page->>ScoreAPI: PUT /results/{result_id}/score
+  ScoreAPI->>ResultService: update_result_score()
+  ResultService->>DB: UPDATE exam_result.total_score
+  ScoreAPI-->>Page: điểm đã cập nhật
+end
+```
+
+### SD-12: Teacher xem phiên thi và vi phạm của sinh viên
+
+```mermaid
+sequenceDiagram
+actor Teacher
+participant Page as teacher/statistics.vue
+participant SessionAPI as /exams/{exam_id}/sessions
+participant ExamService
+participant DB as MySQL
+
+Teacher->>Page: Chọn đề thi cần theo dõi
+Page->>SessionAPI: GET /exams/{exam_id}/sessions
+SessionAPI->>ExamService: get_exam_sessions_for_teacher()
+ExamService->>DB: SELECT exam_session + exam_violation
+DB-->>ExamService: session list with violations
+SessionAPI-->>Page: danh sách phiên thi
+Page-->>Teacher: Hiển thị sinh viên, thời gian, số vi phạm
+```
+
+## 8. Ma Trận Chức Năng Theo Vai Trò
 
 | Chức năng | Admin | Teacher | Student |
-|---|---|---|---|
+|---|---:|---:|---:|
 | Đăng nhập | X | X | X |
-| Health check | X | X | X |
-| Quản lý users | X |  |  |
+| Quản lý admin/teacher/student | X |  |  |
+| Duyệt/từ chối yêu cầu tạo tài khoản | X |  |  |
+| Gửi yêu cầu tạo tài khoản |  | X | X |
 | Quản lý lớp học |  | X |  |
-| Quản lý học sinh trong lớp |  | X |  |
-| Quản lý câu hỏi |  | X |  |
-| Tạo/sửa/xóa đề |  | X |  |
-| Xem đề của mình |  | X | X |
-| Kiểm tra mật khẩu đề |  | X | X |
-| Nộp bài thi |  |  | X |
-| Xem lịch sử kết quả |  | X | X |
-| Review bài làm |  | X | X |
-| Sửa điểm/xóa kết quả |  | X |  |
+| Thêm/xóa sinh viên trong lớp |  | X |  |
+| Quản lý chủ đề/câu hỏi |  | X |  |
+| Import CSV câu hỏi |  | X |  |
+| Chọn câu hỏi ngẫu nhiên theo độ khó |  | X |  |
+| Sinh câu hỏi gợi ý |  | X |  |
+| Tạo/sửa/xóa đề thi |  | X |  |
+| Publish/unpublish/close đề thi |  | X |  |
+| Xem đề được gán |  |  | X |
+| Kiểm tra mật khẩu đề |  |  | X |
+| Bắt đầu phiên thi |  |  | X |
+| Autosave bài làm |  |  | X |
+| Ghi nhận vi phạm khi làm bài |  |  | X |
+| Nộp bài và nhận điểm |  |  | X |
+| Xem lịch sử/phân tích cá nhân |  |  | X |
+| Xem thống kê theo đề |  | X |  |
+| Xem review bài làm |  | X | X |
+| Cập nhật điểm thủ công |  | X |  |
+| Xóa kết quả | X | X |  |
 
-## 9) Danh mục endpoint (để đối chiếu nhanh)
+## 9. Danh Mục Endpoint Chính
+
+### Auth
 
 - `POST /login`
+- `POST /debug-login`
 - `GET /`
-- `POST /users`
-- `GET /users`
-- `GET /users/{user_id}`
-- `PUT /users/{user_id}`
-- `DELETE /users/{user_id}`
-- `GET /classes`
-- `POST /classes`
+- `GET /health`
+
+### Admin/User
+
+- `GET /admins/`
+- `POST /admins/`
+- `GET /admins/{admin_id}`
+- `PUT /admins/{admin_id}`
+- `DELETE /admins/{admin_id}`
+- `GET /teachers/`
+- `POST /teachers/`
+- `GET /teachers/{teacher_id}`
+- `PUT /teachers/{teacher_id}`
+- `DELETE /teachers/{teacher_id}`
+- `GET /students/`
+- `POST /students/`
+- `GET /students/{student_id}`
+- `PUT /students/{student_id}`
+- `DELETE /students/{student_id}`
+- `POST /account-requests/`
+- `GET /account-requests/`
+- `GET /account-requests/{request_id}/status`
+- `POST /account-requests/{request_id}/approve`
+- `POST /account-requests/{request_id}/reject`
+
+### Classes
+
+- `GET /classes/`
+- `POST /classes/`
 - `GET /classes/{class_id}`
 - `PUT /classes/{class_id}`
 - `DELETE /classes/{class_id}`
 - `GET /classes/{class_id}/available-students`
 - `POST /classes/{class_id}/students/{student_id}`
+- `POST /classes/{class_id}/students/bulk`
 - `DELETE /classes/{class_id}/students/{student_id}`
-- `POST /questions`
-- `GET /questions`
+
+### Questions
+
+- `GET /questions/topics/`
+- `POST /questions/topics/`
+- `GET /questions/`
+- `POST /questions/`
 - `GET /questions/{question_id}`
 - `PUT /questions/{question_id}`
 - `DELETE /questions/{question_id}`
-- `GET /exams`
-- `POST /exams`
+- `POST /questions/import/csv`
+- `POST /questions/random-selection`
+- `POST /questions/generate-suggestions`
+
+### Exams
+
+- `GET /exams/`
+- `POST /exams/`
 - `GET /exams/my-exams`
 - `GET /exams/{exam_id}`
 - `PUT /exams/{exam_id}`
 - `DELETE /exams/{exam_id}`
+- `POST /exams/{exam_id}/publish`
+- `POST /exams/{exam_id}/unpublish`
+- `POST /exams/{exam_id}/close`
+- `PATCH /exams/{exam_id}/status`
 - `GET /exams/{exam_id}/questions`
 - `POST /exams/{exam_id}/check-password`
+- `POST /exams/{exam_id}/start`
+- `PUT /exams/{exam_id}/autosave`
+- `POST /exams/{exam_id}/violations`
+- `GET /exams/{exam_id}/sessions`
+
+### Results
+
 - `POST /results/submit/{exam_id}`
 - `GET /results/{result_id}`
 - `GET /results/student/{student_id}`
+- `GET /results/student/{student_id}/difficulty-stats`
+- `GET /results/student/{student_id}/analytics`
 - `GET /results/exam/{exam_id}`
+- `GET /results/exam/{exam_id}/question-analytics`
 - `GET /results/{result_id}/review`
 - `PUT /results/{result_id}/score`
 - `DELETE /results/{result_id}`
