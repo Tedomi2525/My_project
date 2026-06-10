@@ -1,55 +1,105 @@
-﻿# He thong Thi Trac Nghiem (Quiz App)
+# He thong thi trac nghiem truc tuyen
 
-Du an gom 2 phan:
-- `frontend/`: Nuxt 4 + Vue 3 + TailwindCSS (giao dien cho Admin, Teacher, Student)
-- `backend/`: FastAPI + SQLAlchemy + MySQL (REST API cho quan ly de thi, lop hoc, ket qua)
+Du an xay dung he thong quan ly va thi trac nghiem truc tuyen cho ba nhom nguoi dung: Admin, Giang vien va Sinh vien.
 
-## Tinh nang chinh
-- Dang nhap va phan quyen theo vai tro: `admin`, `teacher`, `student`
-- Admin: quan ly nguoi dung
-- Teacher: quan ly lop hoc, cau hoi, de thi, thong ke ket qua
-- Student: xem bai thi duoc phep, lam bai, xem lich su
+## Tong quan
+
+- `frontend/`: ung dung Nuxt 4, Vue 3, TypeScript, Tailwind CSS 4.
+- `backend/`: API FastAPI, SQLAlchemy, MySQL. Backend co the chay theo hai cach:
+  - Monolith: mot FastAPI app tai cong `8000`.
+  - Microservices noi bo: API Gateway tai cong `8100`, chuyen tiep den cac service tu `8101` den `8106`.
+- `docs/`: tai lieu, UML, ERD, DFD va anh giao dien cua do an.
+
+## Chuc nang chinh
+
+- Dang nhap bang JWT va phan quyen theo vai tro `admin`, `teacher`, `student`.
+- Admin quan ly giao vien, sinh vien va duyet yeu cau tai khoan.
+- Giang vien quan ly lop hoc, ngan hang cau hoi, import cau hoi CSV, tao de thi, tron cau hoi/dap an va xem thong ke ket qua.
+- Sinh vien xem cac bai thi duoc phep, lam bai, ghi nhan vi pham trong qua trinh thi va xem lich su/phan tich ket qua.
+- Gui email thong bao tai khoan moi neu cau hinh SMTP.
 
 ## Cong nghe su dung
-- Frontend: Nuxt 4, Vue 3, TypeScript, TailwindCSS 4, Chart.js
-- Backend: FastAPI, SQLAlchemy, Pydantic, Passlib, python-jose
-- Database: MySQL
+
+**Frontend**
+
+- Nuxt 4, Vue 3, Vue Router, TypeScript
+- Tailwind CSS 4
+- Axios, jwt-decode
+- Chart.js, vue-chartjs
+- lucide-vue-next, radix-vue
+
+**Backend**
+
+- FastAPI, Uvicorn
+- SQLAlchemy, PyMySQL
+- Pydantic, email-validator
+- python-jose, passlib, bcrypt
+- python-dotenv
+- httpx cho API Gateway
+
+**Database**
+
+- MySQL 8+
 
 ## Cau truc thu muc
+
 ```text
 My_project/
+|-- backend/
+|   |-- app/                    # Source chinh cua FastAPI monolith va shared code
+|   |   |-- routers/
+|   |   |-- models/
+|   |   |-- schemas/
+|   |   |-- services/
+|   |   |-- core/
+|   |   |-- main.py
+|   |   `-- gateway_main.py
+|   |-- gateway/                # Entry point API Gateway
+|   |-- services/               # Entry point cac service tach rieng
+|   |-- scripts/                # Script migrate/seed/cleanup du lieu
+|   |-- create_first_admin.py
+|   |-- run_microservices.ps1
+|   |-- stop_microservices.ps1
+|   `-- requirements.txt
 |-- frontend/
 |   |-- app/
+|   |   |-- pages/
+|   |   |-- layouts/
+|   |   |-- components/
+|   |   |-- composables/
+|   |   |-- services/
+|   |   `-- types/
 |   |-- nuxt.config.ts
 |   `-- package.json
-|-- backend/
-|   |-- app/
-|   |-- create_first_admin.py
-|   |-- requirements.txt
-|   `-- .env
+|-- docs/
+|-- requirements.txt
 |-- package.json
 `-- README.md
 ```
 
 ## Yeu cau moi truong
-- Node.js >= 20
-- npm >= 10
-- Python >= 3.10
-- MySQL >= 8
 
-## Cai dat va chay du an
-### 1) Backend (FastAPI monolith)
-Di vao thu muc backend:
+- Python 3.10+
+- Node.js 20+
+- npm 10+
+- MySQL 8+
+- Windows PowerShell neu muon chay script microservices co san
+
+## Cau hinh backend
+
+Tao file cau hinh rieng trong `backend/.env` dua tren `backend/.env.example`, sau do dien thong tin database, JWT secret, CORS va SMTP phu hop voi may dang chay.
+
+Khong commit file `.env` len Git. Project da co rule ignore cho cac file env cuc bo. Neu khong cau hinh SMTP, he thong van chay binh thuong nhung email thong bao tai khoan se khong duoc gui.
+
+## Cai dat backend
+
 ```bash
 cd backend
-```
-
-Tao virtual environment (neu chua co):
-```bash
 python -m venv venv
 ```
 
-Kich hoat venv:
+Kich hoat virtual environment:
+
 ```bash
 # Windows
 venv\Scripts\activate
@@ -58,164 +108,124 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-Cai dependency:
+Cai thu vien Python:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-Tao file `.env` trong `backend/` (neu chua co):
-```env
-DB_USER=your_mysql_user
-DB_PASSWORD=your_mysql_password
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=exam_system
+Tao database MySQL truoc khi chay app:
+
+```sql
+CREATE DATABASE exam_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-Chay API:
+## Chay backend dang monolith
+
 ```bash
+cd backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-API docs:
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 
-### 1b) Backend microservices
-Kien truc microservices hien tai tach vat ly thanh nhieu FastAPI process, nhung van dung chung database MySQL hien tai de giam rui ro khi chuyen doi.
+Neu frontend dung backend monolith, chinh `NUXT_PUBLIC_API_BASE` trong file env cua frontend de tro ve cong backend monolith.
+
+## Chay backend dang microservices
+
+Kien truc microservices hien tai tach cac FastAPI process nhung van dung chung database MySQL.
 
 ```text
-Frontend Nuxt/Vue
-      |
-      v
+Frontend Nuxt
+     |
+     v
 API Gateway :8100
-      |
-      |-- Auth Service      :8101
-      |-- User Service      :8102
-      |-- Class Service     :8103
-      |-- Question Service  :8104
-      |-- Exam Service      :8105
-      `-- Result Service    :8106
-```
-
-Cai them dependency neu chua co:
-```bash
-cd backend
-pip install -r requirements.txt
+     |
+     |-- Auth Service      :8101
+     |-- User Service      :8102
+     |-- Class Service     :8103
+     |-- Question Service  :8104
+     |-- Exam Service      :8105
+     `-- Result Service    :8106
 ```
 
 Chay tat ca service tren Windows PowerShell:
+
 ```powershell
 cd backend
 .\run_microservices.ps1
 ```
 
 Dung tat ca service:
+
 ```powershell
 cd backend
 .\stop_microservices.ps1
 ```
 
-Log cua tung service nam trong `backend/logs/`.
+Dia chi mac dinh:
 
-Hoac chay tung service:
+- API Gateway: `http://127.0.0.1:8100`
+- Gateway docs: `http://127.0.0.1:8100/docs`
+- Health check tung service: `http://127.0.0.1:8101/health` den `http://127.0.0.1:8106/health`
+
+Frontend mac dinh dang tro den gateway `http://127.0.0.1:8100`.
+
+## Khoi tao tai khoan admin
+
+Sau khi backend ket noi duoc database:
+
 ```bash
-uvicorn gateway.main:app --reload --host 127.0.0.1 --port 8100
-uvicorn services.auth_service.main:app --reload --host 127.0.0.1 --port 8101
-uvicorn services.user_service.main:app --reload --host 127.0.0.1 --port 8102
-uvicorn services.class_service.main:app --reload --host 127.0.0.1 --port 8103
-uvicorn services.question_service.main:app --reload --host 127.0.0.1 --port 8104
-uvicorn services.exam_service.main:app --reload --host 127.0.0.1 --port 8105
-uvicorn services.result_service.main:app --reload --host 127.0.0.1 --port 8106
-```
-
-Frontend dung base URL `http://127.0.0.1:8100`; gateway se tu chuyen tiep request den service phu hop.
-
-Cau truc backend microservices:
-```text
-backend/
-|-- gateway/
-|   |-- __init__.py
-|   `-- main.py
-|-- services/
-|   |-- auth_service/
-|   |   |-- main.py
-|   |   |-- routers/
-|   |   |-- schemas/
-|   |   `-- services/
-|   |-- user_service/
-|   |   |-- main.py
-|   |   |-- routers/
-|   |   |-- models/
-|   |   |-- schemas/
-|   |   `-- services/
-|   |-- class_service/
-|   |   |-- main.py
-|   |   |-- routers/
-|   |   |-- models/
-|   |   |-- schemas/
-|   |   `-- services/
-|   |-- question_service/
-|   |   |-- main.py
-|   |   |-- routers/
-|   |   |-- models/
-|   |   |-- schemas/
-|   |   `-- services/
-|   |-- exam_service/
-|   |   |-- main.py
-|   |   |-- routers/
-|   |   |-- models/
-|   |   |-- schemas/
-|   |   `-- services/
-|   `-- result_service/
-|       |-- main.py
-|       |-- routers/
-|       |-- models/
-|       |-- schemas/
-|       `-- services/
-`-- app/
-    `-- shared code hien tai: database, models, routers, schemas, services
-```
-
-Khoi tao tai khoan admin dau tien:
-```bash
+cd backend
 python create_first_admin.py
 ```
-Tai khoan mac dinh do script tao:
+
+Tai khoan mac dinh duoc tao:
+
 - Username: `admin`
 - Password: `admin123`
+- Email: `admin@example.com`
 
-### 2) Frontend (Nuxt)
-Di vao thu muc frontend:
+Nen doi mat khau/secret khi dua len moi truong that.
+
+## Cai dat va chay frontend
+
 ```bash
 cd frontend
-```
-
-Cai dependency:
-```bash
 npm install
-```
-
-Chay moi truong dev:
-```bash
 npm run dev
 ```
 
-Mo trinh duyet: `http://localhost:3000`
+Mo trinh duyet tai:
 
-## Script hay dung
-Trong `frontend/package.json`:
-- `npm run dev`: chay dev
-- `npm run build`: build production
-- `npm run preview`: chay ban build
-- `npm run generate`: generate static
+```text
+http://localhost:3000
+```
 
-## Endpoint nhom chinh
-- Auth: `/login`
-- Users: `/users`
-- Classes: `/classes`
-- Questions: `/questions`
-- Exams: `/exams`
-- Results: `/results`
+Tuy chinh API base cho frontend bang file env cuc bo trong `frontend/` neu can.
 
+## Script frontend
 
+- `npm run dev`: chay moi truong phat trien.
+- `npm run build`: build production.
+- `npm run preview`: xem ban build production.
+- `npm run generate`: generate static site.
+
+## Cac nhom API chinh
+
+- `POST /login`
+- `/admins`
+- `/teachers`
+- `/students`
+- `/account-requests`
+- `/classes`
+- `/questions`
+- `/exams`
+- `/results`
+
+## Ghi chu
+
+- Database schema duoc tao tu SQLAlchemy models khi backend khoi dong.
+- Cac script trong `backend/scripts/` ho tro seed demo, migrate chu de cau hoi, dong bo user cu va don trung lap de thi.
+- File `requirements.txt` o thu muc goc va `backend/requirements.txt` dung cho phan backend Python; dependency frontend nam trong `frontend/package.json`.
