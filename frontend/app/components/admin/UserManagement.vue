@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Search, UserPlus, Edit2, Trash2, Key } from 'lucide-vue-next'
+import { Search, UserPlus, Edit2, Trash2, Key, Lock, Unlock } from 'lucide-vue-next'
 import type { User } from '~/types'
 import { useUsers } from '~/composables/useUsers'
 
@@ -84,6 +84,22 @@ const handleDeleteUser = async (user: User) => {
     await loadUsers()
   } catch (err: any) {
     alert(err.message || 'Xóa thất bại')
+  }
+}
+
+const handleAccountLock = async (user: User, locked: boolean) => {
+  try {
+    const config = useRuntimeConfig()
+    const token = useCookie<string | null>('token')
+    await $fetch(`/admin/accounts/${props.role}/${user.id}/lock`, {
+      method: 'PATCH',
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${token.value || ''}` },
+      body: { locked }
+    })
+    alert(locked ? 'Đã khóa tài khoản' : 'Đã mở khóa tài khoản')
+  } catch (err: any) {
+    alert(err?.data?.detail || 'Không thể cập nhật trạng thái tài khoản')
   }
 }
 
@@ -172,6 +188,12 @@ const handleSubmit = async () => {
             </td>
             <td class="p-4 font-mono text-sm">{{ `${u.username}@` }}</td>
             <td class="flex justify-end gap-2 p-4">
+              <button type="button" @click="handleAccountLock(u, true)" class="rounded p-2 text-red-700 hover:bg-red-50" title="Khóa tài khoản">
+                <Lock class="h-4 w-4" />
+              </button>
+              <button type="button" @click="handleAccountLock(u, false)" class="rounded p-2 text-green-700 hover:bg-green-50" title="Mở khóa tài khoản">
+                <Unlock class="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 @click="handleResetPassword(u)"

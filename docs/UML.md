@@ -7,7 +7,7 @@ Tài liệu này mô tả UML/DFD cho dự án thi trắc nghiệm hiện tại,
 Kiến trúc chính:
 
 - Frontend: Nuxt 4/Vue 3.
-- Backend: FastAPI, có thể chạy dạng monolith hoặc qua API Gateway.
+- Backend: một ứng dụng FastAPI dạng monolith.
 - Database: MySQL.
 - Vai trò: `Admin`, `Teacher`, `Student`.
 - Các nhóm API chính: `/login`, `/admins`, `/teachers`, `/students`, `/account-requests`, `/classes`, `/questions`, `/exams`, `/results`.

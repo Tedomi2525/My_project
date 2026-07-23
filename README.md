@@ -5,9 +5,7 @@ Du an xay dung he thong quan ly va thi trac nghiem truc tuyen cho ba nhom nguoi 
 ## Tong quan
 
 - `frontend/`: ung dung Nuxt 4, Vue 3, TypeScript, Tailwind CSS 4.
-- `backend/`: API FastAPI, SQLAlchemy, MySQL. Backend co the chay theo hai cach:
-  - Monolith: mot FastAPI app tai cong `8000`.
-  - Microservices noi bo: API Gateway tai cong `8100`, chuyen tiep den cac service tu `8101` den `8106`.
+- `backend/`: ung dung FastAPI monolith, SQLAlchemy va MySQL, chay tai cong `8000`.
 - `docs/`: tai lieu, UML, ERD, DFD va anh giao dien cua do an.
 
 ## Chuc nang chinh
@@ -35,7 +33,6 @@ Du an xay dung he thong quan ly va thi trac nghiem truc tuyen cho ba nhom nguoi 
 - Pydantic, email-validator
 - python-jose, passlib, bcrypt
 - python-dotenv
-- httpx cho API Gateway
 
 **Database**
 
@@ -53,13 +50,8 @@ My_project/
 |   |   |-- services/
 |   |   |-- core/
 |   |   |-- main.py
-|   |   `-- gateway_main.py
-|   |-- gateway/                # Entry point API Gateway
-|   |-- services/               # Entry point cac service tach rieng
 |   |-- scripts/                # Script migrate/seed/cleanup du lieu
 |   |-- create_first_admin.py
-|   |-- run_microservices.ps1
-|   |-- stop_microservices.ps1
 |   `-- requirements.txt
 |-- frontend/
 |   |-- app/
@@ -83,7 +75,6 @@ My_project/
 - Node.js 20+
 - npm 10+
 - MySQL 8+
-- Windows PowerShell neu muon chay script microservices co san
 
 ## Cau hinh backend
 
@@ -120,7 +111,7 @@ Tao database MySQL truoc khi chay app:
 CREATE DATABASE exam_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-## Chay backend dang monolith
+## Chay backend
 
 ```bash
 cd backend
@@ -130,47 +121,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 
-Neu frontend dung backend monolith, chinh `NUXT_PUBLIC_API_BASE` trong file env cua frontend de tro ve cong backend monolith.
-
-## Chay backend dang microservices
-
-Kien truc microservices hien tai tach cac FastAPI process nhung van dung chung database MySQL.
-
-```text
-Frontend Nuxt
-     |
-     v
-API Gateway :8100
-     |
-     |-- Auth Service      :8101
-     |-- User Service      :8102
-     |-- Class Service     :8103
-     |-- Question Service  :8104
-     |-- Exam Service      :8105
-     `-- Result Service    :8106
-```
-
-Chay tat ca service tren Windows PowerShell:
-
-```powershell
-cd backend
-.\run_microservices.ps1
-```
-
-Dung tat ca service:
-
-```powershell
-cd backend
-.\stop_microservices.ps1
-```
-
-Dia chi mac dinh:
-
-- API Gateway: `http://127.0.0.1:8100`
-- Gateway docs: `http://127.0.0.1:8100/docs`
-- Health check tung service: `http://127.0.0.1:8101/health` den `http://127.0.0.1:8106/health`
-
-Frontend mac dinh dang tro den gateway `http://127.0.0.1:8100`.
+Frontend mac dinh ket noi den backend tai `http://127.0.0.1:8000`. Co the thay doi dia chi bang bien moi truong `NUXT_PUBLIC_API_BASE`.
 
 ## Khoi tao tai khoan admin
 

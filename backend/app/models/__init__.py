@@ -14,3 +14,7 @@ from .exam_result_detail import ExamResultDetail
 from .exam_session import ExamSession
 from .exam_violation import ExamViolation
 from .account_request import AccountRequest
+
+from .account_security import AccountSecurity
+from .password_reset_token import PasswordResetToken
+from .audit_log import AuditLog

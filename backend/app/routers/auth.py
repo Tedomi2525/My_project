@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.jwt import create_access_token
 from app.services.account_service import AccountService
+from app.services.login_security_service import LoginSecurityService
 from app.schemas.auth import LoginRequest, TokenResponse
 
 router = APIRouter(tags=["Auth"])
@@ -73,11 +74,14 @@ def debug_login(login_data: LoginRequest, db: Session = Depends(get_db)):
 def _login(login_data: LoginRequest, db: Session):
     account = AccountService.find_by_username(db, login_data.username)
 
-    if not account or not AccountService.verify_password(login_data.password, account.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Sai tên đăng nhập hoặc mật khẩu",
-        )
+    if not account:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    LoginSecurityService.ensure_login_allowed(db, account)
+    if not AccountService.verify_password(login_data.password, account.password):
+        LoginSecurityService.record_failure(db, account)
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    LoginSecurityService.record_success(db, account)
 
     access_token = create_access_token(
         data={

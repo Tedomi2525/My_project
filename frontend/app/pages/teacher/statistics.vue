@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { Download, Edit2, Eye, Loader2, Trash2, X } from 'lucide-vue-next'
 import {
@@ -429,18 +429,23 @@ const handleViewAnswers = async (resultId: number) => {
   }
 }
 
-const handleExportExcel = () => {
-  const csv = examResults.value.map((result, idx) => {
-    return `${idx + 1},${result.student_code || ''},${result.student_name},${result.total_score.toFixed(2)},${formatDate(result.finished_at)}`
-  }).join('\n')
-
-  const blob = new Blob([`STT,Mã SV,Họ tên,Điểm,Thời gian nộp\n${csv}`], { type: 'text/csv;charset=utf-8;' })
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `bang_diem_exam_${selectedExam.value || 'unknown'}.csv`
-  a.click()
-  window.URL.revokeObjectURL(url)
+const handleExport = async (format: 'csv' | 'xlsx' | 'pdf') => {
+  if (!selectedExam.value) return
+  try {
+    const response = await fetch(`${config.public.apiBase}/results/exam/${selectedExam.value}/export/${format}`, {
+      headers: headers.value
+    })
+    if (!response.ok) throw new Error('Không thể xuất báo cáo')
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `ket-qua-${selectedExam.value}.${format}`
+    anchor.click()
+    window.URL.revokeObjectURL(url)
+  } catch (err: any) {
+    error.value = err?.message || 'Không thể xuất báo cáo'
+  }
 }
 
 onMounted(async () => {
@@ -582,13 +587,11 @@ watch(selectedExam, async () => {
       <div class="bg-white rounded-lg shadow overflow-hidden">
         <div class="p-6 border-b border-gray-200 flex justify-between items-center">
           <h3 class="font-bold text-lg">Bảng điểm chi tiết</h3>
-          <button
-            @click="handleExportExcel"
-            class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Download class="w-5 h-5" />
-            Xuất CSV
-          </button>
+          <div class="flex flex-wrap gap-2">
+            <button v-for="format in ['csv', 'xlsx', 'pdf']" :key="format" @click="handleExport(format as 'csv' | 'xlsx' | 'pdf')" class="flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-white hover:bg-green-700">
+              <Download class="w-4 h-4" /> Xuất {{ format.toUpperCase() }}
+            </button>
+          </div>
         </div>
 
         <div v-if="loadingResults" class="flex justify-center py-8">

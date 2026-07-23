@@ -22,6 +22,7 @@ const isActive = (path: string) => {
             <h1 class="text-gray-900 font-bold text-xl">Trang Sinh viên</h1>
             <p class="text-gray-600">Xin chào, {{ user?.fullName }}</p>
           </div>
+          <NuxtLink to="/change-password" class="btn-secondary">Đổi mật khẩu</NuxtLink>
           <button
             @click="logout"
             class="btn-ghost-danger"

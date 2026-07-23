@@ -76,13 +76,19 @@ const handleSubmit = async () => {
   }
 }
 
-const handleForgotPassword = () => {
-  resetMessage.value = 'Đã gửi email hướng dẫn đặt lại mật khẩu đến ' + email.value
-  setTimeout(() => {
-    showForgotPassword.value = false
-    resetMessage.value = ''
-    email.value = ''
-  }, 3000)
+const handleForgotPassword = async () => {
+  resetMessage.value = ''
+  try {
+    const config = useRuntimeConfig()
+    const response = await $fetch<{ message: string }>('/forgot-password', {
+      method: 'POST',
+      baseURL: config.public.apiBase,
+      body: { email: email.value }
+    })
+    resetMessage.value = response.message
+  } catch (err: any) {
+    resetMessage.value = err?.data?.detail || 'Không thể gửi yêu cầu đặt lại mật khẩu'
+  }
 }
 
 const resetAccountRequestForm = () => {

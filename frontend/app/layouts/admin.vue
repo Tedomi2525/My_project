@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GraduationCap, LogOut, UserCheck, Users } from 'lucide-vue-next'
+import { GraduationCap, LogOut, UserCheck, Users, ScrollText, KeyRound } from 'lucide-vue-next'
 
 const { user, logout } = useAuth()
 const route = useRoute()
@@ -14,8 +14,8 @@ const route = useRoute()
             <h1 class="text-xl font-bold text-gray-900">Quản trị hệ thống</h1>
             <p class="text-gray-600">Xin chào, {{ user?.fullName }}</p>
           </div>
+          <NuxtLink to="/change-password" class="btn-secondary">Đổi mật khẩu</NuxtLink>
           <button
-            type="button"
             @click="logout"
             class="btn-ghost-danger"
           >
@@ -57,6 +57,13 @@ const route = useRoute()
         >
           <Users class="h-5 w-5" />
           Quản lý sinh viên
+        </NuxtLink>
+        <NuxtLink
+          to="/admin/audit"
+          :class="['nav-pill flex items-center gap-2', route.path === '/admin/audit' ? 'nav-pill-active' : 'nav-pill-idle']"
+        >
+          <ScrollText class="h-5 w-5" />
+          Nhật ký hệ thống
         </NuxtLink>
       </nav>
 

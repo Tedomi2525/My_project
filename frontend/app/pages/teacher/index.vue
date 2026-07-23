@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { Search, Plus, Trash2, Users, Edit2, UserMinus, UserPlus } from 'lucide-vue-next'
 import type { Class, AvailableStudent } from '~/types'
 import { useClasses } from '~/composables/useClasses'
@@ -41,6 +41,8 @@ const processingStudentId = ref<number | null>(null)
 const selectedAvailableStudentIds = ref<number[]>([])
 const addingSelectedStudents = ref(false)
 const studentModalError = ref('')
+const importingStudents = ref(false)
+const importSummary = ref('')
 const classStudentSearchTerm = ref('')
 const availableStudentSearchTerm = ref('')
 
@@ -218,6 +220,38 @@ const handleAddSelectedStudents = async () => {
 }
 
 
+const handleImportStudents = async (event: Event) => {
+  if (!selectedClass.value) return
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  importingStudents.value = true
+  studentModalError.value = ''
+  importSummary.value = ''
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const config = useRuntimeConfig()
+    const token = useCookie<string | null>('token')
+    const result = await $fetch<{ total: number; created: number; added: number; failed: number }>(
+      `/classes/${selectedClass.value.id}/students/import`,
+      {
+        method: 'POST',
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${token.value || ''}` },
+        body: formData
+      }
+    )
+    importSummary.value = `Đã xử lý ${result.total} dòng: tạo ${result.created} tài khoản, thêm ${result.added} sinh viên, lỗi ${result.failed}.`
+    await refreshStudentLists(selectedClass.value.id)
+  } catch (err: any) {
+    studentModalError.value = err?.data?.detail || 'Không thể import sinh viên'
+  } finally {
+    importingStudents.value = false
+    input.value = ''
+  }
+}
+
 const handleRemoveStudent = async (studentId: number) => {
   if (!selectedClass.value || processingStudentId.value) return
 
@@ -334,6 +368,13 @@ const handleRemoveStudent = async (studentId: number) => {
         <h2 class="mb-1 font-bold text-xl">
           Quản lý sinh viên – {{ selectedClass.name }}
         </h2>
+
+        <div class="my-4 rounded-lg border border-dashed border-blue-300 bg-blue-50 p-4">
+          <label class="mb-2 block font-medium text-blue-900">Import sinh viên từ CSV/XLSX</label>
+          <input type="file" accept=".csv,.xlsx" :disabled="importingStudents" @change="handleImportStudents" class="block w-full text-sm" />
+          <p class="mt-2 text-xs text-blue-700">Cột hỗ trợ: full_name (hoặc họ_tên), email, student_code (hoặc mã_sinh_viên).</p>
+          <p v-if="importSummary" class="mt-2 text-sm font-medium text-green-700">{{ importSummary }}</p>
+        </div>
 
         <p v-if="studentModalError" class="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {{ studentModalError }}

@@ -4,7 +4,7 @@ export default defineNuxtRouteMiddleware((to) => {
 
   // 1️⃣ Chưa đăng nhập
   if (!user.value) {
-    if (to.path !== '/login') {
+    if (!['/login', '/reset-password'].includes(to.path)) {
       return navigateTo('/login')
     }
     return
