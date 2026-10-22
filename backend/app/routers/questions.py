@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from pathlib import Path
+from uuid import uuid4
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from pydantic import ValidationError
@@ -20,6 +22,24 @@ from app.schemas.question import (
 from app.services.question_service import QuestionService
 
 router = APIRouter(prefix="/questions", tags=["Questions"])
+
+@router.post("/upload-image")
+async def upload_question_image(
+    request: Request,
+    file: UploadFile = File(...),
+    current_teacher=Depends(get_current_teacher),
+):
+    allowed = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail="Chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF")
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ảnh không được lớn hơn 5 MB")
+    target_dir = Path(__file__).resolve().parents[2] / "uploads" / "questions"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid4().hex}{allowed[file.content_type]}"
+    (target_dir / filename).write_bytes(content)
+    return {"url": str(request.base_url).rstrip("/") + f"/uploads/questions/{filename}"}
 
 @router.get("/topics/", response_model=List[QuestionTopicResponse])
 def get_question_topics(

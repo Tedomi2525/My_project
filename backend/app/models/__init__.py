@@ -18,3 +18,6 @@ from .account_request import AccountRequest
 from .account_security import AccountSecurity
 from .password_reset_token import PasswordResetToken
 from .audit_log import AuditLog
+
+from .notification import Notification
+from .exam_student_policy import ExamStudentPolicy

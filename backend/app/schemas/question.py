@@ -11,27 +11,28 @@ class DifficultyLevel(str, Enum):
 class QuestionBase(BaseModel):
     content: str
     question_type: Optional[str] = "MCQ"
-    # 2. Thêm trường difficulty
     difficulty: DifficultyLevel = DifficultyLevel.EASY
     options: Optional[Dict[str, Any]] = None
-    correct_answer: str
+    correct_answer: str = ""
+    image_url: Optional[str] = None
+    code_snippet: Optional[str] = None
+    code_language: Optional[str] = None
+    explanation: Optional[str] = None
     topic_id: Optional[int] = None
     visibility: str = "public"
 
     @field_validator("question_type")
     @classmethod
     def normalize_question_type(cls, value):
-        return (value or "MCQ").strip().upper()
+        value = (value or "MCQ").strip().upper()
+        if value not in {"MCQ", "MULTI_SELECT", "TRUE_FALSE", "FILL_BLANK", "ESSAY"}:
+            raise ValueError("Unsupported question type")
+        return value
 
     @field_validator("correct_answer")
     @classmethod
     def normalize_correct_answer(cls, value):
-        answer_keys = [
-            part.strip().upper()
-            for part in value.split(",")
-            if part.strip()
-        ]
-        return ",".join(dict.fromkeys(answer_keys))
+        return (value or "").strip()
 
     @field_validator("visibility")
     @classmethod
@@ -43,28 +44,30 @@ class QuestionBase(BaseModel):
 
     @model_validator(mode="after")
     def validate_answers(self):
+        if self.question_type == "ESSAY":
+            self.options = None
+            return self
+        if self.question_type == "FILL_BLANK":
+            self.options = None
+            if not self.correct_answer:
+                raise ValueError("Fill blank requires an answer")
+            return self
+        if self.question_type == "TRUE_FALSE":
+            self.options = {"TRUE": "Đúng", "FALSE": "Sai"}
+            self.correct_answer = self.correct_answer.upper()
+            if self.correct_answer not in {"TRUE", "FALSE"}:
+                raise ValueError("True/false answer must be TRUE or FALSE")
+            return self
         options = self.options or {}
-        option_keys = set(options.keys())
-        correct_keys = set(self.correct_answer.split(",")) if self.correct_answer else set()
-
-        if len(option_keys) < 2:
-            raise ValueError("Question must have at least 2 options")
-
-        if any(str(value).strip() == "" for value in options.values()):
-            raise ValueError("Options cannot be empty")
-
-        if not correct_keys:
-            raise ValueError("Question must have at least 1 correct answer")
-
-        if not correct_keys.issubset(option_keys):
+        option_keys = {str(key).upper() for key in options.keys()}
+        answers = list(dict.fromkeys(part.strip().upper() for part in self.correct_answer.split(",") if part.strip()))
+        self.correct_answer = ",".join(answers)
+        if len(options) < 2 or any(str(value).strip() == "" for value in options.values()):
+            raise ValueError("Question requires at least 2 non-empty options")
+        if not answers or not set(answers).issubset(option_keys):
             raise ValueError("Correct answers must match option keys")
-
-        if self.question_type == "MULTI_SELECT":
-            if len(correct_keys) > len(option_keys):
-                raise ValueError("Correct answer count cannot exceed option count")
-        elif len(correct_keys) != 1:
-            raise ValueError("MCQ questions must have exactly 1 correct answer")
-
+        if self.question_type == "MCQ" and len(answers) != 1:
+            raise ValueError("MCQ requires exactly one correct answer")
         return self
 
 class QuestionCreate(QuestionBase):
@@ -86,6 +89,10 @@ class ExamQuestionResponse(BaseModel):
     options: Optional[Dict[str, Any]] = None
     topic_id: Optional[int] = None
     visibility: str = "public"
+    image_url: Optional[str] = None
+    code_snippet: Optional[str] = None
+    code_language: Optional[str] = None
+    explanation: Optional[str] = None
     created_by: int
 
     class Config:

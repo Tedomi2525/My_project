@@ -22,6 +22,10 @@ export interface Question {
   difficulty: 'EASY' | 'MEDIUM' | 'HARD' 
   options: Record<string, string> | null
   correct_answer?: string
+  image_url?: string | null
+  code_snippet?: string | null
+  code_language?: string | null
+  explanation?: string | null
   topic_id?: number | null
   visibility?: 'public' | 'private'
   created_by: number

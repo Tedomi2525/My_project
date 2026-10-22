@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Users, BookOpen, FileText, BarChart3, LogOut } from 'lucide-vue-next'
+import { Users, BookOpen, FileText, BarChart3, LogOut, Activity } from 'lucide-vue-next'
 
 // ✅ CHỈ GỌI useAuth 1 LẦN
 const auth = useAuth()
@@ -78,7 +78,9 @@ const isActive = (path: string) => {
           <BarChart3 class="w-5 h-5" />
           Thống kê & Báo cáo
         </NuxtLink>
-      </nav>
+        <NuxtLink to="/teacher/operations" :class="['nav-pill flex items-center gap-2', isActive('/teacher/operations') ? 'nav-pill-active' : 'nav-pill-idle']">
+          <Activity class="w-5 h-5" /> Điều hành thi
+        </NuxtLink>      </nav>
 
       <slot />
     </div>

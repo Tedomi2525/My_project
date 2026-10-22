@@ -11,6 +11,7 @@ from app.models.exam_violation import ExamViolation
 from app.models.question import Question
 
 from app.schemas.exam import ExamCreate
+from app.services.exam_policy_service import ExamPolicyService
 
 
 def _normalize_datetime(value):
@@ -427,13 +428,16 @@ class ExamService:
         if exam.status != "published":
             raise HTTPException(status_code=403, detail="Exam is not published")
 
+        policy = ExamPolicyService.ensure_active(db, exam_id, student_id)
         now = datetime.now()
         if exam.start_time and now < exam.start_time.replace(tzinfo=None):
             raise HTTPException(status_code=403, detail="Exam has not started yet")
-        if exam.end_time and now > exam.end_time.replace(tzinfo=None):
+        effective_end = ExamPolicyService.effective_end_time(exam, policy)
+        if effective_end and now > effective_end:
             raise HTTPException(status_code=403, detail="Exam has ended")
 
-        if exam.max_attempts is not None:
+        allowed_attempts = ExamPolicyService.allowed_attempts(db, exam, student_id)
+        if allowed_attempts is not None:
             attempt_count = (
                 db.query(ExamResult)
                 .filter(
@@ -442,16 +446,17 @@ class ExamService:
                 )
                 .count()
             )
-            if attempt_count >= exam.max_attempts:
+            if attempt_count >= allowed_attempts:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Attempt limit reached ({exam.max_attempts})",
+                    detail=f"Attempt limit reached ({allowed_attempts})",
                 )
 
         return ExamService._get_or_create_session(db, exam_id, student_id)
 
     @staticmethod
     def autosave_exam_session(db: Session, exam_id: int, student_id: int, answers: dict):
+        ExamPolicyService.ensure_active(db, exam_id, student_id)
         session = ExamService._get_or_create_session(db, exam_id, student_id)
         session.answers = {str(key): value for key, value in answers.items()}
         session.last_saved_at = datetime.now()
@@ -461,6 +466,7 @@ class ExamService:
 
     @staticmethod
     def log_violation(db: Session, exam_id: int, student_id: int, reason: str):
+        ExamPolicyService.ensure_active(db, exam_id, student_id)
         session = ExamService._get_or_create_session(db, exam_id, student_id)
         violation = ExamViolation(
             session_id=session.id,

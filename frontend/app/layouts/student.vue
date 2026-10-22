@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileText, History, LogOut } from 'lucide-vue-next'
+import { FileText, History, LogOut, CalendarDays } from 'lucide-vue-next'
 
 // 1. Lấy user và logout từ composable
 const { user, logout } = useAuth()
@@ -22,7 +22,7 @@ const isActive = (path: string) => {
             <h1 class="text-gray-900 font-bold text-xl">Trang Sinh viên</h1>
             <p class="text-gray-600">Xin chào, {{ user?.fullName }}</p>
           </div>
-          <NuxtLink to="/change-password" class="btn-secondary">Đổi mật khẩu</NuxtLink>
+          <div class="flex items-center gap-2"><NotificationBell /><NuxtLink to="/change-password" class="btn-secondary">Đổi mật khẩu</NuxtLink></div>
           <button
             @click="logout"
             class="btn-ghost-danger"
@@ -56,7 +56,9 @@ const isActive = (path: string) => {
           <History class="w-5 h-5" />
           Lịch sử thi
         </NuxtLink>
-      </nav>
+        <NuxtLink to="/student/calendar" :class="['nav-pill flex items-center gap-2', isActive('/student/calendar') ? 'nav-pill-active' : 'nav-pill-idle']">
+          <CalendarDays class="w-5 h-5" /> Lịch thi
+        </NuxtLink>      </nav>
 
       <slot />
     </div>

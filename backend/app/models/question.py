@@ -21,6 +21,10 @@ class Question(Base):
     
     options = Column(JSON, nullable=True) 
     correct_answer = Column(String(255))
+    image_url = Column(Text, nullable=True)
+    code_snippet = Column(Text, nullable=True)
+    code_language = Column(String(50), nullable=True)
+    explanation = Column(Text, nullable=True)
     topic_id = Column(Integer, ForeignKey("question_topic.id"), nullable=True)
     visibility = Column(String(50), default="public", nullable=False)
     

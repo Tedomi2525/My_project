@@ -17,6 +17,8 @@ const selectedTopicId = ref<number | 'ALL'>('ALL')
 const showModal = ref(false)
 const editingQuestion = ref<Question | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+const imageInput = ref<HTMLInputElement | null>(null)
+const imageUploading = ref(false)
 const importSummary = ref<null | { importedCount: number; totalRows: number }>(null)
 const importErrors = ref<Array<{ row: number; message: string }>>([])
 const showSuggestionModal = ref(false)
@@ -37,6 +39,10 @@ const formData = reactive({
   options: { A: '', B: '', C: '', D: '' } as Record<string, string>,
   correct_answer: 'A',
   correct_answers: ['A'] as string[],
+  image_url: '',
+  code_snippet: '',
+  code_language: '',
+  explanation: '',
   topic_id: null as number | null,
   visibility: 'public' as 'public' | 'private',
   new_topic_name: ''
@@ -331,7 +337,9 @@ watch(() => formData.question_type, (type) => {
     formData.correct_answers = [formData.correct_answer]
   }
 
-  if (type !== 'MULTI_SELECT' && !currentAnswerKeys.value.includes(formData.correct_answer)) {
+  if (type === 'TRUE_FALSE') formData.correct_answer = 'TRUE'
+  if (type === 'FILL_BLANK' || type === 'ESSAY') formData.correct_answer = ''
+  if (type === 'MCQ' && !currentAnswerKeys.value.includes(formData.correct_answer)) {
     formData.correct_answer = formData.correct_answers[0] || currentAnswerKeys.value[0] || 'A'
   }
 })
@@ -344,6 +352,10 @@ const resetForm = () => {
   formData.options = buildDefaultOptions(4)
   formData.correct_answer = 'A'
   formData.correct_answers = ['A']
+  formData.image_url = ''
+  formData.code_snippet = ''
+  formData.code_language = ''
+  formData.explanation = ''
   formData.topic_id = topics.value[0]?.id ?? null
   formData.visibility = 'public'
   formData.new_topic_name = ''
@@ -365,6 +377,10 @@ const openEdit = (q: Question) => {
   formData.options = { ...buildDefaultOptions(formData.option_count), ...(q.options || {}) }
   formData.correct_answer = q.correct_answer || 'A'
   formData.correct_answers = parseAnswerKeys(q.correct_answer)
+  formData.image_url = q.image_url || ''
+  formData.code_snippet = q.code_snippet || ''
+  formData.code_language = q.code_language || ''
+  formData.explanation = q.explanation || ''
   formData.topic_id = q.topic_id ?? null
   formData.visibility = q.visibility || 'public'
   formData.new_topic_name = ''
@@ -454,6 +470,32 @@ const downloadCsvTemplate = () => {
   URL.revokeObjectURL(url)
 }
 
+const handleImageUpload = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    alert('Vui lòng chọn một file ảnh hợp lệ.')
+    input.value = ''
+    return
+  }
+  imageUploading.value = true
+  try {
+    const body = new FormData()
+    body.append('file', file)
+    const result = await api<{ url: string }>('/questions/upload-image', {
+      method: 'POST',
+      body
+    })
+    formData.image_url = result.url
+  } catch (error: any) {
+    alert(error?.data?.detail || error?.message || 'Không tải được ảnh lên.')
+  } finally {
+    imageUploading.value = false
+    input.value = ''
+  }
+}
+
 const handleSubmit = async () => {
   syncOptionCount()
   let topicId = formData.topic_id
@@ -480,7 +522,7 @@ const handleSubmit = async () => {
     return
   }
 
-  if (!correctAnswer) {
+  if (formData.question_type !== 'ESSAY' && !correctAnswer) {
     alert('Vui lòng chọn ít nhất 1 đáp án đúng.')
     return
   }
@@ -491,6 +533,10 @@ const handleSubmit = async () => {
     difficulty: formData.difficulty,
     options: payloadOptions,
     correct_answer: correctAnswer,
+    image_url: formData.image_url.trim() || null,
+    code_snippet: formData.code_snippet.trim() || null,
+    code_language: formData.code_language.trim() || null,
+    explanation: formData.explanation.trim() || null,
     topic_id: topicId,
     visibility: formData.visibility,
     created_by: user.value!.id
@@ -716,7 +762,7 @@ onMounted(async () => {
                 {{ q.visibility === 'private' ? 'Riêng tư' : 'Dùng chung' }}
               </span>
             </div>
-            <p class="font-medium text-lg text-gray-800">{{ q.content }}</p>
+            <QuestionContent :content="q.content" :image-url="q.image_url" :code-snippet="q.code_snippet" :code-language="q.code_language" class="font-medium text-lg text-gray-800" />
           </div>
 
           <div class="flex gap-2">
@@ -754,7 +800,7 @@ onMounted(async () => {
 
     <div
       v-if="showSuggestionModal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:p-6 lg:items-center"
     >
       <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-6">
@@ -872,12 +918,14 @@ onMounted(async () => {
       </div>
     </div>
 
+    <Teleport to="body">
+
     <div
       v-if="showModal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:p-6 lg:items-center"
     >
-      <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
-        <h2 class="font-bold text-xl mb-6 flex items-center gap-2">
+      <div class="w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <h2 class="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-5 py-4 text-xl font-bold sm:px-6">
           <span class="bg-blue-100 text-blue-600 p-1 rounded">
             <Plus v-if="!editingQuestion" class="w-5 h-5" />
             <Edit2 v-else class="w-5 h-5" />
@@ -885,7 +933,7 @@ onMounted(async () => {
           {{ editingQuestion ? 'Sửa câu hỏi' : 'Thêm câu hỏi mới' }}
         </h2>
 
-        <div class="space-y-5">
+        <div class="max-h-[calc(100vh-10rem)] space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
           <div>
             <label class="block text-sm font-medium mb-1 text-gray-700">Nội dung câu hỏi</label>
             <textarea
@@ -910,6 +958,9 @@ onMounted(async () => {
               <select v-model="formData.question_type" class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
                 <option value="MCQ">Một đáp án đúng</option>
                 <option value="MULTI_SELECT">Nhiều đáp án đúng</option>
+                <option value="TRUE_FALSE">Đúng / sai</option>
+                <option value="FILL_BLANK">Điền khuyết</option>
+                <option value="ESSAY">Tự luận</option>
               </select>
             </div>
           </div>
@@ -981,7 +1032,7 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div v-if="['MCQ', 'MULTI_SELECT'].includes(formData.question_type)" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <label class="block text-sm font-medium mb-1 text-gray-700">Số lượng đáp án</label>
               <input
@@ -1003,7 +1054,7 @@ onMounted(async () => {
                 </option>
               </select>
             </div>
-            <div class="sm:col-span-2" v-else>
+            <div class="sm:col-span-2" v-else-if="formData.question_type === 'MULTI_SELECT'">
               <label class="block text-sm font-medium mb-2 text-gray-700">Đáp án đúng</label>
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <label
@@ -1023,7 +1074,17 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div class="space-y-3 bg-gray-50 p-4 rounded-lg border">
+          <div v-if="formData.question_type === 'TRUE_FALSE'">
+            <label class="block text-sm font-medium mb-1 text-gray-700">Đáp án đúng</label>
+            <select v-model="formData.correct_answer" class="w-full border border-gray-300 p-2.5 rounded-lg bg-white"><option value="TRUE">Đúng</option><option value="FALSE">Sai</option></select>
+          </div>
+          <div v-if="formData.question_type === 'FILL_BLANK'">
+            <label class="block text-sm font-medium mb-1 text-gray-700">Đáp án điền khuyết</label>
+            <input v-model="formData.correct_answer" class="w-full border border-gray-300 p-2.5 rounded-lg" placeholder="Nhiều đáp án chấp nhận, ngăn cách bằng ||" />
+          </div>
+          <div v-if="formData.question_type === 'ESSAY'" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Câu tự luận sẽ do giảng viên chấm điểm thủ công.</div>
+
+          <div v-if="['MCQ', 'MULTI_SELECT'].includes(formData.question_type)" class="space-y-3 bg-gray-50 p-4 rounded-lg border">
             <label class="block text-sm font-semibold text-gray-700">Các lựa chọn</label>
             <div v-for="key in currentAnswerKeys" :key="key" class="flex gap-3 items-center">
               <div class="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-200 font-bold text-gray-600 text-sm shadow-sm">
@@ -1037,7 +1098,25 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div class="flex gap-3 pt-2 border-t mt-4">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+            <p class="text-sm font-semibold text-slate-700">Nội dung nâng cao (không bắt buộc)</p>
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <input v-model="formData.image_url" class="min-w-0 flex-1 border border-gray-300 p-2.5 rounded-lg bg-white" placeholder="URL hình ảnh hoặc tải ảnh từ máy" />
+              <input ref="imageInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" @change="handleImageUpload" />
+              <button type="button" class="btn-secondary shrink-0" :disabled="imageUploading" @click="imageInput?.click()">
+                {{ imageUploading ? 'Đang tải...' : 'Tải ảnh lên' }}
+              </button>
+              <button v-if="formData.image_url" type="button" class="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50" @click="formData.image_url = ''">Xóa ảnh</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input v-model="formData.code_language" class="border border-gray-300 p-2.5 rounded-lg bg-white" placeholder="Ngôn ngữ code" />
+              <textarea v-model="formData.code_snippet" rows="3" class="sm:col-span-2 border border-gray-300 p-2.5 rounded-lg bg-white font-mono text-sm" placeholder="Đoạn mã minh họa" />
+            </div>
+            <textarea v-model="formData.explanation" rows="2" class="w-full border border-gray-300 p-2.5 rounded-lg bg-white" placeholder="Giải thích / hướng dẫn chấm" />
+            <QuestionContent v-if="formData.content || formData.image_url || formData.code_snippet" :content="formData.content" :image-url="formData.image_url" :code-snippet="formData.code_snippet" :code-language="formData.code_language" class="rounded-lg bg-white p-3" />
+          </div>
+
+          <div class="sticky -bottom-5 z-10 -mx-5 mt-4 flex gap-3 border-t border-slate-200 bg-white px-5 py-4 shadow-[0_-8px_20px_rgba(15,23,42,0.06)] sm:-mx-6 sm:px-6">
             <button @click="showModal = false" class="flex-1 py-2.5 rounded-lg border border-gray-300 font-medium hover:bg-gray-50 transition">
               Huy bo
             </button>
@@ -1048,5 +1127,5 @@ onMounted(async () => {
         </div>
       </div>
     </div>
-  </div>
+    </Teleport>  </div>
 </template>

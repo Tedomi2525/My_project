@@ -29,6 +29,8 @@ const currentQuestion = ref(0)
 const answers = ref<string[]>([])
 const flaggedQuestions = ref<boolean[]>([])
 const timeLeft = ref(0)
+const sessionState = ref<'active' | 'paused' | 'cancelled'>('active')
+const extraMinutes = ref(0)
 const showConfirmModal = ref(false)
 const score = ref(0)
 const reviewQuestions = ref<Array<{
@@ -47,6 +49,7 @@ const antiCheatWarningVisible = ref(false)
 let timer: ReturnType<typeof setInterval> | null = null
 let warningTimer: ReturnType<typeof setTimeout> | null = null
 let autosaveTimer: ReturnType<typeof setInterval> | null = null
+let policyTimer: ReturnType<typeof setInterval> | null = null
 
 const answersByQuestionId = () => {
   return mockQuestions.value.reduce<Record<string, string>>((acc, question, index) => {
@@ -113,6 +116,9 @@ const isExamInProgress = computed(() => started.value && !submitted.value)
 const flaggedCount = computed(() => flaggedQuestions.value.filter(Boolean).length)
 const isCurrentQuestionFlagged = computed(() => Boolean(flaggedQuestions.value[currentQuestion.value]))
 const isMultiSelectQuestion = computed(() => questionData.value?.question_type === 'MULTI_SELECT')
+const isFillBlankQuestion = computed(() => questionData.value?.question_type === 'FILL_BLANK')
+const isEssayQuestion = computed(() => questionData.value?.question_type === 'ESSAY')
+const isChoiceQuestion = computed(() => ['MCQ', 'MULTI_SELECT', 'TRUE_FALSE'].includes(questionData.value?.question_type || 'MCQ'))
 
 const parseAnswerKeys = (value?: string) => {
   return (value || '')
@@ -123,6 +129,34 @@ const parseAnswerKeys = (value?: string) => {
 
 const hasAnswerKey = (value: string | undefined, key: string) => {
   return parseAnswerKeys(value).includes(key)
+}
+
+const loadPolicy = async () => {
+  try {
+    const config = useRuntimeConfig()
+    const token = useCookie<string | null>('token')
+    const policy: any = await $fetch(`/exams/${examId}/my-policy`, {
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${token.value || ''}` }
+    })
+    const previousState = sessionState.value
+    sessionState.value = policy.session_state || 'active'
+    extraMinutes.value = Number(policy.extra_minutes || 0)
+    if (sessionState.value === 'cancelled' && isExamInProgress.value) {
+      showWarning('Phiên thi đã bị giảng viên hủy.')
+      started.value = false
+      if (timer) clearInterval(timer)
+      if (autosaveTimer) clearInterval(autosaveTimer)
+    } else if (previousState === 'paused' && sessionState.value === 'active') {
+      showWarning('Phiên thi đã được tiếp tục.')
+    }
+  } catch {
+    // keep the exam usable during a temporary polling error
+  }
+}
+
+const updateTextAnswer = (value: string) => {
+  answers.value[currentQuestion.value] = value
 }
 
 const showWarning = (message: string) => {
@@ -233,13 +267,16 @@ onMounted(async () => {
     }
     mockQuestions.value = preparedQuestions
 
+    await loadPolicy()
     if (mockExam.value?.duration_minutes) {
-      timeLeft.value = mockExam.value.duration_minutes * 60
+      timeLeft.value = (mockExam.value.duration_minutes + extraMinutes.value) * 60
     }
 
     if (mockQuestions.value.length > 0) {
       answers.value = new Array(mockQuestions.value.length).fill('')
-      flaggedQuestions.value = new Array(mockQuestions.value.length).fill(false)
+      const storedFlags = localStorage.getItem(`exam-flags:${examId}`)
+      flaggedQuestions.value = storedFlags ? JSON.parse(storedFlags) : new Array(mockQuestions.value.length).fill(false)
+      if (flaggedQuestions.value.length !== mockQuestions.value.length) flaggedQuestions.value = new Array(mockQuestions.value.length).fill(false)
     }
   } catch (error) {
     console.error('Lỗi khi tải dữ liệu bài thi:', error)
@@ -250,7 +287,9 @@ onMounted(async () => {
 
 watch(started, (newValue) => {
   if (newValue && !submitted.value) {
+    policyTimer = setInterval(loadPolicy, 10000)
     timer = setInterval(() => {
+      if (sessionState.value === 'paused') return
       if (timeLeft.value <= 1) {
         handleSubmit()
         if (timer) clearInterval(timer)
@@ -266,6 +305,7 @@ watch(started, (newValue) => {
 watch(submitted, async (newValue) => {
   if (newValue) {
     if (autosaveTimer) clearInterval(autosaveTimer)
+    if (policyTimer) clearInterval(policyTimer)
     await exitFullscreen()
   }
 })
@@ -274,6 +314,7 @@ onUnmounted(() => {
   if (timer) clearInterval(timer)
   if (warningTimer) clearTimeout(warningTimer)
   if (autosaveTimer) clearInterval(autosaveTimer)
+  if (policyTimer) clearInterval(policyTimer)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   window.removeEventListener('blur', handleWindowBlur)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
@@ -306,6 +347,7 @@ const handleAnswerSelect = (optionKey: string) => {
 
 const toggleFlagCurrentQuestion = () => {
   flaggedQuestions.value[currentQuestion.value] = !flaggedQuestions.value[currentQuestion.value]
+  localStorage.setItem(`exam-flags:${examId}`, JSON.stringify(flaggedQuestions.value))
 }
 
 const getQuestionNavClass = (index: number) => {
@@ -495,6 +537,13 @@ const startExam = async () => {
   </div>
 
   <div v-else class="flex flex-col lg:flex-row gap-6">
+    <div v-if="sessionState === 'paused'" class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm">
+      <div class="panel-card max-w-md text-center">
+        <Clock class="mx-auto mb-4 h-10 w-10 text-amber-500" />
+        <h2 class="mb-2 text-xl font-bold">Phiên thi đang tạm dừng</h2>
+        <p class="text-slate-600">Đồng hồ đã dừng. Vui lòng chờ giảng viên tiếp tục phiên thi.</p>
+      </div>
+    </div>
     <div
       v-if="antiCheatWarningVisible"
       class="fixed right-4 top-24 z-[70] max-w-sm rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 shadow-lg"
@@ -536,7 +585,7 @@ const startExam = async () => {
       <div v-if="questionData" class="panel-card mb-6 p-8">
         <div class="flex items-start gap-4 mb-6">
           <span class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-bold whitespace-nowrap">Câu {{ currentQuestion + 1 }}/{{ mockQuestions.length }}</span>
-          <h2 class="flex-1 text-lg font-medium">{{ questionData.content }}</h2>
+          <QuestionContent class="flex-1" :content="questionData.content" :image-url="questionData.image_url" :code-snippet="questionData.code_snippet" :code-language="questionData.code_language" />
           <button
             type="button"
             @click="toggleFlagCurrentQuestion"
@@ -573,6 +622,22 @@ const startExam = async () => {
               <span>{{ opt }}</span>
             </div>
           </label>
+          <input
+            v-if="isFillBlankQuestion"
+            :value="answers[currentQuestion]"
+            @input="updateTextAnswer(($event.target as HTMLInputElement).value)"
+            @blur="saveProgress"
+            class="input-field"
+            placeholder="Nhập câu trả lời"
+          />
+          <textarea
+            v-if="isEssayQuestion"
+            :value="answers[currentQuestion]"
+            @input="updateTextAnswer(($event.target as HTMLTextAreaElement).value)"
+            @blur="saveProgress"
+            class="textarea-field min-h-48"
+            placeholder="Nhập bài làm tự luận..."
+          />
         </div>
       </div>
 

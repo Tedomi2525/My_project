@@ -15,6 +15,7 @@ from app.models.exam_session import ExamSession
 from app.models.question_topic import QuestionTopic
 from app.models.student import Student
 from app.schemas.exam_result_detail import ExamResultDetailBase
+from app.services.exam_policy_service import ExamPolicyService
 
 
 class ResultService:
@@ -32,10 +33,23 @@ class ResultService:
 
     @staticmethod
     def _score_answer(question: Question | None, student_answer: str | None) -> float:
-        if not question or not question.correct_answer:
+        if not question:
             return 0.0
 
-        if str(question.question_type or "").upper() != ResultService.MULTI_SELECT_TYPE:
+        question_type = str(question.question_type or "MCQ").upper()
+        if question_type == "ESSAY" or not question.correct_answer:
+            return 0.0
+
+        if question_type == "FILL_BLANK":
+            normalize = lambda value: " ".join((value or "").strip().casefold().split())
+            accepted = {
+                normalize(value)
+                for value in question.correct_answer.split("||")
+                if normalize(value)
+            }
+            return 1.0 if normalize(student_answer) in accepted else 0.0
+
+        if question_type != ResultService.MULTI_SELECT_TYPE:
             return (
                 1.0
                 if question.correct_answer.strip().lower() == (student_answer or "").strip().lower()
@@ -77,6 +91,8 @@ class ResultService:
                 detail="Exam not found"
             )
 
+        policy = ExamPolicyService.ensure_active(db, exam_id, student_id)
+
         has_class_access = (
             db.query(ExamAllowedClass)
             .join(ClassStudent, ClassStudent.class_id == ExamAllowedClass.class_id)
@@ -95,7 +111,7 @@ class ResultService:
 
         now = datetime.now()
         start_time = exam.start_time.replace(tzinfo=None) if exam.start_time else None
-        end_time = exam.end_time.replace(tzinfo=None) if exam.end_time else None
+        end_time = ExamPolicyService.effective_end_time(exam, policy)
         if start_time and now < start_time:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -113,7 +129,8 @@ class ResultService:
                 detail="Wrong exam password"
             )
 
-        if exam.max_attempts is not None:
+        allowed_attempts = ExamPolicyService.allowed_attempts(db, exam, student_id)
+        if allowed_attempts is not None:
             attempt_count = (
                 db.query(ExamResult)
                 .filter(
@@ -122,10 +139,10 @@ class ResultService:
                 )
                 .count()
             )
-            if attempt_count >= exam.max_attempts:
+            if attempt_count >= allowed_attempts:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Attempt limit reached ({exam.max_attempts})"
+                    detail=f"Attempt limit reached ({allowed_attempts})"
                 )
 
         session = (

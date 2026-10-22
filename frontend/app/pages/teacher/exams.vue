@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { Search, Plus, Edit2, Trash2, Eye, EyeOff, Loader2, Shuffle } from 'lucide-vue-next'
 import type { Exam, Question } from '~/types'
@@ -498,13 +498,14 @@ const handleSubmit = async () => {
       </div>
     </div>
 
-    <div v-if="showModal" class="modal-overlay z-100 items-start pt-16 sm:pt-20 overflow-y-auto">
-      <div class="modal-card my-8 max-h-[90vh] w-full max-w-4xl overflow-y-auto">
-        <h2 class="mb-4 text-xl font-bold">
+    <Teleport to="body">
+    <div v-if="showModal" class="modal-overlay z-100 items-start overflow-y-auto p-3 sm:p-6 lg:items-center">
+      <div class="modal-card flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden sm:max-h-[calc(100vh-3rem)]">
+        <h2 class="shrink-0 border-b border-slate-200 pb-4 text-xl font-bold">
           {{ editingExamId ? 'Sửa đề thi' : 'Tạo đề thi mới' }}
         </h2>
 
-        <form @submit.prevent="handleSubmit">
+        <form class="min-h-0 overflow-y-auto pt-4" @submit.prevent="handleSubmit">
           <div class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="md:col-span-2">
@@ -684,7 +685,7 @@ const handleSubmit = async () => {
               </div>
             </div>
 
-            <div class="flex gap-3 mt-6">
+            <div class="sticky bottom-0 z-10 -mx-6 mt-6 flex gap-3 border-t border-slate-200 bg-white px-6 py-4 shadow-[0_-8px_20px_rgba(15,23,42,0.06)]">
               <button type="button" @click="showModal = false" class="btn-secondary flex-1">
                 Hủy
               </button>
@@ -699,5 +700,5 @@ const handleSubmit = async () => {
         </form>
       </div>
     </div>
-  </div>
+    </Teleport>  </div>
 </template>
